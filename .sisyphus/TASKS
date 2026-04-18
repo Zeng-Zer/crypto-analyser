@@ -1,0 +1,1257 @@
+Milestone 1: Historical Analysis Pipeline - Task Breakdown
+Overview
+Total Tasks: 25 (including Final Verification Wave)
+YOU (Main Developer): 20 tasks on critical path
+INTERN: 5 tasks (RAG pipeline, runs parallel, blocks only Task 22)
+
+Data Architecture:
+- OHLCV/Funding/OI → Parquet (efficient columnar storage, one file per event)
+- News/RAG → PostgreSQL/pgvector (hybrid search, incremental inserts)
+- JSON backup for raw RSS (archival, debuggable)
+- Future: Kafka streaming + daily Parquet exports from PostgreSQL (later milestones)
+
+GitHub Project Setup:
+- Create a Project board with columns: Wave 0, Wave 1, Wave 2 Track A, Wave 2 Track B, Wave 3 Track A, Wave 3 Track B, Wave 4, Final Verification
+- Use labels: owner:you, owner:intern, critical-path, enrichment, blocking
+---
+Wave 0: Blocker Resolution (YOU only)
+Task 0.1: Verify Binance Historical Data Availability
+Owner: YOU
+Priority: Critical
+Blocking: All Wave 1 tasks
+Estimated effort: 30 min
+Description:
+Verify Binance Data Vision provides FREE historical data for LUNA May 2022 before building download scripts.
+What to do:
+1. Test OHLCV data URL: https://data.binance.vision/data/futures/um/monthly/klines/LUNAUSDT/5m/LUNAUSDT-5m-2022-05.zip
+2. Test Funding Rate URL: https://data.binance.vision/data/futures/um/monthly/fundingRate/LUNAUSDT/LUNAUSDT-fundingRate-2022-05.csv
+3. Test OI metrics URL: https://data.binance.vision/data/futures/um/daily/metrics/LUNAUSDT/LUNAUSDT-metrics-2022-05-09.zip
+4. Document exact symbol name (LUNAUSDT vs LUNCUSDT)
+5. Confirm coverage for May 7-11 window
+Acceptance criteria:
+- [ ] All 3 data types URLs return HTTP 200
+- [ ] Sample data files downloaded and inspected
+- [ ] Symbol documented in docs/api-verification.md
+---
+Task 0.2: Test Wayback CDX API for Crypto RSS Feeds
+Owner: YOU
+Priority: Critical
+Blocking: Task 10 (intern's first task)
+Estimated effort: 30 min
+Description:
+Verify Wayback Machine has archived RSS snapshots for target crypto news feeds before intern builds retrieval script.
+What to do:
+1. Query CDX API for each feed: http://web.archive.org/cdx/search/cdx?url=decrypt.co/feed*&from=20220507&to=20220513&output=json
+2. Test feeds:
+   - coindesk.com/arc/outboundfeeds/rss/
+   - decrypt.co/feed
+   - bitcoinmagazine.com/.rss/full/
+   - investing.com/rss/news.rss
+   - thedefiant.io/api/feed
+   - chainalysis.com/blog/feed
+   - crypto.news/feed
+3. Document which feeds have May 2022 snapshots
+4. Note rate limit: 0.8 req/sec
+Acceptance criteria:
+- [ ] At least 2 feeds confirmed with May 2022 snapshots
+- [ ] Blocked feeds documented with fallbacks
+- [ ] Verification saved to docs/rss-verification.md
+---
+Task 0.3: Verify pgvector Docker Setup Works
+Owner: YOU
+Priority: Critical
+Blocking: Task 3, Task 13 (intern's pgvector task)
+Estimated effort: 30 min
+Description:
+Test minimal pgvector Docker setup before intern builds full pipeline.
+What to do:
+1. Create minimal docker-compose with ankane/pgvector image
+2. Verify extension loads: SELECT * FROM pg_extension WHERE extname='vector'
+3. Test basic operations:
+   - Create table with vector(384) column
+   - Insert dummy embedding
+   - Run similarity query
+4. Test hybrid search prep (GIN index on tsvector)
+Acceptance criteria:
+- [ ] Docker container starts without errors
+- [ ] pgvector extension confirmed loaded
+- [ ] Basic vector operations work
+- [ ] Test config saved to docker-compose.test.yml
+---
+Wave 1: Foundation (YOU only)
+Task 1: Project Scaffolding + UV Initialization
+Owner: YOU
+Priority: Critical
+Blocking: All Wave 2 tasks
+Estimated effort: 20 min
+Description:
+Initialize Python project with UV package manager (validated as production-ready).
+What to do:
+1. Run uv init crypto-analyzer
+2. Create pyproject.toml with dependency groups:
+      [dependency-groups]
+   dev = ["pytest", "ruff", "mypy"]
+   ml = ["numpy", "pandas", "duckdb"]
+   rag = ["pgvector", "sentence-transformers", "langfuse"]
+   3. Create .python-version file (pin 3.11)
+4. Run uv lock to generate uv.lock
+5. Create directory structure:
+      src/
+   scripts/
+   data/
+   config/
+   prompts/
+   schemas/
+   reports/
+   results/
+   docs/
+   tests/
+   logs/
+
+Acceptance criteria:
+- [ ] pyproject.toml exists with all dependency groups
+- [ ] uv.lock generated
+- [ ] Directory structure complete
+---
+Task 2: DuckDB + Parquet Directory Structure
+Owner: YOU
+Priority: High
+Blocking: Tasks 7-9 (data download scripts)
+Estimated effort: 10 min
+Description:
+Set up data storage directories and schema documentation.
+What to do:
+1. Create data subdirectories:
+      data/ohlcv/       # Parquet - OHLCV price data
+   data/funding/      # Parquet - Funding rate data
+   data/oi/           # Parquet - Open Interest data
+   data/news/         # JSON only - Raw RSS backup (Task 10)
+   data/anomalies/    # JSON - Detected anomalies
+   data/context/      # JSON - Derivatives context
+   data/retrieval/    # (future - Kafka streaming buffer)
+   data/exports/      # (future - Daily Parquet exports from PostgreSQL)
+   2. Create data/metadata.json with schema for each data type
+3. Document naming convention: 
+   - Parquet: {symbol}_{type}_{date}.parquet (for OHLCV/funding/OI)
+   - JSON: {feed}_{start}_{end}_articles.json (for news backup)
+Note: News processed data lives in PostgreSQL (pgvector), not Parquet.
+Future: Kafka streaming + daily Parquet exports will be added in later milestones.
+Acceptance criteria:
+- [ ] All directories exist
+- [ ] metadata.json with schemas documented
+- [ ] JSON vs Parquet usage documented
+---
+Task 3: Docker Compose Setup (pgvector + Langfuse)
+Owner: YOU
+Priority: Critical
+Blocking: Tasks 12-13 (intern's embedding/pgvector tasks)
+Estimated effort: 30 min
+Description:
+Set up full Docker Compose with pgvector and Langfuse observability stack.
+What to do:
+1. Create docker-compose.yml with services:
+   - pgvector (ankane/pgvector)
+   - langfuse-web
+   - langfuse-worker
+   - langfuse-postgres
+   - langfuse-clickhouse
+   - langfuse-redis
+   - langfuse-minio
+2. Create .env.example with placeholders:
+      LANGFUSE_SECRET_KEY=placeholder
+   LANGFUSE_PUBLIC_KEY=placeholder
+   DATABASE_URL=postgres://...
+   CLICKHOUSE_PASSWORD=placeholder
+   3. Configure network and volumes
+4. Document endpoints:
+   - pgvector: localhost:5432
+   - Langfuse UI: localhost:3000
+Acceptance criteria:
+- [ ] docker-compose.yml created with all services
+- [ ] .env.example with placeholder secrets
+- [ ] docker-compose config validates without errors
+---
+Task 4: Configuration Files (API placeholders, thresholds)
+Owner: YOU
+Priority: Critical
+Blocking: ALL downstream scripts
+Estimated effort: 20 min
+Description:
+Create central configuration file with all API endpoints, thresholds, and placeholders for user to fill.
+What to do:
+1. Create config/settings.yaml:
+      # Data sources
+   binance_data_vision:
+     base_url: "https://data.binance.vision"
+     ohlcv_path: "data/futures/um/monthly/klines"
+     funding_path: "data/futures/um/monthly/fundingRate"
+     oi_path: "data/futures/um/daily/metrics"
+
+   wayback:
+     cdx_url: "http://web.archive.org/cdx/search/cdx"
+     rate_limit: 0.8  # requests per second
+
+   # LLM provider (USER MUST FILL)
+   llm:
+     api_url: "PLACEHOLDER_FILL_THIS"
+     api_key: "PLACEHOLDER_FILL_THIS"
+     model: "gpt-4o"
+
+   # Embedding model (USER MUST FILL)
+   embedding:
+     model_url: "PLACEHOLDER_FILL_THIS"
+     dimensions: 1536
+
+   # Z-score thresholds
+   anomaly_detection:
+     window_hours: 24
+     threshold: 2.5
+
+   # Event windows
+   events:
+     luna:
+       symbol: "LUNAUSDT"
+       start: "2022-05-07"
+       end: "2022-05-11"
+     ftx:
+       symbol: "BTCUSDT"
+       start: "2022-11-06"
+       end: "2022-11-12"
+     bybit:
+       symbol: "ETHUSDT"
+       start: "2025-02-21"
+       end: "2025-02-22"
+
+   # RSS feeds (verified in Task 0.2)
+   rss_feeds:
+     - decrypt.co/feed
+     - coindesk.com/arc/outboundfeeds/rss/
+     # Add verified feeds here
+   2. Create src/config.py loader with YAML parsing
+3. Add placeholder validation (warn if PLACEHOLDER detected)
+Acceptance criteria:
+- [ ] settings.yaml with all sections
+- [ ] config.py loader works
+- [ ] Placeholder warnings documented
+---
+Task 5: LLM Client Wrapper with Placeholder Support
+Owner: YOU
+Priority: High
+Blocking: Tasks 17-18 (LLM classifier)
+Estimated effort: 20 min
+Description:
+Create OpenAI-compatible LLM client that works with placeholder API credentials.
+What to do:
+1. Create src/llm_client.py:
+      class LLMClient:
+       def __init__(self, config):
+           self.api_url = config['llm']['api_url']
+           self.api_key = config['llm']['api_key']
+           self._validate_placeholders()
+
+       def _validate_placeholders(self):
+           if 'PLACEHOLDER' in self.api_url:
+               raise ValueError("LLM_API_URL placeholder not filled")
+
+       def classify(self, prompt, schema):
+           # OpenAI-compatible structured output
+           response = requests.post(
+               self.api_url,
+               headers={"Authorization": f"Bearer {self.api_key}"},
+               json={
+                   "model": self.model,
+                   "messages": [{"role": "user", "content": prompt}],
+                   "response_format": {"type": "json_schema", "schema": schema}
+               }
+           )
+           return response.json()
+   2. Create schemas/classification.json:
+      {
+     classification: string,
+     severity: integer (1-10),
+     confidence: float (0.0-1.0),
+     rationale: string,
+     news_relevance: float (optional)
+   }
+
+Acceptance criteria:
+- [ ] llm_client.py created
+- [ ] Placeholder detection raises ValueError
+- [ ] classification.json schema defined
+---
+Task 6: Logging + Langfuse SDK Integration
+Owner: YOU
+Priority: High
+Blocking: All downstream tasks (need observability)
+Estimated effort: 15 min
+Description:
+Set up structured logging and Langfuse SDK for LLM observability.
+What to do:
+1. Create src/logging_config.py:
+      import logging
+   from logging.handlers import RotatingFileHandler
+
+   def get_logger(name="crypto-analyzer"):
+       logger = logging.getLogger(name)
+       logger.setLevel(logging.INFO)
+       # File handler
+       fh = RotatingFileHandler('logs/app.log', maxBytes=10MB, backupCount=5)
+       # Console handler
+       ch = logging.StreamHandler()
+       logger.addHandler(fh)
+       logger.addHandler(ch)
+       return logger
+   2. Create src/tracing.py:
+      from langfuse import Langfuse, observe
+
+   langfuse = Langfuse(
+       secret_key=config['langfuse']['secret_key'],
+       public_key=config['langfuse']['public_key']
+   )
+
+   def trace_pipeline_step(step_name):
+       @observe(as_type="span", name=step_name)
+       def wrapper(func):
+           return func
+       return wrapper
+
+Acceptance criteria:
+- [ ] Logging configured (file + console)
+- [ ] Langfuse SDK initialized
+- [ ] Test trace created in Langfuse UI
+---
+Wave 2: Data Pipeline (PARALLEL TRACKS)
+TRACK A: YOU (Critical Path - 3 tasks)
+Task 7: OHLCV Download Script (Binance Data Vision - FREE)
+Owner: YOU
+Priority: Critical
+Blocking: Task 14 (Z-score engine)
+Estimated effort: 30 min
+Description:
+Download historical OHLCV (5-min candles) from Binance Data Vision - completely FREE.
+What to do:
+1. Create scripts/download_ohlcv.py:
+      import requests
+   import zipfile
+   import pandas as pd
+
+   def download_ohlcv(symbol, month):
+       url = f"https://data.binance.vision/data/futures/um/monthly/klines/{symbol}/5m/{symbol}-5m-{month}.zip"
+       response = requests.get(url)
+       with zipfile.ZipFile(io.BytesIO(response.content)) as z:
+           csv_file = z.namelist()[0]
+           df = pd.read_csv(z.open(csv_file),
+               names=['timestamp','open','high','low','close','volume',...])
+       df.to_parquet(f"data/ohlcv/{symbol}_{month}.parquet")
+   2. Support multiple symbols: LUNAUSDT, BTCUSDT, ETHUSDT
+3. Add CLI: python scripts/download_ohlcv.py --symbol LUNAUSDT --month 2022-05
+Acceptance criteria:
+- [ ] Script downloads May 2022 OHLCV
+- [ ] Parquet created with ~44,000 rows (5-min candles)
+- [ ] FREE - no rate limits
+Skills leveraged: Data engineering, API integration, Parquet processing
+---
+Task 8: Funding Rate Download Script (Binance Data Vision - FREE)
+Owner: YOU
+Priority: Critical
+Blocking: Task 15 (derivatives context extractor)
+Estimated effort: 20 min
+Description:
+Download historical funding rate from Binance Data Vision - FREE, 8-hour intervals.
+What to do:
+1. Create scripts/download_funding.py:
+      def download_funding(symbol, month):
+       url = f"https://data.binance.vision/data/futures/um/monthly/fundingRate/{symbol}/{symbol}-fundingRate-{month}.csv"
+       df = pd.read_csv(url, names=['timestamp','funding_rate'])
+       df.to_parquet(f"data/funding/{symbol}_{month}.parquet")
+   2. Document: 8-hour intervals = 3 funding events per day
+Acceptance criteria:
+- [ ] Script downloads May 2022 funding
+- [ ] Parquet created with ~90 rows (3/day × 30 days)
+- [ ] FREE - no rate limits
+---
+Task 9: OI Download Script (Binance Data Vision - FREE)
+Owner: YOU
+Priority: Critical
+Blocking: Task 15 (derivatives context extractor)
+Estimated effort: 30 min
+Description:
+Download historical Open Interest from Binance Data Vision metrics - FREE, 5-minute granularity, covers May 1-12.
+What to do:
+1. Create scripts/download_oi.py:
+      def download_oi(symbol, start_date, end_date):
+       for day in range(start_date.day, end_date.day + 1):
+           url = f"https://data.binance.vision/data/futures/um/daily/metrics/{symbol}/{symbol}-metrics-2022-05-{day:02d}.zip"
+           # Download and extract
+           df = pd.read_csv(..., names=['create_time','symbol','sum_open_interest','sum_open_interest_value',...])
+       # Concatenate all days
+       all_data.to_parquet(f"data/oi/{symbol}_2022-05.parquet")
+   2. Note: Coverage May 1-12 (stops after LUNA crash)
+3. Extract: sum_open_interest, sum_open_interest_value, count_long_short_ratio
+Acceptance criteria:
+- [ ] Script downloads May 1-12 OI
+- [ ] Parquet with ~3,456 rows (288/day × 12 days)
+- [ ] 5-minute granularity preserved
+---
+TRACK B: INTERN (RAG Pipeline - 4 tasks, parallel with YOU)
+Task 10: Wayback RSS Snapshot Retrieval Script
+Owner: INTERN
+Priority: High
+Blocking: Task 11, Task 22
+Estimated effort: 1 hour
+Skills learned: API integration, rate limiting, XML parsing
+Description:
+Build Wayback Machine CDX API client to retrieve archived RSS snapshots from May 2022. This is real API integration work, not script-running.
+What to do:
+1. Create scripts/retrieve_wayback_rss.py:
+      import requests
+   import time
+   import feedparser
+
+   class WaybackRSSRetriever:
+       def __init__(self, rate_limit=0.8):
+           self.rate_limit = rate_limit  # requests per second
+           self.last_request_time = 0
+
+       def query_cdx(self, feed_url, start_date, end_date):
+           # Throttle: ensure >= 1/rate_limit seconds since last request
+           elapsed = time.time() - self.last_request_time
+           if elapsed < 1/self.rate_limit:
+               time.sleep(1/self.rate_limit - elapsed)
+
+           cdx_url = f"http://web.archive.org/cdx/search/cdx?url={feed_url}*&from={start_date}&to={end_date}&output=json&limit=100"
+           response = requests.get(cdx_url)
+           self.last_request_time = time.time()
+           return response.json()
+
+       def download_snapshot(self, snapshot_url):
+           # Download archived RSS XML from Wayback
+           response = requests.get(snapshot_url)
+           return feedparser.parse(response.content)
+
+       def extract_articles(self, rss_feed):
+           articles = []
+           for entry in rss_feed.entries:
+               articles.append({
+                   'title': entry.title,
+                   'description': entry.description,
+                   'pubDate': entry.published,
+                   'link': entry.link
+               })
+           return articles
+2. Implement rate throttling (0.8 req/sec from research)
+   3. Handle feedparser errors (malformed XML)
+   4. Store to JSON: data/news/{feed}_{start}_{end}_articles.json
+Note: JSON is raw backup (archival). Task 11 will parse and insert to PostgreSQL.
+Acceptance criteria:
+- [ ] CDX API query returns snapshot URLs
+- [ ] Rate throttling enforced (no 429 errors)
+- [ ] Articles extracted from RSS XML
+- [ ] JSON stored with >= 10 articles per feed
+References:
+- Wayback CDX docs: https://web.archive.org/cdx/search/cdx
+- Feedparser docs: https://feedparser.readthedocs.io/
+---
+Task 11: RSS Article Parser + Chunker + PostgreSQL Insertion
+Owner: INTERN
+Priority: High
+Blocking: Task 12, Task 22
+Estimated effort: 1 hour
+Skills learned: Text processing, HTML cleaning, chunking strategies, PostgreSQL insertion, SQL basics
+Description:
+Process raw RSS articles into clean, chunked text and insert directly into PostgreSQL. This involves text cleaning, HTML removal, chunking, and database insertion.
+What to do:
+1. Create scripts/parse_articles.py:
+      import re
+   from bs4 import BeautifulSoup
+   import psycopg2
+   import json
+
+   class ArticleParser:
+       def clean_html(self, text):
+           # Remove HTML tags
+           soup = BeautifulSoup(text, 'html.parser')
+           return soup.get_text()
+
+       def normalize_whitespace(self, text):
+           # Collapse multiple spaces, remove extra newlines
+           return re.sub(r'\s+', ' ', text).strip()
+
+       def chunk_article(self, article, max_chunk_size=500):
+           # Strategy: title + description as one chunk, or split long descriptions
+           full_text = f"{article['title']}: {article['description']}"
+           if len(full_text) <= max_chunk_size:
+               return [{
+                   'chunk_id': f"{article['link']}_0",
+                   'text': full_text,
+                   'source': article['source'],
+                   'pubDate': article['pubDate']
+               }]
+           else:
+               # Split into multiple chunks
+               chunks = []
+               for i in range(0, len(full_text), max_chunk_size):
+                   chunks.append({
+                       'chunk_id': f"{article['link']}_{i}",
+                       'text': full_text[i:i+max_chunk_size],
+                       'source': article['source'],
+                       'pubDate': article['pubDate']
+                   })
+               return chunks
+
+       def create_table(self, conn):
+           cur = conn.cursor()
+           cur.execute("""
+               CREATE TABLE IF NOT EXISTS crypto_news (
+                   id SERIAL PRIMARY KEY,
+                   title TEXT,
+                   content TEXT,
+                   published_at TIMESTAMP,
+                   source TEXT,
+                   embedding VECTOR(1536),
+                   textsearch TSVECTOR GENERATED ALWAYS AS
+                       (to_tsvector('english', coalesce(title,'') || ' ' || coalesce(content,''))) STORED
+               )
+           """)
+           conn.commit()
+
+       def insert_chunks(self, conn, chunks):
+           cur = conn.cursor()
+           for chunk in chunks:
+               cur.execute("""
+                   INSERT INTO crypto_news (title, content, published_at, source)
+                   VALUES (%s, %s, %s, %s)
+               """, (chunk['title'], chunk['text'], chunk['pubDate'], chunk['source']))
+           conn.commit()
+   2. Preserve metadata: source, pubDate, chunk_id
+   3. Create PostgreSQL table with pgvector column (embedding NULL initially)
+   4. Insert chunks directly to PostgreSQL (no Parquet intermediate)
+Note: JSON backup from Task 10 remains for raw archival. PostgreSQL is the processed data store.
+Future: Kafka streaming + daily Parquet export will be added in later milestones.
+Acceptance criteria:
+- [ ] HTML tags removed from all articles
+- [ ] Whitespace normalized
+- [ ] Chunks created with metadata
+- [ ] PostgreSQL table created
+- [ ] Chunks inserted to PostgreSQL (embedding column NULL)
+References:
+- BeautifulSoup docs: https://www.crummy.com/software/BeautifulSoup/
+- PostgreSQL docs: https://www.postgresql.org/docs/
+---
+Task 12: Embedding Generation + PostgreSQL Update
+Owner: INTERN
+Priority: High
+Blocking: Task 13, Task 22
+Estimated effort: 1 hour
+Skills learned: ML model integration, batch processing, vector embeddings, PostgreSQL updates
+Description:
+Generate vector embeddings for article chunks stored in PostgreSQL and update the embedding column directly. This is ML integration work involving batch processing and placeholder validation.
+What to do:
+1. Create scripts/generate_embeddings.py:
+      import numpy as np
+   import psycopg2
+   from pgvector.psycopg2 import register_vector
+   from sentence_transformers import SentenceTransformer  # or OpenAI API
+
+   class EmbeddingGenerator:
+       def __init__(self, model_url, dimensions=1536):
+           if 'PLACEHOLDER' in model_url:
+               raise ValueError("EMBEDDING_MODEL_URL placeholder not filled - ask main developer")
+           self.model = self._load_model(model_url)
+           self.dimensions = dimensions
+
+       def generate_batch(self, texts, batch_size=32):
+           embeddings = []
+           for i in range(0, len(texts), batch_size):
+               batch = texts[i:i+batch_size]
+               batch_embeddings = self.model.encode(batch)
+               embeddings.extend(batch_embeddings)
+           return embeddings
+
+       def update_postgres_embeddings(self, conn):
+           cur = conn.cursor()
+           register_vector(conn)
+           
+           # Fetch all rows without embeddings
+           cur.execute("SELECT id, content FROM crypto_news WHERE embedding IS NULL")
+           rows = cur.fetchall()
+           
+           # Generate embeddings in batches
+           texts = [row[1] for row in rows]
+           embeddings = self.generate_batch(texts)
+           
+           # Update each row with its embedding
+           for (id, _), embedding in zip(rows, embeddings):
+               cur.execute("""
+                   UPDATE crypto_news SET embedding = %s WHERE id = %s
+               """, (embedding.tolist(), id))
+           
+           conn.commit()
+   2. Batch processing to avoid memory issues
+   3. Placeholder detection (intern asks YOU if placeholder not filled)
+   4. Document in help text what model to use
+Acceptance criteria:
+- [ ] Script created with placeholder support
+- [ ] Batch processing implemented (batch_size configurable)
+- [ ] Embeddings updated in PostgreSQL rows
+- [ ] Placeholder error message clear
+References:
+- Sentence Transformers: https://www.sbert.net/
+- OpenAI embeddings: https://platform.openai.com/docs/guides/embeddings
+- pgvector psycopg2: https://github.com/pgvector/pgvector-python
+---
+Task 13: pgvector Index Creation + Hybrid Search Testing
+Owner: INTERN
+Priority: High
+Blocking: Task 16, Task 22
+Estimated effort: 45 min
+Skills learned: PostgreSQL indexing, HNSW indexing, GIN indexing, hybrid search testing, query optimization
+Description:
+Create indexes on the crypto_news table for hybrid search performance and verify the setup works. The table is already populated from Tasks 11-12.
+What to do:
+1. Create scripts/create_indexes.py:
+      import psycopg2
+   from pgvector.psycopg2 import register_vector
+
+   class IndexCreator:
+       def __init__(self, conn):
+           self.conn = conn
+           register_vector(conn)
+
+       def create_indexes(self):
+           cur = self.conn.cursor()
+           cur.execute("""
+               CREATE INDEX IF NOT EXISTS crypto_news_embedding_idx 
+               ON crypto_news USING hnsw (embedding vector_cosine_ops)
+               WITH (m=16, ef_construction=64);
+               
+               CREATE INDEX IF NOT EXISTS crypto_news_textsearch_idx 
+               ON crypto_news USING gin(textsearch);
+               
+               CREATE INDEX IF NOT EXISTS crypto_news_published_idx 
+               ON crypto_news (published_at DESC);
+           """)
+           self.conn.commit()
+
+       def test_vector_search(self, sample_embedding):
+           cur = self.conn.cursor()
+           cur.execute("""
+               SELECT id, title, content, published_at, source,
+                      1 - (embedding <=> %s) AS similarity
+               FROM crypto_news
+               ORDER BY embedding <=> %s
+               LIMIT 5
+           """, (sample_embedding, sample_embedding))
+           return cur.fetchall()
+
+       def test_keyword_search(self, query_text):
+           cur = self.conn.cursor()
+           cur.execute("""
+               SELECT id, title, content, published_at, source,
+                      ts_rank_cd(textsearch, query) AS rank
+               FROM crypto_news, plainto_tsquery('english', %s) query
+               WHERE textsearch @@ query
+               ORDER BY ts_rank_cd(textsearch, query) DESC
+               LIMIT 5
+           """, (query_text,))
+           return cur.fetchall()
+
+       def test_time_filter(self, start_time, end_time):
+           cur = self.conn.cursor()
+           cur.execute("""
+               SELECT id, title, content, published_at, source
+               FROM crypto_news
+               WHERE published_at BETWEEN %s AND %s
+               ORDER BY published_at DESC
+               LIMIT 5
+           """, (start_time, end_time))
+           return cur.fetchall()
+   2. Verify HNSW index created correctly
+   3. Test vector similarity search
+   4. Test tsvector full-text search
+   5. Test time-bounded query (+/- 12h window)
+Acceptance criteria:
+- [ ] HNSW index on embedding column created
+- [ ] GIN index on textsearch column created
+- [ ] Timestamp index for time filters created
+- [ ] Vector search returns results
+- [ ] Keyword search returns results
+- [ ] Time filter returns results
+References:
+- pgvector docs: https://github.com/pgvector/pgvector
+- HNSW parameters: https://github.com/pgvector/pgvector#hnsw
+- PostgreSQL GIN index: https://www.postgresql.org/docs/current/gin.html
+---
+Wave 3: Detection + Classification (PARALLEL TRACKS)
+TRACK A: YOU (Core Hypothesis Logic - 5 tasks)
+Task 14: Z-Score Computation Engine
+Owner: YOU
+Priority: Critical
+Blocking: Tasks 15, 18, 19
+Estimated effort: 45 min
+Description:
+Build statistical anomaly detection engine using rolling Z-scores on OHLCV price data.
+What to do:
+1. Create src/zscore.py:
+      import pandas as pd
+   import numpy as np
+
+   class ZScoreEngine:
+       def compute_rolling_zscore(self, ohlcv_df, window_hours=24):
+           # Convert window to number of candles (5-min granularity)
+           window_candles = window_hours * 12  # 12 candles per hour
+
+           # Rolling mean and std
+           ohlcv_df['rolling_mean'] = ohlcv_df['close'].rolling(window_candles).mean()
+           ohlcv_df['rolling_std'] = ohlcv_df['close'].rolling(window_candles).std()
+
+           # Z-score
+           ohlcv_df['zscore'] = (ohlcv_df['close'] - ohlcv_df['rolling_mean']) / ohlcv_df['rolling_std']
+           return ohlcv_df
+
+       def detect_anomalies(self, ohlcv_df, threshold=2.5):
+           anomalies = ohlcv_df[abs(ohlcv_df['zscore']) > threshold]
+           return [{
+               'timestamp': row['timestamp'],
+               'zscore': row['zscore'],
+               'severity': min(abs(row['zscore']) / threshold, 5),  # scale 1-5
+               'price': row['close']
+           } for row in anomalies.to_dict('records')]
+   2. Support configurable window (default 24h)
+3. Support configurable threshold (default 2.5)
+4. Output JSON: data/anomalies/{symbol}_{start}_{end}.json
+Acceptance criteria:
+- [ ] Z-score computed on OHLCV data
+- [ ] LUNA window produces anomalies (crash should trigger)
+- [ ] JSON output with timestamps, severity
+---
+Task 15: Derivatives Context Extractor
+Owner: YOU
+Priority: Critical
+Blocking: Task 18
+Estimated effort: 30 min
+Description:
+Extract derivatives features (funding rate, OI) at each anomaly timestamp.
+What to do:
+1. Create src/derivatives_context.py:
+      class DerivativesContextExtractor:
+       def extract_context(self, anomalies, funding_df, oi_df):
+           contexts = []
+           for anomaly in anomalies:
+               timestamp = pd.Timestamp(anomaly['timestamp'])
+
+               # Find nearest funding rate (8h intervals)
+               funding = funding_df[funding_df['timestamp'] <= timestamp].iloc[-1]
+
+               # Find OI at exact timestamp (5-min granularity)
+               oi = oi_df[oi_df['create_time'] == timestamp.strftime('%Y-%m-%d %H:%M:%S')]
+               if len(oi) == 0:
+                   oi = oi_df[oi_df['create_time'] <= timestamp].iloc[-1]
+
+               # Compute feature vector
+               contexts.append({
+                   'anomaly_timestamp': timestamp,
+                   'funding_rate_current': funding['funding_rate'],
+                   'funding_rate_avg_4h': funding_df[
+                       funding_df['timestamp'].between(timestamp - pd.Timedelta('4h'), timestamp)
+                   ]['funding_rate'].mean(),
+                   'oi_current': oi['sum_open_interest_value'],
+                   'oi_change_4h': oi['sum_open_interest_value'] - oi_df[
+                       oi_df['create_time'] == (timestamp - pd.Timedelta('4h')).strftime('%Y-%m-%d %H:%M:%S')
+                   ]['sum_open_interest_value'].iloc[0] if len(...) > 0 else 0,
+                   'long_short_ratio': oi['count_long_short_ratio']
+               })
+           return contexts
+   2. Handle missing OI data gracefully (May 12 gap)
+3. Store JSON: data/context/{symbol}_context.json
+Acceptance criteria:
+- [ ] Funding rate extracted for all anomalies
+- [ ] OI extracted for anomalies in May 1-11
+- [ ] Feature vector JSON with all derivatives fields
+---
+Task 17: LLM Classifier Prompt + Schema Definition
+Owner: YOU
+Priority: Critical
+Blocking: Task 18
+Estimated effort: 30 min
+Description:
+Design LLM classifier prompts and JSON schema for structured classification output.
+What to do:
+1. Create prompts/classification_prompt.md:
+       System Prompt
+
+   You are a crypto market anomaly classifier. You analyze price anomalies
+   using derivatives market data (funding rates, open interest) and optionally
+   news context.
+
+   Classification categories:
+   - "explained_derivatives": Funding rate or OI data explains the price move
+   - "explained_news": News context explains the price move
+   - "unexplained": Neither derivatives nor news explain the move - highest priority signal
+   - "insufficient_data": Cannot classify due to missing data
+
+    User Prompt Template
+
+   Analyze this crypto anomaly:
+
+   **Anomaly Details**:
+   - Timestamp: {timestamp}
+   - Z-score: {zscore}
+   - Price: {price}
+
+   **Derivatives Context**:
+   - Funding rate current: {funding_rate_current}
+   - Funding rate avg 4h: {funding_rate_avg_4h}
+   - OI current: {oi_current}
+   - OI change 4h: {oi_change_4h}
+   - Long/short ratio: {long_short_ratio}
+
+   **News Context** (optional):
+   {news_articles}
+
+   Produce a structured classification following the JSON schema.
+   2. Create two prompt variants:
+   - classify_derivatives_only.md (no news section)
+   - classify_with_rag.md (includes news articles)
+3. Define JSON schema in schemas/classification.json
+Acceptance criteria:
+- [ ] System prompt created
+- [ ] User prompt template created
+- [ ] Two variants for ablation study
+- [ ] JSON schema defined
+---
+Task 18: Classifier Execution Wrapper
+Owner: YOU
+Priority: Critical
+Blocking: Task 19
+Estimated effort: 45 min
+Description:
+Build classifier wrapper that executes LLM with structured output and validates responses.
+What to do:
+1. Create src/classifier.py:
+      class AnomalyClassifier:
+       def __init__(self, llm_client):
+           self.llm = llm_client
+
+       def classify_derivatives_only(self, anomaly, derivatives_context):
+           prompt = self._build_prompt(
+               anomaly,
+               derivatives_context,
+               news_context=None,
+               variant="derivatives_only"
+           )
+           response = self.llm.classify(prompt, schema=CLASSIFICATION_SCHEMA)
+           self._validate_response(response)
+           return response
+
+       def classify_with_rag(self, anomaly, derivatives_context, rag_context):
+           prompt = self._build_prompt(
+               anomaly,
+               derivatives_context,
+               news_context=rag_context,
+               variant="with_rag"
+           )
+           response = self.llm.classify(prompt, schema=CLASSIFICATION_SCHEMA)
+           self._validate_response(response)
+           return response
+
+       def _validate_response(self, response):
+           required_fields = ['classification', 'severity', 'confidence', 'rationale']
+           for field in required_fields:
+               if field not in response:
+                   raise ValueError(f"Missing required field: {field}")
+
+           valid_classifications = ['explained_derivatives', 'explained_news', 'unexplained', 'insufficient_data']
+           if response['classification'] not in valid_classifications:
+               raise ValueError(f"Invalid classification: {response['classification']}")
+   2. Handle LLM errors gracefully
+3. Store to JSON: data/classifications/{timestamp}_result.json
+Acceptance criteria:
+- [ ] Both classification variants work
+- [ ] Schema validation implemented
+- [ ] Error handling for malformed responses
+---
+Task 19: JSON Report Generator
+Owner: YOU
+Priority: High
+Blocking: Wave 4
+Estimated effort: 30 min
+Description:
+Aggregate all results into comprehensive JSON reports per anomaly and summary.
+What to do:
+1. Create src/report_generator.py:
+      class ReportGenerator:
+       def generate_anomaly_report(self, anomaly, derivatives, rag, classification):
+           return {
+               'timestamp': anomaly['timestamp'],
+               'zscore': anomaly['zscore'],
+               'price': anomaly['price'],
+               'derivatives_context': derivatives,
+               'rag_context': rag,
+               'classification': classification,
+               'generated_at': datetime.now().isoformat()
+           }
+
+       def generate_summary_report(self, anomaly_reports, event_name):
+           classifications = [r['classification']['classification'] for r in anomaly_reports]
+           return {
+               'event': event_name,
+               'total_anomalies': len(anomaly_reports),
+               'classification_distribution': {
+                   'explained_derivatives': classifications.count('explained_derivatives'),
+                   'explained_news': classifications.count('explained_news'),
+                   'unexplained': classifications.count('unexplained'),
+                   'insufficient_data': classifications.count('insufficient_data')
+               },
+               'avg_severity': sum(r['classification']['severity'] for r in anomaly_reports) / len(anomaly_reports),
+               'avg_confidence': sum(r['classification']['confidence'] for r in anomaly_reports) / len(anomaly_reports)
+           }
+   2. Save individual reports: reports/{symbol}_{timestamp}_report.json
+3. Save summary: reports/{event}_summary.json
+Acceptance criteria:
+- [ ] Individual anomaly reports generated
+- [ ] Summary report with statistics
+- [ ] Valid JSON structure
+---
+TRACK B: INTERN (RAG Retrieval - 1 task)
+Task 16: RAG Context Retrieval (Hybrid Search)
+Owner: INTERN
+Priority: High
+Blocking: Task 22
+Estimated effort: 1.5 hours
+Skills learned: Vector similarity search, full-text search, RRF (Reciprocal Rank Fusion), hybrid search systems
+Description:
+Build hybrid search system combining vector similarity and keyword search using RRF fusion. This is advanced search engineering work.
+What to do:
+1. Create src/retrieval.py:
+      import psycopg2
+   import numpy as np
+
+   class RAGRetriever:
+       def hybrid_search(self, query_embedding, query_text, anomaly_timestamp, top_k=10):
+           conn = psycopg2.connect("postgres://localhost:5432/crypto")
+           cur = conn.cursor()
+
+           # Time-bounded query: articles within +/- 12h of anomaly
+           start_time = anomaly_timestamp - pd.Timedelta('12h')
+           end_time = anomaly_timestamp + pd.Timedelta('12h')
+
+           # Vector search (semantic)
+           cur.execute("""
+               SELECT id, title, content, published_at, source,
+                      1 - (embedding <=> %s) AS vector_score
+               FROM crypto_news
+               WHERE published_at BETWEEN %s AND %s
+               ORDER BY embedding <=> %s
+               LIMIT 20
+           """, (query_embedding, start_time, end_time, query_embedding))
+           vector_results = cur.fetchall()
+
+           # Keyword search (BM25 via tsvector)
+           cur.execute("""
+               SELECT id, title, content, published_at, source,
+                      ts_rank_cd(textsearch, query) AS keyword_score
+               FROM crypto_news, plainto_tsquery('english', %s) query
+               WHERE textsearch @@ query
+                 AND published_at BETWEEN %s AND %s
+               ORDER BY ts_rank_cd(textsearch, query) DESC
+               LIMIT 20
+           """, (query_text, start_time, end_time))
+           keyword_results = cur.fetchall()
+
+           # RRF fusion: score = 1/(k + vector_rank) + 1/(k + keyword_rank)
+           # k=60 is standard
+           return self._rrf_fusion(vector_results, keyword_results, k=60, top_k=top_k)
+
+       def _rrf_fusion(self, vector_results, keyword_results, k=60, top_k=10):
+           # Combine rankings using RRF
+           combined_scores = {}
+
+           for rank, (id, title, content, ...) in enumerate(vector_results, 1):
+               combined_scores[id] = combined_scores.get(id, 0) + 1/(k + rank)
+
+           for rank, (id, title, content, ...) in enumerate(keyword_results, 1):
+               combined_scores[id] = combined_scores.get(id, 0) + 1/(k + rank)
+
+           # Sort by combined score
+           sorted_results = sorted(combined_scores.items(), key=lambda x: x[1], reverse=True)
+           return sorted_results[:top_k]
+   2. Implement time-bounded query (+/- 12h around anomaly)
+3. Implement RRF fusion (standard k=60)
+4. Package results as RAG context for LLM
+Acceptance criteria:
+- [ ] Vector search returns semantic matches
+- [ ] Keyword search returns text matches
+- [ ] RRF fusion combines both rankings
+- [ ] Time filter limits to +/- 12h window
+- [ ] Top 5-10 articles returned
+References:
+- RRF paper: https://plg.uwaterloo.ca/~gvcormac/cormac_rrf.pdf
+- pgvector hybrid search: https://github.com/pgvector/pgvector-python/blob/master/examples/hybrid_search/rrf.py
+---
+Wave 4: Validation + Evaluation (YOU + intern dependency)
+Task 20: Run Pipeline on LUNA May 7-11 Window
+Owner: YOU
+Priority: Critical
+Blocking: Tasks 21-22
+Estimated effort: 1 hour
+Description:
+Execute full pipeline on LUNA pre-crash window (May 7-11). Validate end-to-end flow works.
+What to do:
+1. Create scripts/run_pipeline.py:
+      def run_pipeline(symbol, start, end, mode):
+       # Step 1: Load data
+       ohlcv = pd.read_parquet(f"data/ohlcv/{symbol}_2022-05.parquet")
+       funding = pd.read_parquet(f"data/funding/{symbol}_2022-05.parquet")
+       oi = pd.read_parquet(f"data/oi/{symbol}_2022-05.parquet")
+
+       # Step 2: Detect anomalies
+       anomalies = ZScoreEngine().detect_anomalies(ohlcv, threshold=2.5)
+
+       # Step 3: Extract derivatives context
+       contexts = DerivativesContextExtractor().extract_context(anomalies, funding, oi)
+
+       # Step 4: Classify (derivatives-only first)
+       classifications = []
+       for anomaly, context in zip(anomalies, contexts):
+           if mode == 'derivatives_only':
+               result = classifier.classify_derivatives_only(anomaly, context)
+           else:
+               rag = retriever.hybrid_search(context['embedding'], ...)
+               result = classifier.classify_with_rag(anomaly, context, rag)
+           classifications.append(result)
+
+       # Step 5: Generate reports
+       ReportGenerator().generate_all(anomalies, contexts, classifications)
+   2. Run on May 7-11 window
+3. Log all steps to Langfuse (trace creation)
+Acceptance criteria:
+- [ ] Pipeline runs without errors
+- [ ] Anomalies detected for LUNA crash
+- [ ] Classifications produced for all anomalies
+- [ ] Reports generated
+---
+Task 21: Ablation Study: Derivatives-Only Run
+Owner: YOU
+Priority: Critical
+Blocking: Task 23
+Estimated effort: 30 min
+Description:
+Run ablation study using ONLY derivatives features (no RAG). Validates core hypothesis WITHOUT waiting for intern.
+What to do:
+1. Run pipeline with --mode derivatives_only
+2. Classify all LUNA anomalies using only funding rate + OI
+3. Store results: results/ablation_derivatives_only.json
+4. Log to Langfuse with mode marker
+5. Evaluate: What classifications produced? How many "unexplained"?
+Acceptance criteria:
+- [ ] Derivatives-only run completes
+- [ ] Classifications without RAG context
+- [ ] Results stored for comparison
+HYPOTHESIS CHECKPOINT: If derivatives-only successfully classifies anomalies, core hypothesis is PARTIALLY validated. YOU can proceed to Milestone 2 planning while intern finishes RAG.
+---
+Task 22: Ablation Study: Derivatives+RAG Run
+Owner: YOU
+Priority: High
+Blocking: Task 23
+Estimated effort: 30 min
+DEPENDS ON: Intern's Task 16 MUST be complete
+Description:
+Run ablation study with BOTH derivatives features AND RAG context. Compare against derivatives-only to measure RAG improvement.
+What to do:
+1. WAIT for intern to finish Task 16 (RAG retrieval)
+2. Run pipeline with --mode full (include RAG)
+3. Classify anomalies using derivatives + retrieved news
+4. Store results: results/ablation_derivatives_rag.json
+5. Compare classifications: How did RAG change verdicts?
+Acceptance criteria:
+- [ ] Full pipeline run (derivatives + RAG)
+- [ ] Classifications include news_relevance field
+- [ ] Results stored for comparison
+---
+Task 23: Ragas Evaluation + Comparison
+Owner: YOU
+Priority: High
+Blocking: Task 24
+Estimated effort: 1 hour
+Description:
+Run Ragas evaluation metrics (Faithfulness, Answer Relevancy) on both ablation results and compare.
+What to do:
+1. Create scripts/evaluate_ragas.py:
+      from ragas import evaluate
+   from ragas.metrics import faithfulness, answer_relevancy
+
+   def evaluate_ablation(results_path):
+       # Convert results to Ragas dataset format
+       dataset = convert_to_ragas_format(results_path)
+
+       # Run Ragas evaluation
+       scores = evaluate(
+           dataset,
+           metrics=[faithfulness, answer_relevancy]
+       )
+       return scores
+
+   def compare_ablations(deriv_only_scores, full_scores):
+       return {
+           'derivatives_only': {
+               'faithfulness': deriv_only_scores['faithfulness'],
+               'answer_relevance': deriv_only_scores['answer_relevancy']
+           },
+           'derivatives_rag': {
+               'faithfulness': full_scores['faithfulness'],
+               'answer_relevance': full_scores['answer_relevancy']
+           },
+           'improvement': {
+               'faithfulness': full_scores['faithfulness'] - deriv_only_scores['faithfulness'],
+               'answer_relevance': full_scores['answer_relevancy'] - deriv_only_scores['answer_relevancy']
+           }
+       }
+   2. Store comparison: results/ablation_comparison.json
+3. Document: Does RAG improve classification quality?
+Acceptance criteria:
+- [ ] Ragas evaluation on both result sets
+- [ ] Comparison JSON with improvement metrics
+- [ ] Faithfulness scores between 0.0-1.0
+---
+Task 24: JSON Report Finalization
+Owner: YOU
+Priority: High
+Blocking: Final Verification Wave
+Estimated effort: 20 min
+Description:
+Finalize all reports with metadata and create final Milestone 1 summary.
+What to do:
+1. Add metadata to all reports:
+   - Execution timestamp
+   - Config used
+   - Data sources (Binance Data Vision, Wayback)
+   - Git commit hash
+2. Validate all JSON structures
+3. Create reports/FINAL_PHASE1_SUMMARY.json:
+      {
+     milestone: Phase 1 - Historical Analysis,
+     events_validated: [LUNA],
+     total_anomalies: X,
+     classification_distribution: {...},
+     ablation_results: {
+       derivatives_only: {...},
+       derivatives_rag: {...}
+     },
+     ragas_evaluation: {
+       faithfulness_improvement: X,
+       answer_relevance_improvement: Y
+     },
+     hypothesis_status: validated|partial|failed,
+     completed_at: 2026-...
+   }
+
+Acceptance criteria:
+- [ ] All reports valid JSON
+- [ ] Metadata added
+- [ ] Final summary created
+- [ ] Hypothesis status documented
+---
+Final Verification Wave (YOU only)
+Task F1: Plan Compliance Audit
+Owner: YOU
+Priority: Critical
+Agent: oracle
+Estimated effort: 30 min
+Description:
+Verify all "Must Have" requirements implemented, all "Must NOT Have" absent.
+What to do:
+1. Read plan end-to-end
+2. For each "Must Have": verify implementation exists (run command, read file)
+3. For each "Must NOT Have": grep codebase for forbidden patterns
+4. Check evidence files in .sisyphus/evidence/
+5. Output: Must Have [N/N] | Must NOT Have [N/N] | VERDICT
+---
+Task F2: Code Quality Review
+Owner: YOU
+Priority: High
+Agent: unspecified-high
+Estimated effort: 20 min
+Description:
+Review code quality, check for AI slop patterns.
+What to do:
+1. Run ruff check src/ scripts/
+2. Check for: as any, empty catches, console.log, commented code
+3. Check AI slop: excessive comments, over-abstraction, generic names
+4. Output: Files [N clean/N issues] | VERDICT
+---
+Task F3: Real Manual QA
+Owner: YOU
+Priority: High
+Agent: unspecified-high
+Estimated effort: 1 hour
+Description:
+Execute ALL QA scenarios from ALL tasks. Test cross-feature integration.
+What to do:
+1. Start Docker services
+2. Execute each QA scenario from plan
+3. Test pipeline end-to-end manually
+4. Save evidence to .sisyphus/evidence/final-qa/
+5. Output: Scenarios [N/N pass] | VERDICT
+---
+Task F4: Scope Fidelity Check
+Owner: YOU
+Priority: High
+Agent: deep
+Estimated effort: 30 min
+Description:
+Verify implementation matches plan exactly - no missing, no creep.
+What to do:
+1. For each task: read "What to do", read actual diff
+2. Verify 1:1 match: everything in spec built, nothing beyond spec
+3. Check "Must NOT do" compliance
+4. Detect cross-task contamination
+5. Output: Tasks [N/N compliant] | VERDICT
+---
+Intern Enrichment Tasks (After YOU finish Phase 1)
+Task E1: FTX Validation (Nov 6-12, 2022)
+Owner: INTERN
+Priority: Enrichment (not blocking)
+Estimated effort: 2 hours
+Description:
+Validate pipeline on FTX collapse window. Uses YOUR pre-built scripts.
+What to do:
+1. Download FTX data (Nov 2022) using YOUR scripts
+2. Run pipeline on FTX window
+3. Generate FTX classification reports
+4. Compare with LUNA results
+Acceptance criteria:
+- [ ] FTX anomalies detected
+- [ ] FTX classifications produced
+- [ ] Comparison with LUNA documented
+---
+Task E2: Bybit Validation (Feb 21-22, 2025)
+Owner: INTERN
+Priority: Enrichment (optional)
+Estimated effort: 2 hours
+Description:
+Validate pipeline on Bybit hack window. Uses YOUR pre-built scripts.
+What to do:
+1. Download Bybit data (Feb 2025) using YOUR scripts
+2. Run pipeline on Bybit window
+3. Generate Bybit classification reports
+4. Optional: If intern slow, skip
+---
+GitHub Project Import Format
+To import into GitHub Projects, create issues with this structure:
+Title: [Wave X] Task N: Task Title
+Body:
+**Owner**: YOU / INTERN
+**Priority**: Critical / High / Medium
+**Blocking**: Task X, Task Y
+**Estimated effort**: X min
+**Skills learned**: (for intern tasks)
+**Description**:
+[What to do section]
+**Acceptance criteria**:
+- [ ] Criterion 1
+- [ ] Criterion 2
+**Dependencies**:
+- Blocked by: Task X
+- Blocks: Task Y
+---
