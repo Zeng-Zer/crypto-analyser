@@ -16,7 +16,7 @@ Create GitHub pull requests programmatically with full context:
 - Base branch selection (default: main)
 - Reviewer assignment
 - Draft vs ready-for-review
-- Link related issues automatically
+- Auto-detect linked issue from branch name (task number pattern)
 - Auto-assign: PR creator + repo maintainer
 - Inherit category labels from linked issue
 
@@ -90,7 +90,7 @@ Interpreting results:
 
 ```bash
 # Check if PR already exists for this branch
-gh pr list --head $HEAD_BRANCH --state all --json number,title,state,url
+gh pr list --head "$HEAD_BRANCH" --state all --json number,title,state,url
 ```
 
 Interpreting results:
@@ -98,19 +98,72 @@ Interpreting results:
 - Open PR exists → stop, show existing PR URL, ask user: "PR already exists. Close it and create new, or update existing?"
 - Closed PR exists → proceed, note in new PR body: "Supersedes #{number}"
 
-### Step 3: Push to Remote (if needed)
+### Step 3: Detect Linked Issue from Branch Name
+
+```bash
+# Extract task number from branch name using bash regex
+# Patterns: "0.1-slug", "wave-0-slug", "task-5-slug"
+TASK_NUMBER=""
+LINK_ISSUE=""
+
+if [[ "$HEAD_BRANCH" =~ ^([0-9]+\.[0-9]+)- ]]; then
+  TASK_NUMBER="${BASH_REMATCH[1]}"
+elif [[ "$HEAD_BRANCH" =~ ^wave-([0-9]+)- ]]; then
+  TASK_NUMBER="${BASH_REMATCH[1]}"
+elif [[ "$HEAD_BRANCH" =~ ^task-([0-9]+)- ]]; then
+  TASK_NUMBER="${BASH_REMATCH[1]}"
+fi
+
+# Search for matching issue by task number in title
+if [ -n "$TASK_NUMBER" ]; then
+  # Get all open issues with this task number in title
+  MATCHING_ISSUES=$(gh issue list --search "$TASK_NUMBER" --state open --json number,title)
+  
+  # Filter to issues where title starts with task number
+  FILTERED_ISSUES=$(echo "$MATCHING_ISSUES" | jq --arg task "$TASK_NUMBER" '.[] | select(.title | startswith($task))')
+  
+  # Count matches correctly (handle empty case)
+  if [ -z "$FILTERED_ISSUES" ]; then
+    MATCH_COUNT=0
+  else
+    MATCH_COUNT=$(echo "$FILTERED_ISSUES" | jq -s 'length')
+  fi
+  
+  if [ "$MATCH_COUNT" -eq 1 ]; then
+    # Single match - use it
+    LINK_ISSUE=$(echo "$FILTERED_ISSUES" | jq -r '.number')
+  elif [ "$MATCH_COUNT" -gt 1 ]; then
+    # Multiple matches - ambiguous, ask user
+    echo "Multiple issues found with task number $TASK_NUMBER:"
+    echo "$FILTERED_ISSUES" | jq -r '. | "- #\(.number): \(.title)"'
+    echo "Which issue does this PR close? Provide issue number or 'none' to skip."
+    # User input expected here
+  fi
+fi
+
+# Override with explicit link-issue parameter if provided
+[ -n "{link-issue}" ] && LINK_ISSUE="{link-issue}"
+```
+
+Interpreting results:
+- Single match → auto-link to that issue
+- Multiple matches → stop, show list, ask user which issue
+- No match → proceed without linked issue (optional manual link later)
+- Explicit `link-issue` parameter → overrides auto-detection
+
+### Step 4: Push to Remote (if needed)
 
 ```bash
 # Check if branch exists on remote
-git ls-remote --heads origin $HEAD_BRANCH
+git ls-remote --heads origin "$HEAD_BRANCH"
 
 # Push if not on remote
-git push -u origin $HEAD_BRANCH
+git push -u origin "$HEAD_BRANCH"
 ```
 
 If branch already on remote, skip push.
 
-### Step 4: Extract Commits and Build Body
+### Step 5: Extract Commits and Build Body
 
 ```bash
 # Extract commit messages between base and HEAD
@@ -130,9 +183,9 @@ $COMMITS
 ## Related Issues
 EOF
 
-# Add link-issue if provided
-if [ -n "{link-issue}" ]; then
-  echo "Closes #{link-issue}" >> /tmp/pr-body.md
+# Add link-issue if detected/provided
+if [ -n "$LINK_ISSUE" ]; then
+  echo "Closes #$LINK_ISSUE" >> /tmp/pr-body.md
 fi
 
 # Verify body file was created
@@ -141,7 +194,7 @@ fi
 
 Note: For complex bodies with categorized changes, manually edit `/tmp/pr-body.md` before creating PR.
 
-### Step 5: Generate Title
+### Step 6: Generate Title
 
 ```bash
 # Get first commit message for title
@@ -151,12 +204,11 @@ git log -1 --format='%s'
 Title format: Imperative mood, concise, no trailing punctuation.
 Example: "Clean POC structure and simplify download script"
 
-### Step 6: Inherit Labels from Linked Issue
+### Step 7: Inherit Labels from Linked Issue
 
 ```bash
-# Fetch category labels from linked issue (if provided)
+# Fetch category labels from linked issue (auto-detected or explicit)
 LABEL_FLAGS=""
-LINK_ISSUE="{link-issue}"
 
 if [ -n "$LINK_ISSUE" ]; then
   # Get labels from the issue
@@ -173,7 +225,7 @@ fi
 
 Note: Only inherits `wave-*` category labels. Status labels (blocker, intern) are not applied to PRs.
 
-### Step 7: Create PR
+### Step 8: Create PR and Capture URL
 
 ```bash
 # Capture title from user input or first commit
@@ -196,22 +248,7 @@ fi
 DRAFT_FLAG=""
 [ "{draft}" = "true" ] && DRAFT_FLAG="--draft"
 
-# Create PR
-gh pr create \
-  --title "$PR_TITLE" \
-  --base "$BASE_BRANCH" \
-  --head "$HEAD_BRANCH" \
-  $ASSIGNEE_FLAGS \
-  $REVIEWER_FLAGS \
-  $LABEL_FLAGS \
-  $DRAFT_FLAG \
-  --body-file /tmp/pr-body.md
-```
-
-### Step 8: Capture PR URL
-
-```bash
-# gh pr create outputs the PR URL to stdout
+# Create PR and capture URL in one command
 PR_URL=$(gh pr create \
   --title "$PR_TITLE" \
   --base "$BASE_BRANCH" \
@@ -223,7 +260,10 @@ PR_URL=$(gh pr create \
   --body-file /tmp/pr-body.md)
 
 # Check exit code
-[ $? -eq 0 ] || echo "ERROR: PR creation failed"
+if [ $? -ne 0 ]; then
+  echo "ERROR: PR creation failed"
+  exit 1
+fi
 ```
 
 ### Step 9: Return to User
@@ -331,6 +371,8 @@ Create PR with:
 | PR already exists (open) | Stop, show existing PR URL, ask user: close & recreate, or update existing? |
 | PR already exists (closed) | Proceed, note in body: "Supersedes #{number}" |
 | Branch not on remote | Push first with `git push -u origin {branch}` |
+| Task number not in branch name | Proceed without auto-link (user can provide `link-issue` param) |
+| Multiple issues match task number | Stop, show list, ask user which issue to link |
 | Linked issue not found | Proceed without labels, warn user issue number invalid |
 | Label not found on repo | Skip label, proceed without (create later if needed) |
 | Assignee not collaborator | Skip failed assignee, proceed with remaining |
