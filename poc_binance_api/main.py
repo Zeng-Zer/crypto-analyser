@@ -44,7 +44,7 @@ def download_and_extract(url: str, save_path: Path) -> bool:
                 f.write(csv_data)
         
         print(f"  [saved] {save_path.name}")
-        time.sleep(0.5)
+        time.sleep(0.2)
         return True
     
     except urllib.error.HTTPError as e:
