@@ -80,6 +80,10 @@ Add streaming capabilities after Milestone 1 validates the approach.
   - OHLCV: 1-min klines available
   - Funding rate: 8h intervals available
   - Open Interest: 5-min metrics (May 1-12, delisted after crash)
+- [x] pgvector Docker setup verified and working
+  - `pgvector/pgvector:pg17` (official image, migrated from deprecated ankane/pgvector)
+  - PostgreSQL 17.9 + pgvector 0.8.2 (both current versions)
+  - Hybrid search (vector similarity) tested and working
 
 ### Active
 

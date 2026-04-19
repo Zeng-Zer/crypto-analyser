@@ -1,0 +1,7 @@
+ id |               content               |      distance      
+----+-------------------------------------+--------------------
+  1 | PostgreSQL is a powerful database   |                  0
+  3 | pgvector enables similarity search  | 0.7071067811865476
+  5 | Embeddings capture semantic meaning |   0.98994947318984
+(3 rows)
+
