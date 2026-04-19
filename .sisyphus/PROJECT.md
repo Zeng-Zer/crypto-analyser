@@ -75,11 +75,15 @@ Add streaming capabilities after Milestone 1 validates the approach.
 
 ### Validated
 
-(None yet — ship to validate)
+- [x] Binance Data Vision provides FREE historical data for LUNAUSDT (May 2022)
+  - Symbol: LUNAUSDT (pre-crash)
+  - OHLCV: 1-min klines available
+  - Funding rate: 8h intervals available
+  - Open Interest: 5-min metrics (May 1-12, delisted after crash)
 
 ### Active
 
-- [ ] Historical OHLCV data downloaded for target symbols (Binance Data Vision)
+- [x] Historical OHLCV data downloaded for target symbols (Binance Data Vision)
 - [ ] Z-score computation detects anomalies in historical data (LUNA May 7-11)
 - [ ] Feature extraction pulls funding rate and open interest at anomaly timestamps
 - [ ] RAG pipeline built for ablation comparison (Wayback RSS → pgvector)
@@ -142,4 +146,4 @@ Add streaming capabilities after Milestone 1 validates the approach.
 | Binance Data Vision (FREE data)             | No API key, no rate limits. Historical OHLCV, funding, OI all free. Reduces complexity and cost.                                       | — Verified |
 
 ---
-*Last updated: 2026-04-13 — synchronized with .sisyphus/plans/crypto-analyzer-phase1.md*
+*Last updated: 2026-04-19 — Task 0.1 verified (Binance data available)*
