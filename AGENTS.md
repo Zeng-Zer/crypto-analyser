@@ -1,19 +1,5 @@
 # Agent Instructions for crypto-analyser
 
-## Git Write Actions - MUST CONSULT USER
-
-Before performing ANY git write actions, ask the user for confirmation:
-
-- Creating issues
-- Commenting on issues
-- Closing issues
-- Creating commits
-- Pushing to remote
-- Creating pull requests
-- Any action that modifies the git repository or GitHub
-
-**Ask first. Do not assume permission.**
-
 ## Project Context
 
 See `.sisyphus/PROJECT.md` for full project overview.
