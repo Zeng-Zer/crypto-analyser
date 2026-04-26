@@ -10,6 +10,7 @@ dist
 htmlcov
 .venv/
 uv.lock
+.env
 
-.csv
-.zip
+*.csv
+*.zip
