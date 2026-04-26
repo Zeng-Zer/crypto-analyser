@@ -4,15 +4,16 @@
   "description": "LLM classification output for a crypto price anomaly event",
   "type": "object",
   "properties": {
+    "event_reference": {
+      "type": "string",
+      "description": "Unique identifier linking this classification back to the original anomaly event (e.g. anomaly timestamp or ID)"
+    },
     "classification": {
       "type": "string",
       "description": "Primary classification of the price anomaly",
       "enum": [
         "explained",
         "unexplained",
-        "flash_crash",
-        "coordinated_dump",
-        "technical_issue",
         "news_driven",
         "derivatives_driven",
         "unknown"
@@ -20,7 +21,7 @@
     },
     "severity": {
       "type": "integer",
-      "description": "Severity score on a scale of 1 (minor) to 10 (catastrophic)",
+      "description": "Severity score: 1-3 minor wick/dip, 4-6 significant move (>5%), 7-8 major event (>15%), 9-10 catastrophic (>50% or exchange collapse)",
       "minimum": 1,
       "maximum": 10
     },
@@ -36,22 +37,25 @@
       "minLength": 10
     },
     "news_relevance": {
-      "type": "string",
-      "description": "Optional: estimated lag of news relevance (15min-60min if lagging, or 'concurrent' if aligned). Only populate if RSS context was provided.",
+      "type": ["string", "null"],
+      "description": "Estimated lag of news relevance. null if no RSS context was provided.",
       "enum": [
         "concurrent",
         "15min_lag",
         "30min_lag",
         "60min_lag",
-        "irrelevant"
+        "irrelevant",
+        null
       ]
     }
   },
   "required": [
+    "event_reference",
     "classification",
     "severity",
     "confidence",
-    "rationale"
+    "rationale",
+    "news_relevance"
   ],
   "additionalProperties": false
 }
