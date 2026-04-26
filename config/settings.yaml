@@ -1,0 +1,119 @@
+# Crypto Analyser Configuration
+# WARNING: Do NOT commit your local copy of this file with real secrets.
+# Copy this file and fill in your keys, or set them via environment variables.
+# The config loader will warn/error if required keys are not filled.
+
+# ─── API Keys (MUST fill in for local dev) ───
+api_keys:
+  # LLM API endpoint and key for the classification pipeline
+  # Supports any OpenAI-compatible endpoint (OpenAI, Together, Anyscale, Groq, etc.)
+  llm_api_url: "https://api.openai.com/v1"
+  llm_api_key: "changeme_your_llm_api_key_here"
+
+  # Optional: wayback machine CDX API (no key required)
+  wayback_api_url: "https://web.archive.org/cdx/search/cdx"
+
+# ─── Data Sources ───
+sources:
+  binance:
+    base_url: "https://data.binance.vision"
+    symbol: "LUNAUSDT"
+    intervals:
+      ohlcv: "1m"     # 1-minute klines
+      funding: "8h"   # 8-hour funding rate
+    directories:
+      ohlcv: "data/futures/um/monthly/klines"
+      funding: "data/futures/um/monthly/fundingRate"
+      open_interest: "data/futures/um/daily/metrics"
+
+  wayback:
+    base_url: "https://web.archive.org"
+    cdx_url: "https://web.archive.org/cdx/search/cdx"
+
+# ─── Z-Score Thresholds ───
+anomaly_detection:
+  # Rolling window for Z-score calculation
+  window_hours: 24
+  # Z-score threshold for flagging anomalies
+  #   2.0  → ~95% of normal distribution
+  #   2.5  → ~99% of normal distribution (default)
+  #   3.0  → ~99.7% of normal distribution
+  threshold: 2.5
+  # Minimum consecutive anomalies to trigger an event
+  min_consecutive: 2
+
+# ─── RSS Feeds (verified via Task 0.2) ───
+rss_feeds:
+  - name: "CoinDesk"
+    url: "https://www.coindesk.com/arc/outboundfeeds/rss/"
+  - name: "CoinTelegraph"
+    url: "https://cointelegraph.com/rss"
+  - name: "Decrypt"
+    url: "https://decrypt.co/feed"
+
+# ─── Validation Event Windows ───
+events:
+  luna:
+    symbol: "LUNAUSDT"
+    window:
+      start: "2022-05-07T00:00:00Z"
+      end: "2022-05-11T23:59:59Z"
+    description: "LUNA pre-crash validation window (delisted May 12)"
+  ftx:
+    symbol: "BTCUSDT"
+    window:
+      start: "2022-11-06T00:00:00Z"
+      end: "2022-11-12T23:59:59Z"
+    description: "FTX collapse (enrichment)"
+  bybit:
+    symbol: "BTCUSDT"
+    window:
+      start: "2025-02-21T00:00:00Z"
+      end: "2025-02-22T23:59:59Z"
+    description: "Bybit hack (enrichment)"
+
+# ─── Paths ───
+paths:
+  data_dir: "data"
+  reports_dir: "data/reports"
+  raw_dir: "data/raw"
+  ohlcv_dir: "data/ohlcv"
+  funding_dir: "data/funding"
+  oi_dir: "data/oi"
+  anomalies_dir: "data/anomalies"
+  context_dir: "data/context"
+  classifications_dir: "data/classifications"
+
+# ─── pgvector ───
+pgvector:
+  host: "localhost"
+  port: 5432
+  db: "crypto"
+  user: "postgres"
+  password: "postgres"
+  # Embedding dimension (OpenAI text-embedding-3-small = 1536)
+  embedding_dimension: 1536
+
+# ─── LLM Classifier ───
+llm:
+  model: "gpt-4o"
+  temperature: 0.1
+  max_tokens: 2000
+  # Structured output schema (JSON)
+  output_schema:
+    classification: "string"
+    severity: "string"  # critical|high|medium|low
+    confidence: "number"  # 0.0 - 1.0
+    rationale: "string"
+
+# ─── Langfuse Observability ───
+langfuse:
+  host: "http://localhost:3000"
+  public_key: "changeme_your_langfuse_public_key"
+  secret_key: "changeme_your_langfuse_secret_key"
+
+# ─── Ragas Evaluation ───
+ragas:
+  metrics:
+    - "faithfulness"
+    - "answer_relevancy"
