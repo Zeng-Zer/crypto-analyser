@@ -167,21 +167,29 @@ Wave 2 (Data Pipeline - PARALLEL TRACKS):
 │   └── Task 9: OI download script (Binance Data Vision) [quick] — YOU
 │
 └── TRACK B (INTERN - News Database, runs parallel):
-    ├── Task 10: Load local archive to PostgreSQL [quick] — INTERN
-    ├── Task 11: Define schema + computed columns [quick] — INTERN
+    ├── Task 10: Define schema + computed columns [quick] — INTERN
+    ├── Task 11: Load local archive to PostgreSQL [quick] — INTERN
     ├── Task 12: Generate embeddings [quick] — INTERN
-    └── Task 13: Create database indexes [quick] — INTERN
+    ├── Task 13: Create database indexes [quick] — INTERN
+    └── Task 13.5: Vector Search Demo CLI [quick] — INTERN (showcase task)
 
-Wave 3 (Detection + Classification - PARALLEL TRACKS):
-├── TRACK A (YOU - Core Hypothesis Logic):
+Wave 3 (Detection + Classification - 4 PHASES):
+│
+│   Phase 1 (parallel after Wave 2):
 │   ├── Task 14: Z-score computation engine [unspecified-high] — YOU
-│   ├── Task 15: Derivatives context extractor [quick] — YOU
-│   ├── Task 17: LLM classifier prompt + schema definition [quick] — YOU
-│   ├── Task 18: Classifier execution wrapper [quick] — YOU
+│   ├── Task 16: Build RAG retrieval query [unspecified-high] — INTERN
+│   └── Task 17: LLM classifier prompt + schema [quick] — YOU
+│
+│   Phase 2 (after Task 14):
+│   └── Task 15: Derivatives context extractor [quick] — YOU
+│
+│   Phase 3 (after Tasks 14, 15, 16, 17):
+│   └── Task 18: Classifier execution wrapper [quick] — YOU
+│
+│   Phase 4 (after Task 18):
 │   └── Task 19: JSON report generator [quick] — YOU
 │
-└── TRACK B (INTERN - RAG Retrieval):
-    └── Task 16: Build RAG retrieval query [unspecified-high] — INTERN
+│   Execution order: 14→15→18→19, with 16,17 parallel with 14
 
 Wave 4 (Validation - YOU waits for intern's Task 16 before Task 22):
 ├── Task 20: Run pipeline on LUNA May 7-11 window (derivatives-only first) [deep] — YOU
@@ -206,7 +214,7 @@ Intern Track: Wave 2 Track B → Wave 3 Track B → Task 16 complete
               ▼ (Intern validates FTX/Bybit while YOU on Milestone 2)
 
 Parallel Speedup: ~70% faster than sequential
-Max Concurrent: 7 (Wave 2 - 3 YOU + 4 INTERN parallel)
+Max Concurrent: 7 (Wave 2 - 3 YOU + 4 INTERN parallel, demo runs after indexes)
 ```
 
 ---
@@ -216,7 +224,7 @@ Max Concurrent: 7 (Wave 2 - 3 YOU + 4 INTERN parallel)
 | Developer                | Tasks                                              | Skills Developed/Leveraged                                                          |
 |--------------------------+----------------------------------------------------+-------------------------------------------------------------------------------------|
 | **YOU (Main Developer)** | Tasks 0.1, 0.3, 1-9, 14-15, 17-24, F1-F4 (19 tasks) | Architecture, hypothesis logic, pipeline design, validation, evaluation             |
-| **INTERN**               | Tasks 10-13, 16 (5 tasks)                          | Data engineering, PostgreSQL schema, ML embeddings, indexing, hybrid search         |
+| **INTERN**               | Tasks 10-13, 13.5, 16 (6 tasks)                    | Data engineering, PostgreSQL schema, ML embeddings, indexing, CLI demo, hybrid search |
 
 ---
 
@@ -224,13 +232,14 @@ Max Concurrent: 7 (Wave 2 - 3 YOU + 4 INTERN parallel)
 
 | Task                        | What Intern Builds                                       | Skills Learned                              | Blocking YOU?       |
 |------------------------------+----------------------------------------------------------+---------------------------------------------+---------------------|
-| **10. Load Archive to DB**   | Bulk JSON loader, PostgreSQL inserts, array handling     | Data engineering, batch processing          | Blocks Task 22 only |
-| **11. Schema + Computed**    | Table schema, generated columns, text search setup       | PostgreSQL schema design, tsvector          | Blocks Task 12-13   |
+| **10. Schema + Computed**    | Table schema, generated columns, text search setup       | PostgreSQL schema design, tsvector          | Blocks Task 11-13   |
+| **11. Load Archive to DB**   | Bulk JSON loader, PostgreSQL inserts, array handling     | Data engineering, batch processing          | Blocks Task 12      |
 | **12. Embedding Generation** | Batch embedding, API/library integration, error handling | ML integration, batch processing            | Blocks Task 13, 16  |
-| **13. Database Indexes**     | GIN/BRIN/HNSW indexes, performance tuning               | PostgreSQL indexing, vector search          | Blocks Task 16      |
+| **13. Database Indexes**     | GIN/BRIN/HNSW indexes, performance tuning               | PostgreSQL indexing, vector search          | Blocks Task 13.5, 16 |
+| **13.5. Vector Search Demo** | CLI demo with formatted output, similarity search       | Python CLI, user-facing tools               | None (showcase)     |
 | **16. RAG Retrieval**        | Hybrid search query, time-bounded filtering, RRF ranking | Vector search, query design                 | Blocks Task 22 only |
 
-**Key insight**: Intern's work ONLY blocks Task 22 (derivatives+RAG ablation). Task 21 (derivatives-only) validates hypothesis without waiting for intern.
+**Key insight**: Intern's work ONLY blocks Task 22 (derivatives+RAG ablation). Task 21 (derivatives-only) validates hypothesis without waiting for intern. Demo (Task 13.5) is a showcase deliverable, not a production dependency.
 
 ---
 
@@ -719,68 +728,7 @@ Max Concurrent: 7 (Wave 2 - 3 YOU + 4 INTERN parallel)
 
 ---
 
-- [ ] 10. Load Local Archive to PostgreSQL — **INTERN TASK**
-
-  **What to do**:
-  - Locate the local archive directory containing historical crypto news JSON files
-  - Understand the JSON structure — each file represents one day of articles
-  - Figure out how to insert array data (the `currencies` field) into PostgreSQL
-  - Handle edge cases: some description fields are null strings ("NULL"), some missing
-  - Write a Python script that reads JSON files and inserts into PostgreSQL
-  - Start with May 2022 data — other months can be added later
-  - Verify: count rows inserted matches article count in source files
-  - Make the script idempotent — can rerun without duplicating data
-
-  **Recommended Agent Profile**:
-  - **Category**: `quick`
-    - Reason: Data loading script
-  - **Skills**: none needed
-
-  **Parallelization**:
-  - **Can Run In Parallel**: YES
-  - **Parallel Group**: Wave 2 (with Tasks 7-9, 11-13)
-  - **Blocks**: Task 11 (schema needs data), Task 12 (embeddings)
-  - **Blocked By**: Wave 1 (project structure), Task 3 (Docker running)
-
-  **References**:
-  - Archive location: `/Users/david/Dev/free-crypto-news/archive`
-  - JSON files organized by year/month/day
-  - PostgreSQL connection: check docker-compose.yml for credentials
-  - Look at `psycopg2` or similar library for Python-PostgreSQL connection
-
-  **Acceptance Criteria**:
-  - [ ] May 2022 articles loaded (count matches source)
-  - [ ] NULL descriptions handled correctly (not inserted as string "NULL")
-  - [ ] Currencies array preserved as PostgreSQL array type
-  - [ ] Script can rerun without duplicating rows
-
-  **QA Scenarios**:
-  ```
-  Scenario: Archive data loaded successfully
-    Tool: Bash (psql)
-    Steps:
-      1. Connect to pgvector database
-      2. Count rows where pub_date is in May 2022
-      3. Compare against article count from archive
-    Expected Result: Row count matches expected articles for May 2022
-    Evidence: .sisyphus/evidence/task-10-load-count.txt
-
-  Scenario: Currencies array preserved
-    Tool: Bash (psql)
-    Steps:
-      1. Query a row where currencies had multiple values
-      2. Check the array column contains all tickers
-    Expected Result: Array column has correct tickers
-    Evidence: .sisyphus/evidence/task-10-array-check.txt
-  ```
-
-  **Commit**: YES
-  - Message: `feat: load archive to postgresql`
-  - Files: `scripts/load_archive.py`
-
----
-
-- [ ] 11. Define PostgreSQL Schema + Create Table — **INTERN TASK**
+- [ ] 10. Define PostgreSQL Schema + Create Table — **INTERN TASK**
 
   **What to do**:
   - Design a PostgreSQL table schema for crypto news articles
@@ -798,10 +746,10 @@ Max Concurrent: 7 (Wave 2 - 3 YOU + 4 INTERN parallel)
   - **Skills**: none needed
 
   **Parallelization**:
-  - **Can Run In Parallel**: YES
-  - **Parallel Group**: Wave 2 (with Tasks 7-10, 12-13)
-  - **Blocks**: Task 10 (needs table before inserts), Task 12 (embedding column)
-  - **Blocked By**: Wave 0 (pgvector extension confirmed)
+  - **Can Run In Parallel**: YES (start immediately, no dependencies)
+  - **Parallel Group**: Wave 2 (with Tasks 7-9)
+  - **Blocks**: Task 11 (load data needs table), Task 12 (embedding column)
+  - **Blocked By**: Wave 0 (pgvector extension confirmed) — ALREADY DONE
 
   **References**:
   - pgvector documentation: how to create vector columns
@@ -825,7 +773,7 @@ Max Concurrent: 7 (Wave 2 - 3 YOU + 4 INTERN parallel)
       2. Verify computed columns populated correctly
       3. Delete test row
     Expected Result: Insert succeeds, computed columns have values
-    Evidence: .sisyphus/evidence/task-11-schema-test.txt
+    Evidence: .sisyphus/evidence/task-10-schema-test.txt
 
   Scenario: Text search works
     Tool: Bash (psql)
@@ -834,19 +782,84 @@ Max Concurrent: 7 (Wave 2 - 3 YOU + 4 INTERN parallel)
       2. Query using text search syntax
       3. Verify it returns the test article
     Expected Result: Text search query finds matching article
-    Evidence: .sisyphus/evidence/task-11-textsearch.txt
+    Evidence: .sisyphus/evidence/task-10-textsearch.txt
   ```
 
   **Commit**: YES
   - Message: `feat: crypto_news table schema`
   - Files: `sql/schema.sql`, `docs/schema.md`
 
+  ---
+  **INTERN TASK** — First intern task! No dependencies, start immediately.
+
 ---
+
+- [ ] 11. Load Local Archive to PostgreSQL — **INTERN TASK**
+
+  **What to do**:
+  - Locate the local archive directory containing historical crypto news JSON files
+  - Understand the JSON structure — each file represents one day of articles
+  - Figure out how to insert array data (the `currencies` field) into PostgreSQL
+  - Handle edge cases: some description fields are null strings ("NULL"), some missing
+  - Write a Python script that reads JSON files and inserts into PostgreSQL
+  - Start with May 2022 data — other months can be added later
+  - Verify: count rows inserted matches article count in source files
+  - Make the script idempotent — can rerun without duplicating data
+
+  **Recommended Agent Profile**:
+  - **Category**: `quick`
+    - Reason: Data loading script
+  - **Skills**: none needed
+
+  **Parallelization**:
+  - **Can Run In Parallel**: YES (after Task 10 schema is complete)
+  - **Parallel Group**: Wave 2 (with Tasks 7-9, 12-13)
+  - **Blocks**: Task 12 (embeddings need data)
+  - **Blocked By**: Task 10 (schema/table must exist before inserting)
+
+  **References**:
+  - Archive location: `/Users/david/Dev/free-crypto-news/archive`
+  - JSON files organized by year/month/day
+  - PostgreSQL connection: check docker-compose.yml for credentials
+  - Look at `psycopg2` or similar library for Python-PostgreSQL connection
+
+  **Acceptance Criteria**:
+  - [ ] May 2022 articles loaded (count matches source)
+  - [ ] NULL descriptions handled correctly (not inserted as string "NULL")
+  - [ ] Currencies array preserved as PostgreSQL array type
+  - [ ] Script can rerun without duplicating rows
+
+  **QA Scenarios**:
+  ```
+  Scenario: Archive data loaded successfully
+    Tool: Bash (psql)
+    Steps:
+      1. Connect to pgvector database
+      2. Count rows where pub_date is in May 2022
+      3. Compare against article count from archive
+    Expected Result: Row count matches expected articles for May 2022
+    Evidence: .sisyphus/evidence/task-11-load-count.txt
+
+  Scenario: Currencies array preserved
+    Tool: Bash (psql)
+    Steps:
+      1. Query a row where currencies had multiple values
+      2. Check the array column contains all tickers
+    Expected Result: Array column has correct tickers
+    Evidence: .sisyphus/evidence/task-11-array-check.txt
+  ```
+
+  **Commit**: YES
+  - Message: `feat: load archive to postgresql`
+  - Files: `scripts/load_archive.py`
+
+  ---
+  **INTERN TASK** — Runs after Task 10 (schema). Data engineering focus.
 
 - [ ] 12. Generate Embeddings for Article Content — **INTERN TASK**
 
   **What to do**:
-  - Read articles from PostgreSQL (use the content column from Task 11)
+  - Read articles from PostgreSQL (use the content column from Task 10)
   - Choose an embedding model — check what's configured, or ask if unclear
   - Figure out how to call the embedding model (API or local library)
   - Process articles in batches — don't send one request per article
@@ -861,10 +874,10 @@ Max Concurrent: 7 (Wave 2 - 3 YOU + 4 INTERN parallel)
   - **Skills**: none needed
 
   **Parallelization**:
-  - **Can Run In Parallel**: YES
-  - **Parallel Group**: Wave 2 (with Tasks 7-11, 13)
+  - **Can Run In Parallel**: YES (after data loaded)
+  - **Parallel Group**: Wave 2 (with Tasks 7-9, 13)
   - **Blocks**: Task 13 (indexes need embeddings), Task 16 (retrieval needs embeddings)
-  - **Blocked By**: Task 11 (schema with embedding column), Task 10 (data loaded)
+  - **Blocked By**: Task 10 (schema with embedding column), Task 11 (data loaded)
 
   **References**:
   - Config file: `config/settings.yaml` — check for embedding model settings
@@ -964,6 +977,119 @@ Max Concurrent: 7 (Wave 2 - 3 YOU + 4 INTERN parallel)
 
 ---
 
+- [ ] 13.5. Vector Search Demo CLI — **INTERN SHOWCASE TASK**
+
+  **What to do**:
+  - Create `scripts/demo_retrieval.py` — a CLI tool to showcase your vector search pipeline
+  - Features:
+    - Accept query text via command line
+    - Generate embedding from query text (use configured embedding model)
+    - Execute pgvector similarity query directly (no retrieval function needed)
+    - Display ranked results with formatted output:
+      - Article title (truncated if too long)
+      - Publication date and source
+      - Snippet (first 100 chars of content)
+      - Similarity score (0.0-1.0, computed as `1 - distance`)
+      - Tickers mentioned (from currencies array)
+    - Show performance metrics: latency, index type used, total rows
+  - Use `rich` library for colored/formatted output
+  - Include example queries in `docs/demo-guide.md`
+  - Test queries: "Terra UST depeg", "LUNA price crash", "Bitcoin ETF approval", "Ethereum merge"
+
+  **Recommended Agent Profile**:
+  - **Category**: `quick` — Demo/CLI development
+  - **Skills**: none needed
+
+  **Parallelization**:
+  - **Can Run In Parallel**: NO — runs after Task 13 (indexes) complete
+  - **Parallel Group**: Wave 2 Track B (final intern task)
+  - **Blocks**: None (demo is showcase, not production dependency)
+  - **Blocked By**: Task 13 (HNSW index needed for fast search), Task 12 (embeddings populated)
+
+  **References**:
+  - CLI libraries: `argparse` (standard), `rich` (for colored output)
+  - pgvector query: `SELECT ... ORDER BY embedding <-> query_vector LIMIT 10`
+  - Task 0.3 evidence file shows example pgvector query syntax
+
+  **Example Output**:
+  ```
+  $ python scripts/demo_retrieval.py --query "Terra UST depeg"
+
+  🔍 Searching 9,000 crypto news articles from May 2022...
+
+  Top 10 most similar articles:
+  ────────────────────────────────────────────────────────────────
+  1. [0.92] Terra's UST stablecoin loses dollar peg
+     📅 CoinDesk | 2022-05-09 14:32 UTC
+     💬 "UST, the algorithmic stablecoin at the heart..."
+     🏷️  [UST, LUNA, TERRA]
+
+  2. [0.88] LUNA price crashes 99% as Terra ecosystem unravels
+     📅 Cointelegraph | 2022-05-09 18:45 UTC
+     💬 "The collapse of Terra's dual-token system..."
+     🏴️  [LUNA, UST]
+
+  3. [0.85] Do Kwon addresses Terra community amid crisis
+     📅 The Block | 2022-05-09 22:10 UTC
+     💬 "Terra founder proposed a recovery plan..."
+     🏴️  [LUNA, TERRA]
+  ────────────────────────────────────────────────────────────────
+  📊 Performance: 23ms latency | HNSW index used | 9,000 rows scanned
+  ```
+
+  **What This Demo Proves**:
+  - Vector embeddings work (query → embedding → results)
+  - pgvector similarity search works with `<->` operator
+  - HNSW index provides fast retrieval (< 50ms)
+  - All 9,000 May 2022 articles are searchable
+  - Pipeline end-to-end: data → embeddings → index → search
+
+  **Acceptance Criteria**:
+  - [ ] `scripts/demo_retrieval.py` created and runnable
+  - [ ] Query returns ranked results with similarity scores
+  - [ ] Output formatted for readability (not raw JSON)
+  - [ ] Performance metrics displayed (latency, index type)
+  - [ ] Example queries documented in `docs/demo-guide.md`
+  - [ ] Demo shows latency < 50ms for May 2022 data
+
+  **QA Scenarios**:
+  ```
+  Scenario: Demo runs successfully
+    Tool: Bash (python)
+    Steps:
+      1. python scripts/demo_retrieval.py --query "Terra UST depeg"
+      2. Check output shows ranked articles with scores
+    Expected Result: 10 articles returned with formatted output
+    Evidence: .sisyphus/evidence/task-13.5-demo-run.txt
+
+  Scenario: Demo shows performance metrics
+    Tool: Bash (python)
+    Steps:
+      1. Run demo with any query
+      2. Check output includes latency and "HNSW index"
+    Expected Result: Shows "latency: Xms" and index type
+    Evidence: .sisyphus/evidence/task-13.5-demo-perf.txt
+
+  Scenario: Demo handles embedding API errors gracefully
+    Tool: Bash (python)
+    Steps:
+      1. Run demo when embedding API is unavailable
+      2. Check error message is user-friendly
+    Expected Result: Shows "Embedding API error" message, no crash
+    Evidence: .sisyphus/evidence/task-13.5-demo-error.txt
+  ```
+
+  **Commit**: YES
+  - Message: `feat: vector search demo CLI`
+  - Files: `scripts/demo_retrieval.py`, `docs/demo-guide.md`
+
+  ---
+  **INTERN SHOWCASE TASK** — Your final Wave 2 deliverable! Demo this to show: "I built a semantic search engine for crypto news."
+  
+  **Note**: This is a **basic vector search demo**. Task 16 (Wave 3) will build the production retrieval with time filtering, ticker filtering, and hybrid search for the ablation study.
+
+---
+
 ### Wave 3: Detection + Classification
 
 - [ ] 14. Z-Score Computation Engine
@@ -983,9 +1109,9 @@ Max Concurrent: 7 (Wave 2 - 3 YOU + 4 INTERN parallel)
   - **Skills**: none needed
 
   **Parallelization**:
-  - **Can Run In Parallel**: YES
-  - **Parallel Group**: Wave 3 (with Tasks 15-19)
-  - **Blocks**: Tasks 15-18 (need anomaly timestamps)
+  - **Phase**: 1 (can start immediately after Wave 2)
+  - **Runs In Parallel With**: Task 16, Task 17
+  - **Blocks**: Task 15 (needs anomaly timestamps)
   - **Blocked By**: Wave 2 (Task 7 OHLCV data)
 
   **References**:
@@ -1002,8 +1128,8 @@ Max Concurrent: 7 (Wave 2 - 3 YOU + 4 INTERN parallel)
   Scenario: Z-score detects LUNA anomalies
     Tool: Bash (python)
     Steps:
-      1. python src/zscore.py --symbol LUNC --start 2022-05-07 --end 2022-05-11 --threshold 2.5
-      2. jq '.anomalies | length' data/anomalies/LUNC_2022-05-07_2022-05-11.json
+      1. python src/zscore.py --symbol LUNAUSDT --start 2022-05-07 --end 2022-05-11 --threshold 2.5
+      2. jq '.anomalies | length' data/anomalies/LUNAUSDT_2022-05-07_2022-05-11.json
     Expected Result: anomalies > 0 (LUNA crash triggers)
     Evidence: .sisyphus/evidence/task-14-zscore-luna.txt
 
@@ -1026,11 +1152,12 @@ Max Concurrent: 7 (Wave 2 - 3 YOU + 4 INTERN parallel)
 
   **What to do**:
   - Create `src/derivatives_context.py`:
-    - Take anomaly timestamps from Task 14
+    - Take anomaly timestamps from Task 14 output
     - Pull funding rate at each timestamp (or nearest 8h interval)
     - Pull OI at each timestamp (5-min granularity from Binance Data Vision)
     - Compute: funding_rate_current, funding_rate_avg_4h, oi_current, oi_change_4h
     - Package as feature vector: JSON with all derivatives features
+    - Store to: `data/context/{symbol}_{start}_{end}_context.json`
 
   **Recommended Agent Profile**:
   - **Category**: `quick`
@@ -1038,23 +1165,23 @@ Max Concurrent: 7 (Wave 2 - 3 YOU + 4 INTERN parallel)
   - **Skills**: none needed
 
   **Parallelization**:
-  - **Can Run In Parallel**: YES
-  - **Parallel Group**: Wave 3 (with Tasks 14, 16-19)
-  - **Blocks**: Task 17-18 (LLM classifier input)
-  - **Blocked By**: Task 14 (anomalies) + Task 8 (funding data)
+  - **Phase**: 2 (starts after Task 14 completes)
+  - **Runs In Parallel With**: None (sequential after Task 14)
+  - **Blocks**: Task 18 (LLM classifier needs derivatives features)
+  - **Blocked By**: Task 14 (anomaly timestamps), Task 8 (funding data from Wave 2)
 
   **Acceptance Criteria**:
   - [ ] Derivatives context extracted for anomalies
   - [ ] OI data included (from Binance Data Vision)
-  - [ ] Feature vector JSON output
+  - [ ] Feature vector JSON output saved to `data/context/`
 
   **QA Scenarios**:
   ```
   Scenario: Derivatives context extraction
     Tool: Bash (python)
     Steps:
-      1. python src/derivatives_context.py --anomalies data/anomalies/LUNC_anomalies.json
-      2. jq '.features[0].funding_rate' data/context/LUNC_context.json
+      1. python src/derivatives_context.py --anomalies data/anomalies/LUNAUSDT_2022-05-07_2022-05-11.json
+      2. jq '.features[0].funding_rate' data/context/LUNAUSDT_2022-05-07_2022-05-11_context.json
     Expected Result: funding_rate value present
     Evidence: .sisyphus/evidence/task-15-derivatives-context.txt
   ```
@@ -1074,42 +1201,44 @@ Max Concurrent: 7 (Wave 2 - 3 YOU + 4 INTERN parallel)
     - Filter by time window (articles within +/- 12 hours of anomaly)
     - Rank by relevance (combine vector similarity + text similarity)
   - Research: how to combine vector search and text search into one ranked result
-  - Write a Python function or SQL query that:
+  - Write a Python function in `src/retrieval.py` that:
     - Takes anomaly timestamp and ticker as inputs
     - Returns top 5-10 most relevant articles
     - Includes article metadata: title, description, pub_date, source, tickers
-  - Test with sample anomaly: LUNA crash timestamp, should return Terra-related articles
-  - Document your approach
+  - Create test script `scripts/test_retrieval.py` to validate your retrieval works
+  - Test with sample anomaly: LUNA crash timestamp (2022-05-09), should return Terra-related articles
+  - Document your approach in `docs/retrieval.md`
 
   **Recommended Agent Profile**:
   - **Category**: `unspecified-high`
     - Reason: Retrieval logic needs thought — combining multiple ranking signals
 
   **Parallelization**:
-  - **Can Run In Parallel**: YES
-  - **Parallel Group**: Wave 3 (with Tasks 14-15, 17-19)
-  - **Blocks**: Task 18 (LLM classifier needs RAG context), Task 22 (ablation run)
+  - **Phase**: 1 (can start immediately after Wave 2)
+  - **Runs In Parallel With**: Task 14, Task 17
+  - **Blocks**: Task 18 (LLM classifier needs RAG context), Task 22 (ablation run in Wave 4)
   - **Blocked By**: Task 13 (indexes created), Task 12 (embeddings populated)
 
   **References**:
-  - Hybrid search concept: combining vector + keyword rankings
-  - PostgreSQL vector operators: how to compute similarity
-  - PostgreSQL text search: how to rank by relevance
-  - Time-bounded query: BETWEEN syntax for timestamps
+  - Hybrid search concept: combining vector + keyword rankings (RRF)
+  - PostgreSQL vector operators: how to compute similarity with `<->`
+  - PostgreSQL text search: how to rank by relevance with `ts_rank`
+  - Time-bounded query: `WHERE pub_date BETWEEN timestamp - 12h AND timestamp + 12h`
 
   **Acceptance Criteria**:
   - [ ] Retrieval returns articles filtered by ticker
   - [ ] Retrieval returns articles within time window
   - [ ] Results ranked by combined relevance score
+  - [ ] Test script `scripts/test_retrieval.py` created and working
   - [ ] Test query for LUNA timestamp returns Terra-related articles
-  - [ ] Approach documented
+  - [ ] Approach documented in `docs/retrieval.md`
 
   **QA Scenarios**:
   ```
   Scenario: Retrieval filters by ticker
     Tool: Bash (python)
     Steps:
-      1. Call retrieval with ticker=['LUNA']
+      1. python scripts/test_retrieval.py --ticker LUNA --date 2022-05-09
       2. Check all returned articles have LUNA in tickers array
     Expected Result: All results match ticker filter
     Evidence: .sisyphus/evidence/task-16-ticker-filter.txt
@@ -1117,7 +1246,7 @@ Max Concurrent: 7 (Wave 2 - 3 YOU + 4 INTERN parallel)
   Scenario: Retrieval bounds by time
     Tool: Bash (python)
     Steps:
-      1. Call retrieval with anomaly timestamp
+      1. python scripts/test_retrieval.py --timestamp 2022-05-09T14:00:00
       2. Check all articles within +/- 12 hours
     Expected Result: All results within time window
     Evidence: .sisyphus/evidence/task-16-time-bound.txt
@@ -1125,7 +1254,7 @@ Max Concurrent: 7 (Wave 2 - 3 YOU + 4 INTERN parallel)
   Scenario: LUNA retrieval returns relevant articles
     Tool: Bash (python)
     Steps:
-      1. Call retrieval for 2022-05-09 anomaly
+      1. python scripts/test_retrieval.py --ticker LUNA --timestamp 2022-05-09T14:00:00
       2. Check results contain Terra/UST keywords
     Expected Result: Top results are Terra-related
     Evidence: .sisyphus/evidence/task-16-luna-retrieval.txt
@@ -1133,7 +1262,7 @@ Max Concurrent: 7 (Wave 2 - 3 YOU + 4 INTERN parallel)
 
   **Commit**: YES
   - Message: `feat: RAG retrieval query`
-  - Files: `src/retrieval.py`, `docs/retrieval.md`
+  - Files: `src/retrieval.py`, `scripts/test_retrieval.py`, `docs/retrieval.md`
 
 ---
 
@@ -1154,10 +1283,10 @@ Max Concurrent: 7 (Wave 2 - 3 YOU + 4 INTERN parallel)
   - **Skills**: none needed
 
   **Parallelization**:
-  - **Can Run In Parallel**: YES
-  - **Parallel Group**: Wave 3 (with Tasks 14-16, 18-19)
+  - **Phase**: 1 (can start immediately after Wave 1)
+  - **Runs In Parallel With**: Task 14, Task 16
   - **Blocks**: Task 18 (classifier execution)
-  - **Blocked By**: Wave 1 (Task 5 LLM client)
+  - **Blocked By**: Wave 1 (Task 5 LLM client wrapper)
 
   **Acceptance Criteria**:
   - [ ] Classification prompt created
@@ -1177,7 +1306,7 @@ Max Concurrent: 7 (Wave 2 - 3 YOU + 4 INTERN parallel)
 
   **Commit**: YES
   - Message: `feat: LLM classifier prompt and schema`
-  - Files: `prompts/classification_prompt.md, schemas/classification.json`
+  - Files: `prompts/classification_prompt.md`, `schemas/classification.json`
 
 ---
 
@@ -1191,6 +1320,9 @@ Max Concurrent: 7 (Wave 2 - 3 YOU + 4 INTERN parallel)
     - Parse and validate response
     - Handle errors (schema validation failure)
   - Create variants: classify_derivatives_only(), classify_with_rag()
+  - Store outputs:
+    - Derivatives-only: `data/classifications/derivatives_only/{symbol}_{timestamp}.json`
+    - With RAG: `data/classifications/derivatives_rag/{symbol}_{timestamp}.json`
 
   **Recommended Agent Profile**:
   - **Category**: `quick`
@@ -1198,8 +1330,10 @@ Max Concurrent: 7 (Wave 2 - 3 YOU + 4 INTERN parallel)
   - **Skills**: none needed
 
   **Parallelization**:
-  - **Can Run In Parallel**: YES
-  - **Parallel Group**: Wave 3 (with Tasks 14-17, 19)
+  - **Phase**: 3 (starts after Tasks 14, 15, 16, 17 complete)
+  - **Runs In Parallel With**: None (sequential, needs all inputs)
+  - **Blocks**: Task 19 (report generation)
+  - **Blocked By**: Task 14 (anomalies), Task 15 (derivatives), Task 16 (RAG retrieval), Task 17 (prompt/schema)
   - **Blocks**: Task 19 (report generation)
   - **Blocked By**: Tasks 14-17 (all inputs needed)
 
@@ -1207,14 +1341,15 @@ Max Concurrent: 7 (Wave 2 - 3 YOU + 4 INTERN parallel)
   - [ ] Classifier produces valid JSON schema output
   - [ ] Both variants (derivatives-only + RAG) work
   - [ ] Error handling for schema failures
+  - [ ] Outputs saved to correct paths (derivatives_only/ and derivatives_rag/)
 
   **QA Scenarios**:
   ```
   Scenario: LLM classifier structured output
     Tool: Bash (python) - requires filled API placeholder
     Steps:
-      1. python src/classifier.py --anomaly anomaly.json --mode derivatives_only
-      2. jq '.classification' data/classifications/result.json
+      1. python src/classifier.py --anomaly data/anomalies/LUNAUSDT_2022-05-09T14-00.json --mode derivatives_only
+      2. jq '.classification' data/classifications/derivatives_only/LUNAUSDT_2022-05-09T14-00.json
     Expected Result: One of classification categories
     Evidence: .sisyphus/evidence/task-18-classifier-output.txt
 
@@ -1238,9 +1373,10 @@ Max Concurrent: 7 (Wave 2 - 3 YOU + 4 INTERN parallel)
   **What to do**:
   - Create `src/report_generator.py`:
     - Aggregate all results: anomaly, derivatives, RAG, classification
+    - Read from: `data/classifications/derivatives_only/` or `data/classifications/derivatives_rag/`
     - Generate JSON report per anomaly: `reports/{symbol}_{timestamp}_report.json`
     - Include: timestamp, Z-score, derivatives features, RAG context (optional), classification
-    - Generate summary report: `reports/{symbol}_{event}_summary.json`
+    - Generate summary report: `reports/{symbol}_{start}_{end}_summary.json`
 
   **Recommended Agent Profile**:
   - **Category**: `quick`
@@ -1248,8 +1384,8 @@ Max Concurrent: 7 (Wave 2 - 3 YOU + 4 INTERN parallel)
   - **Skills**: none needed
 
   **Parallelization**:
-  - **Can Run In Parallel**: YES
-  - **Parallel Group**: Wave 3 (with Tasks 14-18)
+  - **Phase**: 4 (starts after Task 18 completes)
+  - **Runs In Parallel With**: None (final Wave 3 task)
   - **Blocks**: Wave 4 (validation)
   - **Blocked By**: Task 18 (classifications)
 
@@ -1257,21 +1393,24 @@ Max Concurrent: 7 (Wave 2 - 3 YOU + 4 INTERN parallel)
   - [ ] JSON reports generated for each anomaly
   - [ ] Summary report created
   - [ ] Valid JSON structure
+  - [ ] Reports include all fields from intermediate files
 
   **QA Scenarios**:
   ```
   Scenario: Report generation
     Tool: Bash (python)
     Steps:
-      1. python src/report_generator.py --event LUNA_2022-05-07_2022-05-11
-      2. jq '.anomalies | length' reports/LUNA_2022-05-07_2022-05-11_summary.json
+      1. python src/report_generator.py --symbol LUNAUSDT --start 2022-05-07 --end 2022-05-11 --mode derivatives_only
+      2. jq '.anomalies | length' reports/LUNAUSDT_2022-05-07_2022-05-11_summary.json
     Expected Result: Summary report with all anomalies
     Evidence: .sisyphus/evidence/task-19-report-generation.txt
   ```
 
   **Commit**: YES
   - Message: `feat: JSON report generator`
-  ---
+  - Files: `src/report_generator.py`
+
+---
 
 ### Wave 4: Validation + Evaluation
 
