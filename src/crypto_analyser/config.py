@@ -110,45 +110,14 @@ class Config:
         except KeyError:
             return default
 
-    @property
-    def api_keys(self) -> dict:
-        return self["api_keys"]
-
-    @property
-    def sources(self) -> dict:
-        return self["sources"]
-
-    @property
-    def anomaly_detection(self) -> dict:
-        return self["anomaly_detection"]
-
-    @property
-    def rss_feeds(self) -> list[dict]:
-        return self["rss_feeds"]
-
-    @property
-    def events(self) -> dict:
-        return self["events"]
-
-    @property
-    def paths(self) -> dict:
-        return self["paths"]
-
-    @property
-    def pgvector(self) -> dict:
-        return self["pgvector"]
-
-    @property
-    def llm(self) -> dict:
-        return self["llm"]
-
-    @property
-    def langfuse(self) -> dict:
-        return self["langfuse"]
-
-    @property
-    def ragas(self) -> dict:
-        return self["ragas"]
+    def __getattr__(self, name: str) -> Any:
+        """Dynamically resolve top-level config keys as attributes."""
+        if name.startswith("_"):
+            raise AttributeError(name)
+        try:
+            return self._data[name]
+        except KeyError as exc:
+            raise AttributeError(f"Config has no key '{name}'") from exc
 
     def to_dict(self) -> dict:
         return self._data.copy()

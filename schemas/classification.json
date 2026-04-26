@@ -1,0 +1,61 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CryptoEventClassification",
+  "description": "LLM classification output for a crypto price anomaly event",
+  "type": "object",
+  "properties": {
+    "event_reference": {
+      "type": "string",
+      "description": "Unique identifier linking this classification back to the original anomaly event (e.g. anomaly timestamp or ID)"
+    },
+    "classification": {
+      "type": "string",
+      "description": "Primary classification of the price anomaly",
+      "enum": [
+        "explained",
+        "unexplained",
+        "news_driven",
+        "derivatives_driven",
+        "unknown"
+      ]
+    },
+    "severity": {
+      "type": "integer",
+      "description": "Severity score: 1-3 minor wick/dip, 4-6 significant move (>5%), 7-8 major event (>15%), 9-10 catastrophic (>50% or exchange collapse)",
+      "minimum": 1,
+      "maximum": 10
+    },
+    "confidence": {
+      "type": "number",
+      "description": "Confidence in the classification, from 0.0 (uncertain) to 1.0 (certain)",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "rationale": {
+      "type": "string",
+      "description": "Detailed reasoning for the classification, citing specific evidence from the derivatives context",
+      "minLength": 10
+    },
+    "news_relevance": {
+      "type": ["string", "null"],
+      "description": "Estimated lag of news relevance. null if no RSS context was provided.",
+      "enum": [
+        "concurrent",
+        "15min_lag",
+        "30min_lag",
+        "60min_lag",
+        "irrelevant",
+        null
+      ]
+    }
+  },
+  "required": [
+    "event_reference",
+    "classification",
+    "severity",
+    "confidence",
+    "rationale",
+    "news_relevance"
+  ],
+  "additionalProperties": false
+}
