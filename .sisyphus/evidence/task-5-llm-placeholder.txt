@@ -1,0 +1,29 @@
+LLM client and schema validation
+
+Command: uv run python -c "... validate schema structure ..."
+
+Result: PASS - JSON schema is well-formed
+- Title: CryptoEventClassification
+- Required: ['classification', 'severity', 'confidence', 'rationale']
+- Properties: 5 (classification, severity, confidence, rationale, news_relevance)
+- Classification enum: 8 values (explained, unexplained, flash_crash, coordinated_dump, technical_issue, news_driven, derivatives_driven, unknown)
+- Severity range: 1-10
+- Confidence range: 0.0-1.0
+- AdditionalProperties: False
+
+---
+
+Placeholder detection test
+
+Command: LLMClient()
+
+Result: PASS - PlaceholderValueError raised:
+  "API_KEY contains a placeholder value: 'changeme_'. Please fill it in config/settings.yaml."
+
+---
+
+ClassificationResult test
+
+Command: ClassificationResult.from_dict({...})
+
+Result: PASS - Typed dataclass correctly wraps and validates fields
