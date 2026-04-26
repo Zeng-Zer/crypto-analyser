@@ -57,6 +57,13 @@ def load_config(config_path: str | Path | None = None) -> Config:
     if config_path is None:
         root = Path(__file__).resolve().parent.parent.parent
         config_path = root / "config" / "settings.yaml"
+        # Fallback if src layout changes — search from cwd up to project root
+        if not config_path.exists():
+            for ancestor in Path.cwd().resolve().parents:
+                candidate = ancestor / "config" / "settings.yaml"
+                if candidate.exists():
+                    config_path = candidate
+                    break
 
     path = Path(config_path)
     if not path.exists():
