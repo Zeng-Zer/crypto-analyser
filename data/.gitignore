@@ -1,0 +1,13 @@
+# Parquet files
+*.parquet
+
+# DuckDB database
+*.duckdb
+*.duckdb.wal
+
+# Raw downloaded files
+raw/*.csv
+raw/*.zip
+
+# Keep .gitkeep files
+!.gitkeep
