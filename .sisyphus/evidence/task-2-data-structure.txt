@@ -1,0 +1,12 @@
+total 8
+drwxr-xr-x  11 david  staff  352 Apr 26 20:35 .
+drwxr-xr-x  18 david  staff  576 Apr 26 20:34 ..
+-rw-r--r--   1 david  staff  144 Apr 26 20:34 .gitignore
+drwxr-xr-x   3 david  staff   96 Apr 26 20:34 anomalies
+drwxr-xr-x   3 david  staff   96 Apr 26 20:34 classifications
+drwxr-xr-x   3 david  staff   96 Apr 26 20:34 context
+drwxr-xr-x   3 david  staff   96 Apr 26 20:34 funding
+drwxr-xr-x   3 david  staff   96 Apr 26 20:34 ohlcv
+drwxr-xr-x   3 david  staff   96 Apr 26 20:34 oi
+drwxr-xr-x   3 david  staff   96 Apr 26 20:34 raw
+drwxr-xr-x   3 david  staff   96 Apr 26 20:34 reports
