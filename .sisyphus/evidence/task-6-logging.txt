@@ -1,0 +1,18 @@
+# Evidence: Task 6 — Logging + Langfuse SDK Integration
+
+## QA Scenario: Logging outputs to file
+
+Command:
+  python3 -c "import sys; sys.path.insert(0, 'src'); from crypto_analyser.logging_config import get_logger; logger = get_logger(); logger.info('test')"
+
+Console output:
+  2026-04-26 23:13:11 | INFO     | root | test
+
+Log file contents (logs/app.log):
+  2026-04-26 23:13:11 | INFO     | root | test
+
+Result: PASS — log file created with test message.
+
+## Files created
+- src/crypto_analyser/logging_config.py
+- src/crypto_analyser/tracing.py
