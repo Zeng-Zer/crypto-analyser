@@ -57,8 +57,11 @@ def get_logger(name: str | None = None) -> logging.Logger:
     """Return a logger with project-standard handlers attached.
 
     Args:
-        name: Logger namespace (defaults to the caller's module name
-            when imported and used directly).
+        name: Logger namespace. When ``None``, returns the **root logger**
+            (``logging.getLogger(None)``), which means every library log
+            will flow through these handlers.  Prefer passing an explicit
+            name (e.g. ``__name__``) unless you intentionally want root-
+            logger behaviour.
 
     Returns:
         A :class:`logging.Logger` instance writing to both stdout and

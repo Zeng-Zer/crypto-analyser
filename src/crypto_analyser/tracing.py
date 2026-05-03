@@ -10,6 +10,9 @@ import os
 from typing import Any, Callable, TypeVar
 
 from crypto_analyser.config import Config, load_config
+from crypto_analyser.logging_config import get_logger
+
+_logger = get_logger(__name__)
 
 _F = TypeVar("_F", bound=Callable[..., Any])
 
@@ -29,6 +32,7 @@ def _get_langfuse() -> Any | None:
         from langfuse import Langfuse
     except Exception:  # pragma: no cover
         _langfuse_initialised = True
+        _logger.debug("Langfuse SDK not available, tracing disabled")
         return None
 
     cfg: Config | None = None
@@ -36,6 +40,7 @@ def _get_langfuse() -> Any | None:
         cfg = load_config()
     except Exception:
         _langfuse_initialised = True
+        _logger.debug("Failed to load config, tracing disabled")
         return None
 
     # Allow env overrides for CI / containers
@@ -46,12 +51,14 @@ def _get_langfuse() -> Any | None:
     # Skip if any are missing or still placeholders
     if not host or not public_key or not secret_key:
         _langfuse_initialised = True
+        _logger.debug("Langfuse credentials incomplete, tracing disabled")
         return None
 
     placeholder_patterns = ("changeme_", "your_", "placeholder")
     for value in (host, public_key, secret_key):
         if any(p in str(value).lower() for p in placeholder_patterns):
             _langfuse_initialised = True
+            _logger.debug("Langfuse credentials contain placeholder values, tracing disabled")
             return None
 
     try:
@@ -62,6 +69,7 @@ def _get_langfuse() -> Any | None:
         )
     except Exception:
         _langfuse_initialised = True
+        _logger.debug("Langfuse client initialisation failed, tracing disabled", exc_info=True)
         return None
 
     _langfuse_initialised = True
@@ -97,6 +105,7 @@ def trace_step(
             try:
                 trace = lf.trace(name=trace_name)
             except Exception:
+                _logger.debug("Failed to create trace", exc_info=True)
                 return func(*args, **kwargs)
 
             try:
@@ -105,6 +114,7 @@ def trace_step(
                     input=({"args": args, "kwargs": kwargs} if capture_input else None),
                 )
             except Exception:
+                _logger.debug("Failed to create span", exc_info=True)
                 span = None
 
             try:
@@ -118,7 +128,7 @@ def trace_step(
                             status_message=str(exc),
                         )
                 except Exception:
-                    pass
+                    _logger.debug("Failed to update span on exception", exc_info=True)
                 raise
             else:
                 try:
@@ -128,7 +138,7 @@ def trace_step(
                             level="DEFAULT",
                         )
                 except Exception:
-                    pass
+                    _logger.debug("Failed to update span with result", exc_info=True)
                 return result
 
         return wrapper  # type: ignore[return-value]
@@ -167,4 +177,4 @@ def score_attachment(
             comment=comment,
         )
     except Exception:
-        pass
+        _logger.debug("Failed to attach score to trace", exc_info=True)
