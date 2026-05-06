@@ -1,6 +1,6 @@
 ---
 name: github-pr
-description: Create well-structured GitHub pull requests with organized body sections, proper formatting, and context from commit history. Triggers: 'create a PR', 'create a pull request', 'make a PR', 'open a pull request', 'push and create PR', 'I need a PR', 'generate PR description', 'prepare pull request'.
+description: "Create well-structured GitHub pull requests with organized body sections, proper formatting, and context from commit history. Triggers: 'create a PR', 'create a pull request', 'make a PR', 'open a pull request', 'push and create PR', 'I need a PR', 'generate PR description', 'prepare pull request'."
 license: MIT
 compatibility: opencode
 metadata:

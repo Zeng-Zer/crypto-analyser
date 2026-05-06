@@ -1,6 +1,6 @@
 ---
 name: github-task
-description: Create GitHub issues with labels, milestone, assignees, and body content. Use for importing tasks from plans into GitHub Projects.
+description: "Create GitHub issues with labels, milestone, assignees, and body content. Use for importing tasks from plans into GitHub Projects."
 license: MIT
 compatibility: opencode
 metadata:
