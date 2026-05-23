@@ -38,16 +38,17 @@
 CREATE DATABASE crypto_analyser;
 CREATE EXTENSION IF NOT EXISTS vector; 
 CREATE TABLE crypto_news(
-id SERIAL PRIMARY KEY, OK
-title TEXT NOT NULL, OK
-description TEXT, OK 
-link TEXT NOT NULL UNIQUE, OK 
-date_pub TIMESTAMPTZ, OK
-source TEXT NOT NULL, OK
-category TEXT NOT NULL, OK
-tickers TEXT[] NOT NULL,OK
+id SERIAL PRIMARY KEY,
+title TEXT NOT NULL,
+description TEXT,
+link TEXT NOT NULL UNIQUE,
+date_pub TIMESTAMPTZ,
+source TEXT NOT NULL,
+category TEXT NOT NULL,
+tickers TEXT[] NOT NULL,
 combo TEXT GENERATED ALWAYS AS (Title || ' ' || COALESCE(Description, '' )) STORED, OK
-research tsvector GENERATED ALWAYS AS (to_tsvector('english', Title || ' ' || COALESCE(Description, ''))) STORED OK
+research tsvector GENERATED ALWAYS AS (to_tsvector('english', Title || ' ' || COALESCE(Description, ''))) STORED
 sentiment VARCHAR(7) NULL,
+timeago TEXT NOT NULL 
 );
 **
