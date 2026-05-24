@@ -15,19 +15,17 @@
 # Documentation
 
 **
- 
- id        : afin de donner une identité unique en donnant un numéro de manière automatique 		       pour chaque nouvel news
- Title     : le titre est obligatoire
- Description : Certain news ne possède pas de description dans l'API
- Link      : toujours avoir le lien afin de vérifier la source et se documenter 
- Date      : Afin de s'adapter au fuseau horaire de la France
- Source    : Obligatoire pour vérifier l'info
- Catégorie : obligatoire pour mieux classer les articles
- Tickers   : créer une liste avec TEXT[] pour mieux filtrer les articles
- Combo     : " GENERATED ALWAYS AS (....) permet de générer automatiquement un modele 			     d'affichage, " || " permet de regrouper , COALESCE ('nom_colonne',                             	     'message_erreur') permet de remplacer la valeur si NUL et STORED pour 	 
-	     indexer et évite la  répétition
- Research  : tsvector fonction qui permet de prêt macher les mots afin d'obtenir des mots clés 		     facilitant la recherche, on saisi la langue et la combinaison.
- AI      : pour le embidding, le script python s'en charge
+id: used to provide a unique identity by automatically assigning a number to each new news item.
+Title: the title is mandatory.
+Description: some news items do not have a description in the API.
+Link: always keep the link in order to verify the source and get more information.
+Date: adapted to the French time zone.
+Source: mandatory to verify the information.
+Category: mandatory to better classify the articles.
+Tickers: create a TEXT[] list to better filter the articles.
+Combo: GENERATED ALWAYS AS (...) automatically generates a display model, || is used to concatenate values, COALESCE('column_name', 'error_message') replaces the value when it is NULL, and STORED allows indexing and avoids repetition.
+Research: tsvector function used to preprocess words in order to generate keywords that make searching easier; the language and combination are specified.
+AI: used for embeddings; the Python script handles it.
   
 **
 
@@ -39,16 +37,16 @@ CREATE DATABASE crypto_analyser;
 CREATE EXTENSION IF NOT EXISTS vector; 
 CREATE TABLE crypto_news(
 id SERIAL PRIMARY KEY,
-title TEXT NOT NULL,
+title TEXT NOT NULL, 
 description TEXT,
-link TEXT NOT NULL UNIQUE,
-date_pub TIMESTAMPTZ,
+link TEXT NOT NULL UNIQUE, 
+date_pub TIMESTAMPTZ, 
 source TEXT NOT NULL,
-category TEXT NOT NULL,
+category TEXT NOT NULL, 
 tickers TEXT[] NOT NULL,
-combo TEXT GENERATED ALWAYS AS (Title || ' ' || COALESCE(Description, '' )) STORED, OK
-research tsvector GENERATED ALWAYS AS (to_tsvector('english', Title || ' ' || COALESCE(Description, ''))) STORED
-sentiment VARCHAR(7) NULL,
-timeago TEXT NOT NULL 
+combo TEXT GENERATED ALWAYS AS (Title || ' ' || COALESCE(Description, '' )) ,
+research tsvector GENERATED ALWAYS AS (to_tsvector('english', Title || ' ' || COALESCE(Description, '')))
+sentiment VARCHAR(7) NULL
 );
 **
+
