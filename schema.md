@@ -47,6 +47,7 @@ tickers TEXT[] NOT NULL,
 combo TEXT GENERATED ALWAYS AS (Title || ' ' || COALESCE(Description, '' )) ,
 research tsvector GENERATED ALWAYS AS (to_tsvector('english', Title || ' ' || COALESCE(Description, '')))
 sentiment VARCHAR(7) NULL
+UNIQUE(link, date_pub)
 );
 **
 

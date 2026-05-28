@@ -22,6 +22,9 @@ def clean_value(val):
         return None
     return val
 
+    if isinstance(val, str):
+	return val.replace('<![CDATA[', '').replace(']]>', '').strip()
+
 def extract_article(raw: dict, date: str) -> dict:
     return {
         "date": date,
@@ -51,8 +54,8 @@ def parse_file(path: Path) -> tuple[str, list[dict]]:
 
 INSERT_SQL = """ 
 INSERT INTO crypto_news (title, description, link, date_pub, source, category, tickers, sentiment) 
-VALUES (%s,%s,%s,%s,%s,%s,%s,%s) 
-ON CONFLICT (link) DO NOTHING;
+VALUES (%s,%s,%s,%s,%s,%s,%s::text[],%s) 
+ON CONFLICT (link, date_pub) DO NOTHING;
 """
 
 def insert_articles(conn, articles: list[dict]) -> int:
