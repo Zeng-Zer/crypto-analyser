@@ -19,7 +19,7 @@ sources:
     base_url: "https://data.binance.vision"
     symbol: "LUNAUSDT"
     intervals:
-      ohlcv: "1m"     # 1-minute klines
+      ohlcv: "5m"     # 5-minute klines
       funding: "8h"   # 8-hour funding rate
     directories:
       ohlcv: "data/futures/um/monthly/klines"
