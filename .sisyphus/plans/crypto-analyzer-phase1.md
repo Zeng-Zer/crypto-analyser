@@ -560,7 +560,7 @@ Max Concurrent: 7 (Wave 2 - 3 YOU + 4 INTERN parallel, demo runs after indexes)
 
 ### Wave 2: Data Pipeline (MAX PARALLEL - 7 tasks)
 
-- [ ] 7. OHLCV Download Script (Binance Data Vision - FREE)
+- [x] 7. OHLCV Download Script (Binance Data Vision - FREE) ✓ DONE
 
   **What to do**:
   - Create `scripts/download_ohlcv.py`:

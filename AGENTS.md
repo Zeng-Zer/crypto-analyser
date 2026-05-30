@@ -9,3 +9,4 @@ Key constraints:
 - Symbol: LUNAUSDT (not LUNCUSDT)
 - Data source: data.binance.vision (API limited to 30 days)
 - Two derivatives signals: funding rate + open interest
+- Python package manager: uv
