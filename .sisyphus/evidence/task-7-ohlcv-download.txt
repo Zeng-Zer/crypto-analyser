@@ -1,0 +1,5 @@
+2026-05-06 23:05:06 | WARNING  | __main__ | Config has placeholder values — using defaults
+2026-05-06 23:05:06 | INFO     | __main__ | --- LUNAUSDT 2022-05 ---
+2026-05-06 23:05:06 | INFO     | __main__ | Downloading https://data.binance.vision/data/futures/um/monthly/klines/LUNAUSDT/5m/LUNAUSDT-5m-2022-05.zip
+2026-05-06 23:05:07 | INFO     | __main__ | Wrote 3350 rows to data/ohlcv/LUNAUSDT_2022-05.parquet (2022-05-01 00:00 to 2022-05-12 15:30)
+2026-05-06 23:05:07 | INFO     | __main__ | Completed: 1/1 months downloaded
