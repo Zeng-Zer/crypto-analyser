@@ -671,7 +671,7 @@ Max Concurrent: 7 (Wave 2 - 3 YOU + 4 INTERN parallel, demo runs after indexes)
 
 ---
 
-- [ ] 9. OI Download Script (Binance Data Vision - FREE)
+- [x] 9. OI Download Script (Binance Data Vision - FREE) ✓ DONE
 
   **What to do**:
   - Create `scripts/download_oi.py`:
