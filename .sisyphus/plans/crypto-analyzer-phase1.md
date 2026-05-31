@@ -616,7 +616,7 @@ Max Concurrent: 7 (Wave 2 - 3 YOU + 4 INTERN parallel, demo runs after indexes)
 
 ---
 
-- [ ] 8. Funding Rate Download Script (Binance Data Vision - FREE)
+- [x] 8. Funding Rate Download Script (Binance Data Vision - FREE) ✓ DONE
 
   **What to do**:
   - Create `scripts/download_funding.py`:
@@ -639,7 +639,7 @@ Max Concurrent: 7 (Wave 2 - 3 YOU + 4 INTERN parallel, demo runs after indexes)
 
   **References**:
   - Binance Data Vision: `https://data.binance.vision/`
-  - Funding Rate URL: `https://data.binance.vision/data/futures/um/monthly/fundingRate/LUNAUSDT/LUNAUSDT-fundingRate-2022-05.csv`
+  - Funding Rate URL: `https://data.binance.vision/data/futures/um/monthly/fundingRate/LUNAUSDT/LUNAUSDT-fundingRate-2022-05.zip`
 
   **Acceptance Criteria**:
   - [ ] Script downloads funding rate for May 2022
@@ -653,13 +653,13 @@ Max Concurrent: 7 (Wave 2 - 3 YOU + 4 INTERN parallel, demo runs after indexes)
     Steps:
       1. python scripts/download_funding.py --symbol LUNAUSDT --month 2022-05
       2. duckdb -c "SELECT COUNT(*) FROM read_parquet('data/funding/LUNAUSDT_2022-05.parquet')"
-    Expected Result: ~90 rows (3 per day x ~30 days)
+    Expected Result: ~37 rows (12 days x 3 funding events/day, delisted May 12)
     Evidence: .sisyphus/evidence/task-8-funding-download.txt
 
   Scenario: Free data URL accessible
     Tool: Bash (curl)
     Steps:
-      1. curl -sI "https://data.binance.vision/data/futures/um/monthly/fundingRate/LUNAUSDT/LUNAUSDT-fundingRate-2022-05.csv"
+      1. curl -sI "https://data.binance.vision/data/futures/um/monthly/fundingRate/LUNAUSDT/LUNAUSDT-fundingRate-2022-05.zip"
       2. Check HTTP status = 200
     Expected Result: File exists
     Evidence: .sisyphus/evidence/task-8-funding-url.txt
