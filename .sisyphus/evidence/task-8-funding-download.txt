@@ -1,0 +1,5 @@
+2026-05-31 12:57:40 | WARNING  | crypto_analyser.download_utils | Config has placeholder values — using defaults
+2026-05-31 12:57:40 | INFO     | crypto_analyser.download_utils | --- LUNAUSDT 2022-05 ---
+2026-05-31 12:57:40 | INFO     | crypto_analyser.download_utils | Downloading https://data.binance.vision/data/futures/um/monthly/fundingRate/LUNAUSDT/LUNAUSDT-fundingRate-2022-05.zip
+2026-05-31 12:57:41 | INFO     | crypto_analyser.download_utils | Wrote 37 rows to data/funding/LUNAUSDT_2022-05.parquet (2022-05-01 00:00 to 2022-05-13 00:00)
+2026-05-31 12:57:41 | INFO     | crypto_analyser.download_utils | Completed: 1/1 months downloaded
