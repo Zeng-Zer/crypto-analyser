@@ -30,19 +30,20 @@ from crypto_analyser.download_utils import (
 )
 
 DEFAULT_INTERVAL = "5m"
-COLUMN_PROJECTION = """
-    open_time::BIGINT     AS open_time,
-    open::DOUBLE          AS open,
-    high::DOUBLE          AS high,
-    low::DOUBLE           AS low,
-    close::DOUBLE         AS close,
-    volume::DOUBLE        AS volume,
-    close_time::BIGINT    AS close_time,
-    quote_volume::DOUBLE  AS quote_volume,
-    count::BIGINT         AS trade_count,
-    taker_buy_volume::DOUBLE       AS taker_buy_volume,
-    taker_buy_quote_volume::DOUBLE AS taker_buy_quote_volume
-"""
+
+COLUMNS: dict[str, str] = {
+    "open_time": "BIGINT",
+    "open": "DOUBLE",
+    "high": "DOUBLE",
+    "low": "DOUBLE",
+    "close": "DOUBLE",
+    "volume": "DOUBLE",
+    "close_time": "BIGINT",
+    "quote_volume": "DOUBLE",
+    "count": "BIGINT",
+    "taker_buy_volume": "DOUBLE",
+    "taker_buy_quote_volume": "DOUBLE",
+}
 
 
 def build_url(base_url: str, symbol: str, interval: str, month: str) -> str:
@@ -73,7 +74,8 @@ def download_ohlcv(
         zip_bytes = download_zip(url)
         csv_path = extract_csv(zip_bytes)
         row_count = csv_to_parquet(
-            csv_path, output_path, column_projection=COLUMN_PROJECTION,
+            csv_path, output_path,
+            columns=COLUMNS,
             where_clause="volume > 0",
         )
 

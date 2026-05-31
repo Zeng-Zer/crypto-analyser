@@ -31,11 +31,11 @@ from crypto_analyser.download_utils import (
     logger,
 )
 
-COLUMN_PROJECTION = """
-    calc_time::BIGINT              AS calc_time,
-    funding_interval_hours::BIGINT AS funding_interval_hours,
-    last_funding_rate::DOUBLE       AS last_funding_rate
-"""
+COLUMNS: dict[str, str] = {
+    "calc_time": "BIGINT",
+    "funding_interval_hours": "BIGINT",
+    "last_funding_rate": "DOUBLE",
+}
 
 
 def build_url(base_url: str, symbol: str, month: str) -> str:
@@ -66,7 +66,7 @@ def download_funding(
         csv_path = extract_csv(zip_bytes)
         row_count = csv_to_parquet(
             csv_path, output_path,
-            column_projection=COLUMN_PROJECTION,
+            columns=COLUMNS,
             sort_column="calc_time",
         )
 
