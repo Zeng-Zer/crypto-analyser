@@ -1,7 +1,7 @@
 """Shared utilities for downloading data from Binance Data Vision.
 
 Provides zip download/extraction, CSV-to-Parquet conversion,
-and config loading — common across all download scripts.
+type-safe column definitions, and config loading.
 
 Usage:
     from crypto_analyser.download_utils import download_zip, extract_csv, csv_to_parquet
@@ -41,6 +41,19 @@ def load_config_or_defaults():
         return None, True
 
 
+def build_projection(columns: dict[str, str]) -> str:
+    """Build a SQL projection snippet from a column name -> DuckDB type map.
+
+    Args:
+        columns: Mapping of column_name to DuckDB type (e.g.
+                 ``{"open": "DOUBLE", "volume": "DOUBLE"}``).
+
+    Returns:
+        SQL snippet like ``open::DOUBLE AS open, volume::DOUBLE AS volume``.
+    """
+    return ", ".join(f"{name}::{typ} AS {name}" for name, typ in columns.items())
+
+
 def download_zip(url: str, timeout: int = 60) -> bytes:
     """Download a zip archive from Binance Data Vision.
 
@@ -72,23 +85,27 @@ def extract_csv(zip_bytes: bytes) -> str:
 def csv_to_parquet(
     csv_path: str,
     output_path: Path,
-    column_projection: str,
+    columns: dict[str, str],
     where_clause: str | None = None,
     sort_column: str = "open_time",
 ) -> int:
     """Convert a Binance CSV to Parquet via DuckDB.
 
+    Casts columns using the type map, applies optional WHERE on the cast
+    values, and writes Zstd-compressed Parquet.
+
     Args:
         csv_path: Path to the extracted CSV file.
         output_path: Destination Parquet file.
-        column_projection: SQL snippet for column casting (e.g.
-            ``open_time::BIGINT AS open_time, close::DOUBLE AS close``).
+        columns: Column name -> DuckDB type mapping (e.g.
+                 ``{"close": "DOUBLE", "volume": "DOUBLE"}``).
         where_clause: Optional SQL WHERE clause (without "WHERE" keyword).
         sort_column: Column to ORDER BY (default open_time).
 
     Returns:
         Number of rows written.
     """
+    projection = build_projection(columns)
     where = f"WHERE {where_clause}" if where_clause else ""
 
     con = duckdb.connect()
@@ -96,26 +113,9 @@ def csv_to_parquet(
         f"""
         COPY (
             SELECT * FROM (
-                SELECT {column_projection}
+                SELECT {projection}
                 FROM read_csv('{csv_path}', header=true, all_varchar=true)
             ) sub
-            {where}
-            ORDER BY {sort_column}
-        ) TO '{output_path}' (FORMAT PARQUET, COMPRESSION 'zstd');
-        """
-    )
-
-    row_count = con.execute(
-        f"SELECT COUNT(*) FROM read_parquet('{output_path}')"
-    ).fetchone()[0]
-    return row_count
-
-    con = duckdb.connect()
-    con.execute(
-        f"""
-        COPY (
-            SELECT {column_projection}
-            FROM read_csv('{csv_path}', header=true, all_varchar=true)
             {where}
             ORDER BY {sort_column}
         ) TO '{output_path}' (FORMAT PARQUET, COMPRESSION 'zstd');
