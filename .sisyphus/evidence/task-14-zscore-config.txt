@@ -1,0 +1,4 @@
+=== QA: Configurable window and threshold ===
+Default (288, 2.5): 115 anomalies
+Reduced window (144) + higher threshold (3.0): 68 anomalies
+Assertion: config affects anomaly count ✓

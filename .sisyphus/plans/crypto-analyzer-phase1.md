@@ -1092,7 +1092,7 @@ Max Concurrent: 7 (Wave 2 - 3 YOU + 4 INTERN parallel, demo runs after indexes)
 
 ### Wave 3: Detection + Classification
 
-- [ ] 14. Z-Score Computation Engine
+- [x] 14. Z-Score Computation Engine ✓ DONE
 
   **What to do**:
   - Create `src/zscore.py`:

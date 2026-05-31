@@ -1,0 +1,6 @@
+=== QA: Z-score detects LUNA anomalies ===
+Command: uv run python src/zscore.py --symbol LUNAUSDT --start 2022-05-07 --end 2022-05-11 --threshold 2.5
+Result: Wrote 115 anomalies to data/anomalies/LUNAUSDT_2022-05-07_2022-05-11.json
+Peak |Z|: 4.31 at 2022-05-09 17:15 UTC (price $44.00)
+Severity distribution: high=2, medium=49, low=64
+Assertion: anomalies > 0 ✓
