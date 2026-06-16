@@ -45,8 +45,9 @@ source TEXT NOT NULL,
 category TEXT NOT NULL, 
 tickers TEXT[] NOT NULL,
 title_description TEXT GENERATED ALWAYS AS (Title || ' ' || COALESCE(Description, '' )) STORED, OK
-research tsvector GENERATED ALWAYS AS (to_tsvector('english', Title || ' ' || COALESCE(Description, ''))) STORED OK
+research tsvector GENERATED ALWAYS AS (to_tsvector('english', Title || ' ' || COALESCE(Description, ''))) STORED
 sentiment VARCHAR(7) NULL
+UNIQUE(link, date_pub)
 );
 **
 
