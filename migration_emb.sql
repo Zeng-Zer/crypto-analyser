@@ -1,0 +1,3 @@
+CREATE EXTENSION IF NOT EXISTS vector;
+
+ALTER TABLE crypto_news ADD_COLUMN ai_emb vector(4096)

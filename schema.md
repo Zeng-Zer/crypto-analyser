@@ -10,7 +10,7 @@
 - Tickers : TEXT [], not null
 - title_description : TEXT, GENERATED ALWAYS AS (title || '	' || COALESCE(description, '	'))  STORED	
 - Research : tsvector(to_tsvector('English', 'GENERATED ALWAYS AS (title || '	' || COALESCE(description, '	')')) STORED
-- AI : vector(1536)
+- AI : vector(4096)
 
 # Documentation
 
@@ -44,7 +44,7 @@ date_pub TIMESTAMPTZ,
 source TEXT NOT NULL,
 category TEXT NOT NULL, 
 tickers TEXT[] NOT NULL,
-title_description TEXT GENERATED ALWAYS AS (Title || ' ' || COALESCE(Description, '' )) STORED, OK
+title_description TEXT GENERATED ALWAYS AS (Title || ' ' || COALESCE(Description, '' )) STORED,
 research tsvector GENERATED ALWAYS AS (to_tsvector('english', Title || ' ' || COALESCE(Description, ''))) STORED
 sentiment VARCHAR(7) NULL
 UNIQUE(link, date_pub)

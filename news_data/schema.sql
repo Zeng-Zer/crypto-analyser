@@ -13,5 +13,11 @@ CREATE TABLE IF NOT EXISTS crypto_news(
     title_description TEXT GENERATED ALWAYS AS (title || ' ' || COALESCE(description, '' )) STORED,
     research tsvector GENERATED ALWAYS AS (to_tsvector('english', title || ' ' || COALESCE(description, ''))) STORED,
     sentiment VARCHAR(7) NULL,
+<<<<<<< HEAD
     UNIQUE(link, date_pub)
+    
     );
+=======
+    timeago TEXT NOT NULL
+);
+>>>>>>> de1d714 (rename combo column to title_description)
