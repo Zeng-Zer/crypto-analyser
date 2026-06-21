@@ -11,7 +11,7 @@ def get_unprocessed_articles(cur, limit):
     sql_query = """
         SELECT id, title_description 
         FROM crypto_news 
-        WHERE ai_emb IS NULL 
+        WHERE text_embedding IS NULL 
           AND title_description IS NOT NULL 
           AND TRIM(title_description) != '' 
         LIMIT %s;
@@ -23,7 +23,7 @@ def get_unprocessed_articles(cur, limit):
     return [{"id": row[0], "text": row[1]} for row in rows]
 
 
-def get_embeddings(texts, api_url, api_key): 
+def get_embeddings(texts, api_url, api_key, max_attempts=3): 
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json"
@@ -36,24 +36,39 @@ def get_embeddings(texts, api_url, api_key):
     
     print(f"[API] Requesting vectors for {len(texts)} articles...")
     
-    response = requests.post(
-        f"{api_url}/embeddings",
-        headers=headers,
-        json=payload,
-        timeout=60
-    )
-    
-    response.raise_for_status() 
-    
-    data = response.json()
-    vecteurs = [item["embedding"] for item in sorted(data["data"], key=lambda x: x["index"])]
-    
-    return vecteurs
+    for attempt in range(max_attempts):
+        try:
+            response = requests.post(
+                f"{api_url}/embeddings",
+                headers=headers,
+                json=payload,
+                timeout=60
+            )
+            response.raise_for_status() 
+            
+            data = response.json()
+            vecteurs = [item["embedding"] for item in sorted(data["data"], key=lambda x: x["index"])]
+            return vecteurs
+            
+        except requests.exceptions.HTTPError as e:
+            if e.response.status_code == 429:
+                wait = int(e.response.headers.get("Retry-After", 10))
+                print(f"Rate limit reached (429). Waiting for {wait} seconds... (Attempt {attempt + 1}/{max_attempts})")
+                time.sleep(wait)
+            else:
+                print(f"Unexpected API error: {e}")
+                break 
+        except Exception as e:
+            print(f"Network error: {e}")
+            break
+            
+    return None
 
 
 def update_articles_with_vectors(cur, ids, vectors):
     data_to_update = list(zip(vectors, ids))
-    cur.executemany("UPDATE crypto_news SET ai_emb = %s WHERE id = %s;", data_to_update)
+    cur.executemany("UPDATE crypto_news SET text_embedding = %s WHERE id = %s;", data_to_update)
+
 
 def main():
     print("Connecting to PostgreSQL...")
@@ -82,30 +97,10 @@ def main():
             
             texts = [a["text"] for a in articles]
             ids = [a["id"] for a in articles]
-            
-            max_attempts = 3
-            success = False
-            
-            for attempt in range(max_attempts):
-                try:
-                    vectors = get_embeddings(texts, api_url, api_key)
-                    success = True
-                    break 
-                    
-                except requests.exceptions.HTTPError as e:
-                    if e.response.status_code == 429:
-                        wait = int(e.response.headers.get("Retry-After", 10))
-                        print(f"Rate limit reached (429). Waiting for {wait} seconds... (Attempt {attempt + 1}/{max_attempts})")
-                        time.sleep(wait)
-                    else:
-                        print(f"Unexpected API error: {e}")
-                        break 
-                except Exception as e:
-                    print(f"Network error: {e}")
-                    break
-            
-            if not success:
-                print("All retry attempts failed. Stopping the script. Please try again later.")
+            vectors = get_embeddings(texts, api_url, api_key)
+
+            if not vectors:
+                print("Failed to fetch embeddings from API. Stopping the script.")
                 break 
                 
             update_articles_with_vectors(cur, ids, vectors)
@@ -120,6 +115,7 @@ def main():
         cur.close()
         conn.close()
         print("Disconnected from the database.")
+
 
 if __name__ == "__main__":
     main()

@@ -1,3 +1,3 @@
 CREATE EXTENSION IF NOT EXISTS vector;
 
-ALTER TABLE crypto_news ADD_COLUMN ai_emb vector(4096)
+ALTER TABLE crypto_news ADD COLUMN text_embedding vector(4096)
