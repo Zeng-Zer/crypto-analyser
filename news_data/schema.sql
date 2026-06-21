@@ -1,4 +1,3 @@
--- news_data/schema.sql
 CREATE EXTENSION IF NOT EXISTS vector; 
 
 CREATE TABLE IF NOT EXISTS crypto_news(
@@ -13,4 +12,5 @@ CREATE TABLE IF NOT EXISTS crypto_news(
     title_description TEXT GENERATED ALWAYS AS (title || ' ' || COALESCE(description, '' )) STORED,
     research tsvector GENERATED ALWAYS AS (to_tsvector('english', title || ' ' || COALESCE(description, ''))) STORED,
     sentiment VARCHAR(7) NULL,
-    UNIQUE(link, date_pub);
+    UNIQUE(link, date_pub)
+    );
