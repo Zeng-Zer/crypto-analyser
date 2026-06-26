@@ -1,6 +1,17 @@
-=== QA: Z-score detects LUNA anomalies ===
+# QA: Z-score detects LUNA anomalies (as episodes)
+
 Command: uv run python src/zscore.py --symbol LUNAUSDT --start 2022-05-07 --end 2022-05-11 --threshold 2.5
-Result: Wrote 115 anomalies to data/anomalies/LUNAUSDT_2022-05-07_2022-05-11.json
-Peak |Z|: 4.31 at 2022-05-09 17:15 UTC (price $44.00)
-Severity distribution: high=2, medium=49, low=64
-Assertion: anomalies > 0 ✓
+Config: window_hours=24.0 (288 bars), threshold=2.5, max_gap=2, min_consecutive=2
+Result: 5 episodes (contiguous runs of |Z|>2.5 bars, gap-2, min 2 flagged)
+Severity distribution: {'medium': 3, 'high': 1, 'low': 1}
+Peak |Z|: 4.31
+
+Episodes:
+  - onset 2022-05-08 00:50 UTC | peak_z -3.32 (medium, crash) | close_onset 65.946 baseline 66.458 | 25 bars
+  - onset 2022-05-09 16:35 UTC | peak_z -4.31 (high, crash) | close_onset 54.753 baseline 55.885 | 41 bars
+  - onset 2022-05-09 21:50 UTC | peak_z -2.94 (low, crash) | close_onset 43.708 baseline 46.028 | 4 bars
+  - onset 2022-05-09 22:45 UTC | peak_z -3.66 (medium, crash) | close_onset 41.867 baseline 42.816 | 23 bars
+  - onset 2022-05-10 21:20 UTC | peak_z -3.36 (medium, crash) | close_onset 18.958 baseline 20.24 | 22 bars
+
+Assertion: episodes > 0 ✓  (LUNA pre-crash window produces classifiable anomalies)
+Unit per ADR-0001: an anomaly is one contiguous episode, not one bar (replaces prior 115 per-bar records).

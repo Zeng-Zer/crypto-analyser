@@ -1,4 +1,14 @@
-=== QA: Configurable window and threshold ===
-Default (288, 2.5): 115 anomalies
-Reduced window (144) + higher threshold (3.0): 68 anomalies
-Assertion: config affects anomaly count ✓
+QA: Z-score window configurable
+
+Command: uv run python src/zscore.py --symbol LUNAUSDT --start 2022-05-07 --end 2022-05-11 --window 12h --threshold 3.0
+
+  Wrote 7 episodes to data/anomalies/LUNAUSDT_2022-05-07_2022-05-11.json
+  Severity distribution: {'extreme': 1, 'medium': 6}
+  Peak |Z|: 5.07 at onset 1651955100000 (severity=extreme)
+
+Default (config window_hours=24, threshold=2.5):
+  Wrote 5 episodes to data/anomalies/LUNAUSDT_2022-05-07_2022-05-11.json
+  Severity distribution: {'medium': 3, 'high': 1, 'low': 1}
+  Peak |Z|: 4.31 at onset 1652114100000 (severity=high)
+
+Assertion: --window 12h parses with h-suffix (no crash) and produces a different episode count than default ✓
