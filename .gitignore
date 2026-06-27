@@ -4,6 +4,7 @@
 tmp/
 
 *.py[cod]
+__pycache__/
 *.egg
 *.egg-info/
 build
