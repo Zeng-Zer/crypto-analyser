@@ -75,6 +75,29 @@ Historical crypto anomaly detection system. Milestone 1: entirely batch/historic
 - MUST NOT build real-time infrastructure - Milestone 2
 - MUST NOT run sentiment/entity enrichment on articles — use PostgreSQL query-time filtering
 
+### Conventions (resolved during Task 14 / ADR-0001)
+
+- **Package layout**: Python code lives under the `crypto_analyser` package, i.e.
+  `src/crypto_analyser/<module>.py`. Every `src/<module>.py` reference in this
+  plan resolves there. A thin `src/<module>.py` shim (re-exporting `main`) may
+  exist as a CLI entrypoint; the implementation is always the package module.
+- **Anomaly unit = one contiguous episode**, not one per-bar flag. See
+  `docs/adr/0001-anomaly-is-episode.md`. The bulk anomaly file contains an
+  `episodes[]` array plus a `meta` block; each episode carries `onset_ts`,
+  `peak_ts`, `peak_z`, `severity`, `direction`, `close_onset`,
+  `baseline_close`, `duration_bars`.
+- **Derivatives anchor = `onset_ts`.** Downstream tasks that pull
+  funding-rate / OI features (Task 15) and that classify an episode (Task 18)
+  anchor on `onset_ts` — the moment the deviation became statistically real.
+  `peak_ts` is descriptive, not the query anchor. This keeps the contract
+  aligned with the hypothesis (unexplained *moves* precede news).
+- **Generated `data/` outputs are gitignored.** `data/.gitignore` ignores
+  everything under `data/` except `.gitkeep`. Anomalies, derivatives context,
+  and per-episode classifications are regenerable from scripts + source data,
+  so they are never committed. Validation outputs that ARE the project result
+  (ablation comparison, final summary) live at repo root in `results/` and
+  `reports/` and ARE tracked.
+
 ---
 
 ## Work Objectives
@@ -460,7 +483,7 @@ Max Concurrent: 7 (Wave 2 - 3 YOU + 4 INTERN parallel, demo runs after indexes)
 
   **Commit**: YES
   - Message: `feat: configuration setup`
-  - Files: `config/settings.yaml, src/config.py`
+  - Files: `config/settings.yaml, src/crypto_analyser/config.py`
 
 ---
 
@@ -508,7 +531,7 @@ Max Concurrent: 7 (Wave 2 - 3 YOU + 4 INTERN parallel, demo runs after indexes)
 
   **Commit**: YES
   - Message: `feat: LLM client wrapper`
-  - Files: `src/llm_client.py, schemas/classification.json`
+  - Files: `src/crypto_analyser/llm_client.py, schemas/classification.json`
 
 ---
 
@@ -554,7 +577,7 @@ Max Concurrent: 7 (Wave 2 - 3 YOU + 4 INTERN parallel, demo runs after indexes)
 
   **Commit**: YES
   - Message: `feat: logging and Langfuse integration`
-  - Files: `src/logging_config.py, src/tracing.py`
+  - Files: `src/crypto_analyser/logging_config.py, src/crypto_analyser/tracing.py`
 
 ---
 
@@ -1092,16 +1115,21 @@ Max Concurrent: 7 (Wave 2 - 3 YOU + 4 INTERN parallel, demo runs after indexes)
 
 ### Wave 3: Detection + Classification
 
-- [ ] 14. Z-Score Computation Engine
+- [x] 14. Z-Score Computation Engine ✓ DONE
 
   **What to do**:
-  - Create `src/zscore.py`:
+  - Create `src/crypto_analyser/zscore.py` (CLI shim `src/zscore.py`):
     - Load OHLCV data from Parquet
-    - Compute rolling Z-score on price close (window=24h)
-    - Detect anomalies: |Z| > threshold (default 2.5)
-    - Output: list of anomaly timestamps with Z-score, severity
-    - Store to: `data/anomalies/{symbol}_{start}_{end}.json`
-  - Support configurable window and threshold
+    - Compute rolling Z-score on price close (window=24h, from config)
+    - Detect anomalies: |Z| > threshold (default from config)
+    - Group per-bar flags into contiguous *episodes* (gap-tolerant,
+      min-consecutive) per ADR-0001 — not a flat list of per-bar timestamps
+    - Output: bulk file with `meta` + `episodes[]`, each episode carrying
+      onset_ts, peak_ts, peak_z, severity, direction, close_onset,
+      baseline_close, duration_bars
+    - Store to: `data/anomalies/{symbol}_{start}_{end}.json` (gitignored)
+  - Support configurable window (hours, optional `h` suffix), threshold,
+    max-gap, min-consecutive (config + CLI overrides)
 
   **Recommended Agent Profile**:
   - **Category**: `unspecified-high`
@@ -1129,16 +1157,16 @@ Max Concurrent: 7 (Wave 2 - 3 YOU + 4 INTERN parallel, demo runs after indexes)
     Tool: Bash (python)
     Steps:
       1. python src/zscore.py --symbol LUNAUSDT --start 2022-05-07 --end 2022-05-11 --threshold 2.5
-      2. jq '.anomalies | length' data/anomalies/LUNAUSDT_2022-05-07_2022-05-11.json
-    Expected Result: anomalies > 0 (LUNA crash triggers)
+      2. jq '.episodes | length' data/anomalies/LUNAUSDT_2022-05-07_2022-05-11.json
+    Expected Result: episodes > 0 (LUNA crash triggers; observed 5 at default config)
     Evidence: .sisyphus/evidence/task-14-zscore-luna.txt
 
   Scenario: Z-score window configurable
     Tool: Bash (python)
     Steps:
-      1. python src/zscore.py --window 12h --threshold 3.0
-      2. Check different anomaly count produced
-    Expected Result: Config affects anomaly detection
+      1. python src/zscore.py --symbol LUNAUSDT --start 2022-05-07 --end 2022-05-11 --window 12h --threshold 3.0
+      2. Check different episode count produced vs default-config run
+    Expected Result: Config affects detection (observed 7 episodes, peak |Z| 5.07)
     Evidence: .sisyphus/evidence/task-14-zscore-config.txt
   ```
 
@@ -1151,13 +1179,16 @@ Max Concurrent: 7 (Wave 2 - 3 YOU + 4 INTERN parallel, demo runs after indexes)
 - [ ] 15. Derivatives Context Extractor
 
   **What to do**:
-  - Create `src/derivatives_context.py`:
-    - Take anomaly timestamps from Task 14 output
-    - Pull funding rate at each timestamp (or nearest 8h interval)
-    - Pull OI at each timestamp (5-min granularity from Binance Data Vision)
+  - Create `src/crypto_analyser/derivatives_context.py` (CLI shim as needed):
+    - Read the bulk `episodes[]` file from Task 14 (not per-bar timestamps)
+    - For each episode, anchor derivatives retrieval on `onset_ts` (the moment
+      the deviation became statistically real; `peak_ts` is descriptive only)
+    - Pull funding rate at `onset_ts` (or nearest 8h interval)
+    - Pull OI at `onset_ts` (5-min granularity from Binance Data Vision)
     - Compute: funding_rate_current, funding_rate_avg_4h, oi_current, oi_change_4h
-    - Package as feature vector: JSON with all derivatives features
-    - Store to: `data/context/{symbol}_{start}_{end}_context.json`
+      (lookback window relative to each episode's `onset_ts`, not its duration)
+    - Package as feature vector per episode: JSON keyed by `onset_ts`
+    - Store to: `data/context/{symbol}_{start}_{end}_context.json` (gitignored)
 
   **Recommended Agent Profile**:
   - **Category**: `quick`
@@ -1180,7 +1211,7 @@ Max Concurrent: 7 (Wave 2 - 3 YOU + 4 INTERN parallel, demo runs after indexes)
   Scenario: Derivatives context extraction
     Tool: Bash (python)
     Steps:
-      1. python src/derivatives_context.py --anomalies data/anomalies/LUNAUSDT_2022-05-07_2022-05-11.json
+      1. python src/crypto_analyser/derivatives_context.py --anomalies data/anomalies/LUNAUSDT_2022-05-07_2022-05-11.json
       2. jq '.features[0].funding_rate' data/context/LUNAUSDT_2022-05-07_2022-05-11_context.json
     Expected Result: funding_rate value present
     Evidence: .sisyphus/evidence/task-15-derivatives-context.txt
@@ -1188,7 +1219,7 @@ Max Concurrent: 7 (Wave 2 - 3 YOU + 4 INTERN parallel, demo runs after indexes)
 
   **Commit**: YES
   - Message: `feat: derivatives context extraction`
-  - Files: `src/derivatives_context.py`
+  - Files: `src/crypto_analyser/derivatives_context.py`
 
 ---
 
@@ -1201,7 +1232,7 @@ Max Concurrent: 7 (Wave 2 - 3 YOU + 4 INTERN parallel, demo runs after indexes)
     - Filter by time window (articles within +/- 12 hours of anomaly)
     - Rank by relevance (combine vector similarity + text similarity)
   - Research: how to combine vector search and text search into one ranked result
-  - Write a Python function in `src/retrieval.py` that:
+  - Write a Python function in `src/crypto_analyser/retrieval.py` that:
     - Takes anomaly timestamp and ticker as inputs
     - Returns top 5-10 most relevant articles
     - Includes article metadata: title, description, pub_date, source, tickers
@@ -1262,7 +1293,7 @@ Max Concurrent: 7 (Wave 2 - 3 YOU + 4 INTERN parallel, demo runs after indexes)
 
   **Commit**: YES
   - Message: `feat: RAG retrieval query`
-  - Files: `src/retrieval.py`, `scripts/test_retrieval.py`, `docs/retrieval.md`
+  - Files: `src/crypto_analyser/retrieval.py`, `scripts/test_retrieval.py`, `docs/retrieval.md`
 
 ---
 
@@ -1313,16 +1344,20 @@ Max Concurrent: 7 (Wave 2 - 3 YOU + 4 INTERN parallel, demo runs after indexes)
 - [ ] 18. Classifier Execution Wrapper
 
   **What to do**:
-  - Create `src/classifier.py`:
-    - Load anomaly + derivatives context + RAG context
-    - Build prompt from template (Task 17)
+  - Create `src/crypto_analyser/classifier.py` (CLI shim as needed):
+    - Read the bulk `episodes[]` file (Task 14) and the bulk derivatives-context
+      file (Task 15); iterate episodes (do NOT expect per-timestamp input files —
+      none exist)
+    - Load episode + derivatives context + RAG context per episode
+    - Build prompt from template (Task 17), keyed on `onset_ts`
     - Call LLM with structured output (response_format=json_schema)
     - Parse and validate response
     - Handle errors (schema validation failure)
   - Create variants: classify_derivatives_only(), classify_with_rag()
-  - Store outputs:
-    - Derivatives-only: `data/classifications/derivatives_only/{symbol}_{timestamp}.json`
-    - With RAG: `data/classifications/derivatives_rag/{symbol}_{timestamp}.json`
+  - Store outputs (one file per episode, named by `{symbol}_{onset_ts}.json`):
+    - Derivatives-only: `data/classifications/derivatives_only/{symbol}_{onset_ts}.json`
+    - With RAG: `data/classifications/derivatives_rag/{symbol}_{onset_ts}.json`
+    (both dirs gitignored as generated outputs)
 
   **Recommended Agent Profile**:
   - **Category**: `quick`
@@ -1348,9 +1383,10 @@ Max Concurrent: 7 (Wave 2 - 3 YOU + 4 INTERN parallel, demo runs after indexes)
   Scenario: LLM classifier structured output
     Tool: Bash (python) - requires filled API placeholder
     Steps:
-      1. python src/classifier.py --anomaly data/anomalies/LUNAUSDT_2022-05-09T14-00.json --mode derivatives_only
-      2. jq '.classification' data/classifications/derivatives_only/LUNAUSDT_2022-05-09T14-00.json
-    Expected Result: One of classification categories
+      1. python src/crypto_analyser/classifier.py --anomalies data/anomalies/LUNAUSDT_2022-05-07_2022-05-11.json --mode derivatives_only
+      2. ls data/classifications/derivatives_only/ | wc -l   # one file per episode
+      3. jq '.classification' data/classifications/derivatives_only/LUNAUSDT_$(jq -r '.episodes[0].onset_ts' data/anomalies/LUNAUSDT_2022-05-07_2022-05-11.json).json
+    Expected Result: One of classification categories, one classification file per episode
     Evidence: .sisyphus/evidence/task-18-classifier-output.txt
 
   Scenario: Schema validation failure handling
@@ -1364,14 +1400,14 @@ Max Concurrent: 7 (Wave 2 - 3 YOU + 4 INTERN parallel, demo runs after indexes)
 
   **Commit**: YES
   - Message: `feat: LLM classifier execution`
-  - Files: `src/classifier.py`
+  - Files: `src/crypto_analyser/classifier.py`
 
 ---
 
 - [ ] 19. JSON Report Generator
 
   **What to do**:
-  - Create `src/report_generator.py`:
+  - Create `src/crypto_analyser/report_generator.py`:
     - Aggregate all results: anomaly, derivatives, RAG, classification
     - Read from: `data/classifications/derivatives_only/` or `data/classifications/derivatives_rag/`
     - Generate JSON report per anomaly: `reports/{symbol}_{timestamp}_report.json`
@@ -1400,15 +1436,15 @@ Max Concurrent: 7 (Wave 2 - 3 YOU + 4 INTERN parallel, demo runs after indexes)
   Scenario: Report generation
     Tool: Bash (python)
     Steps:
-      1. python src/report_generator.py --symbol LUNAUSDT --start 2022-05-07 --end 2022-05-11 --mode derivatives_only
-      2. jq '.anomalies | length' reports/LUNAUSDT_2022-05-07_2022-05-11_summary.json
+      1. python src/crypto_analyser/report_generator.py --symbol LUNAUSDT --start 2022-05-07 --end 2022-05-11 --mode derivatives_only
+      2. jq '.episodes | length' reports/LUNAUSDT_2022-05-07_2022-05-11_summary.json
     Expected Result: Summary report with all anomalies
     Evidence: .sisyphus/evidence/task-19-report-generation.txt
   ```
 
   **Commit**: YES
   - Message: `feat: JSON report generator`
-  - Files: `src/report_generator.py`
+  - Files: `src/crypto_analyser/report_generator.py`
 
 ---
 
@@ -1446,22 +1482,22 @@ Max Concurrent: 7 (Wave 2 - 3 YOU + 4 INTERN parallel, demo runs after indexes)
   Scenario: LUNA pipeline execution
     Tool: Bash (python)
     Steps:
-      1. python scripts/run_pipeline.py --symbol LUNC --start 2022-05-07 --end 2022-05-11 --mode full
-      2. ls reports/LUNC_*.json | wc -l
+      1. python scripts/run_pipeline.py --symbol LUNAUSDT --start 2022-05-07 --end 2022-05-11 --mode full
+      2. ls reports/LUNAUSDT_*.json | wc -l
     Expected Result: Multiple report files created
     Evidence: .sisyphus/evidence/task-20-luna-pipeline.txt
 
   Scenario: Anomalies detected
     Tool: Bash (jq)
     Steps:
-      1. jq '.anomalies | length' reports/LUNC_summary.json
-    Expected Result: anomalies > 0
+      1. jq '.episodes | length' reports/LUNAUSDT_2022-05-07_2022-05-11_summary.json
+    Expected Result: episodes > 0
     Evidence: .sisyphus/evidence/task-20-anomaly-count.txt
   ```
 
   **Commit**: YES
   - Message: `feat: pipeline execution on LUNA`
-  - Files: `scripts/run_pipeline.py, reports/LUNC_summary.json`
+  - Files: `scripts/run_pipeline.py, reports/LUNAUSDT_2022-05-07_2022-05-11_summary.json`
 
 ---
 
@@ -1682,7 +1718,7 @@ Max Concurrent: 7 (Wave 2 - 3 YOU + 4 INTERN parallel, demo runs after indexes)
 |------------+-----------------------------------------------+----------------------------------------------------+----------------|
 | Wave 1     | `feat: project scaffolding and configuration` | pyproject.toml, docker-compose.yml, config/*       | duckdb test    |
 | Wave 2     | `feat: data pipeline complete`                | scripts/download_*.py, scripts/embed_*.py          | coverage query |
-| Wave 3     | `feat: detection and classification`          | src/zscore.py, src/classifier.py, src/retrieval.py | anomaly count  |
+| Wave 3     | `feat: detection and classification`          | src/crypto_analyser/zscore.py, src/crypto_analyser/classifier.py, src/crypto_analyser/retrieval.py | episode count  |
 | Wave 4     | `feat: validation and ablation study`         | results/*.json, reports/*.json                     | jq validation  |
 
 ---
@@ -1696,15 +1732,16 @@ duckdb -c "SELECT MIN(timestamp), MAX(timestamp) FROM read_parquet('data/luna_oh
 # Expected: 2022-05-07 to 2022-05-11
 
 # Anomaly detection
-python scripts/compute_zscore.py --symbol LUNA --start 2022-05-07 --end 2022-05-11
-# Expected: > 0 anomalies detected
+python src/zscore.py --symbol LUNAUSDT --start 2022-05-07 --end 2022-05-11
+# Expected: > 0 episodes (observed 5 at default config)
+jq '.episodes | length' data/anomalies/LUNAUSDT_2022-05-07_2022-05-11.json
 
-# LLM classifier
-curl -X POST http://localhost:8000/classify -d '{"timestamp":"2022-05-09T12:00:00Z"}' | jq '.classification'
-# Expected: one of ["explained_derivatives","explained_news","unexplained","insufficient_data"]
+# LLM classifier (reads bulk episodes[], one classification file per episode)
+python src/crypto_analyser/classifier.py --anomalies data/anomalies/LUNAUSDT_2022-05-07_2022-05-11.json --mode derivatives_only
+# Expected: one of ["explained_derivatives","explained_news","unexplained","insufficient_data"] per episode
 
 # Ragas metrics
-jq '.derivatives_only.faithfulness' results/ablation.json
+jq '.derivatives_only.faithfulness' results/ablation_comparison.json
 # Expected: float between 0.0 and 1.0
 ```
 

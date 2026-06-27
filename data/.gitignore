@@ -1,13 +1,6 @@
-# Parquet files
-*.parquet
-
-# DuckDB database
-*.duckdb
-*.duckdb.wal
-
-# Raw downloaded files
-raw/*.csv
-raw/*.zip
-
-# Keep .gitkeep files
+# Ignore all generated data outputs (parquet, duckdb, JSON, reports, ...).
+# Directory scaffolding stays via .gitkeep. Anything produced by the pipeline
+# is regenerable from source data + scripts, so it never belongs in the repo.
+*
+!.gitignore
 !.gitkeep
