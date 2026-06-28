@@ -1349,7 +1349,7 @@ Max Concurrent: 7 (Wave 2 - 3 YOU + 4 INTERN parallel, demo runs after indexes)
 
 ---
 
-- [ ] 18. Classifier Execution Wrapper
+- [x] 18. Classifier Execution Wrapper
 
   **What to do**:
   - Create `src/crypto_analyser/classifier.py` (CLI shim as needed):

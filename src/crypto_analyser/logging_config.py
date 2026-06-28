@@ -4,13 +4,15 @@ Provides a `get_logger` factory that returns loggers with both
 console and rotating-file handlers.  Logs are written to ``logs/app.log``
 relative to the project root.
 """
+
 from __future__ import annotations
 
 import logging
 import logging.handlers
 import sys
-from pathlib import Path
 from typing import Final
+
+from crypto_analyser._paths import repo_root
 
 _LOG_DIR_NAME: Final[str] = "logs"
 _LOG_FILE_NAME: Final[str] = "app.log"
@@ -19,11 +21,6 @@ _DATE_FORMAT: Final[str] = "%Y-%m-%d %H:%M:%S"
 
 # Module-level cache so repeated calls are cheap
 _handler_cache: list[logging.Handler] = []
-
-
-def _project_root() -> Path:
-    """Return the project root by walking up from this file."""
-    return Path(__file__).resolve().parent.parent.parent
 
 
 def _ensure_handlers() -> list[logging.Handler]:
@@ -40,7 +37,7 @@ def _ensure_handlers() -> list[logging.Handler]:
     console.setFormatter(formatter)
 
     # Rotating file handler — DEBUG and above
-    log_dir = _project_root() / _LOG_DIR_NAME
+    log_dir = repo_root() / _LOG_DIR_NAME
     log_dir.mkdir(parents=True, exist_ok=True)
     file_path = log_dir / _LOG_FILE_NAME
 

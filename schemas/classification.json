@@ -7,7 +7,6 @@
   "required": [
     "event_reference",
     "classification",
-    "severity",
     "confidence",
     "rationale",
     "news_relevance"
@@ -26,11 +25,6 @@
         "insufficient_data"
       ],
       "description": "explained_derivatives: funding magnitude or OI change breaches the rubric thresholds (config anomaly_detection.derivatives_thresholds). explained_news: retrieved news context (Run B only) provides a credible explanation that derivatives did not. unexplained: derivatives quiet AND no credible news available. insufficient_data: one or more derivatives feature values are null."
-    },
-    "severity": {
-      "type": "string",
-      "enum": ["low", "medium", "high", "extreme"],
-      "description": "Derived (NOT LLM-emitted) from the episode's peak |Z|: low (>=2.5), medium (>=3.0), high (>=4.0), extreme (>=5.0). Computed by Task 14 and stored on each episode record; Task 18 reads it verbatim. See ADR-0002."
     },
     "confidence": {
       "type": "number",

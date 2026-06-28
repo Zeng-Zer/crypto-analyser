@@ -1,0 +1,23 @@
+=== Task 18 QA: scenario 2 — schema validation failure handling ===
+Date: 2026-06-28T17:50:51Z
+
+Spec: Mock malformed LLM response, Check classifier raises validation error.
+
+Note: the enum constraint on 'severity' is enforced by the OpenAI
+strict-mode response_format (schemas/classification.json), NOT by
+ClassificationResult.from_dict(). The from_dict() gate validates field
+presence and float coercion (confidence). Strict-mode rejects enum or
+type violations server-side before the body reaches from_dict().
+
+--- Setup: fake LLM client whose classify() raises on malformed response ---
+  FakeMalformedClient.classify() mirrors real classify()'s tail
+  (ClassificationResult.from_dict(parsed)) with a malformed parsed dict.
+
+Result: classifier._run_one wrapping behaviour
+------------------------------------------------------------
+RESULT: PASS — ClassificationValidationError raised
+  message: LLM response failed schema validation for LUNAUSDT_1651955100000: 'event_reference'
+
+--- from_dict gate (canonical schema-mismatch cases) ---
+  PASS [missing required field]: KeyError: 'event_reference'
+  PASS [unparseable confidence (string in place of float)]: ValueError: could not convert string to float: 'high'
