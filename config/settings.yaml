@@ -30,7 +30,7 @@ sources:
     base_url: "https://web.archive.org"
     cdx_url: "https://web.archive.org/cdx/search/cdx"
 
-# ─── Z-Score Thresholds ───
+# ─── Z-Score + Derivatives Thresholds ───
 anomaly_detection:
   # Rolling window for Z-score calculation
   window_hours: 24
@@ -41,6 +41,14 @@ anomaly_detection:
   threshold: 2.5
   # Minimum consecutive anomalies to trigger an event
   min_consecutive: 2
+  # Derivatives "explained" rule — injected into the Task 17 system prompt
+  # as a rubric the LLM applies itself. See ADR-0003 (rule as prompt
+  # rubric, not deterministic Task 18 default).
+  #   funding_rate_mag : |funding_rate_current| above this = unusual funding
+  #   oi_change_4h     : |oi_change_4h| above this in a 4h window = unusual OI move
+  derivatives_thresholds:
+    funding_rate_mag: 0.0005
+    oi_change_4h: 0.10
 
 # ─── RSS Feeds (verified via Task 0.2) ───
 rss_feeds:
@@ -95,16 +103,14 @@ pgvector:
   embedding_dimension: 4096
 
 # ─── LLM Classifier ───
+# Note: the classification JSON schema lives in schemas/classification.json
+# and is loaded by LLMClient._load_schema(). It is NOT declared here. The
+# orphaned `output_schema` block that used to live here was deleted as dead
+# config (ADR-0002).
 llm:
   model: "gpt-4o"
   temperature: 0.1
   max_tokens: 2000
-  # Structured output schema (JSON)
-  output_schema:
-    classification: "string"
-    severity: "string"  # critical|high|medium|low
-    confidence: "number"  # 0.0 - 1.0
-    rationale: "string"
 
 # ─── Langfuse Observability ───
 langfuse:

@@ -11,7 +11,6 @@ import requests
 
 from crypto_analyser.config import Config, load_config
 
-
 PLACEHOLDER_PATTERNS: tuple[str, ...] = ("changeme_", "your_", "placeholder")
 
 
@@ -25,7 +24,7 @@ class ClassificationResult:
 
     event_reference: str
     classification: str
-    severity: int
+    severity: str
     confidence: float
     rationale: str
     news_relevance: str | None = None
@@ -35,7 +34,7 @@ class ClassificationResult:
         return cls(
             event_reference=data["event_reference"],
             classification=data["classification"],
-            severity=int(data["severity"]),
+            severity=str(data["severity"]),
             confidence=float(data["confidence"]),
             rationale=data["rationale"],
             news_relevance=data.get("news_relevance"),
@@ -119,8 +118,8 @@ class LLMClient:
         )
 
         # Retry adapter for transient failures
-        from urllib3.util.retry import Retry
         from requests.adapters import HTTPAdapter
+        from urllib3.util.retry import Retry
 
         retries = Retry(
             total=3, backoff_factor=1, status_forcelist=[502, 503, 504]
