@@ -1305,7 +1305,7 @@ Max Concurrent: 7 (Wave 2 - 3 YOU + 4 INTERN parallel, demo runs after indexes)
 
 ---
 
-- [ ] 17. LLM Classifier Prompt + Schema Definition
+- [x] 17. LLM Classifier Prompt + Schema Definition ✓ DONE
 
   **What to do**:
   - Create `prompts/classification_prompt.md`:
