@@ -1,0 +1,76 @@
+=== QA: derivatives context extraction (Task 15) ===
+$ uv run python src/crypto_analyser/derivatives_context.py --anomalies data/anomalies/LUNAUSDT_2022-05-07_2022-05-11.json
+Wrote 7 feature vectors to data/context/LUNAUSDT_2022-05-07_2022-05-11_context.json
+  onset 1651955100000: funding=-0.00026336, oi_change_4h=0.05185830923626467
+  onset 1652013300000: funding=4.151e-05, oi_change_4h=0.0455946742525331
+  onset 1652063100000: funding=-1.492e-05, oi_change_4h=0.02024439421590529
+  onset 1652114100000: funding=-0.00046004, oi_change_4h=0.11575157035768192
+  onset 1652119500000: funding=-0.00046004, oi_change_4h=0.2421354017680177
+  onset 1652210400000: funding=-0.00189747, oi_change_4h=-0.015498871418187383
+  onset 1652217000000: funding=-0.00189747, oi_change_4h=0.1309726960932695
+
+$ jq '.features[0].funding_rate_current' data/context/LUNAUSDT_2022-05-07_2022-05-11_context.json
+-0.00026336
+
+=== full context JSON ===
+{
+  "meta": {
+    "symbol": "LUNAUSDT",
+    "start": "2022-05-07",
+    "end": "2022-05-11",
+    "source_anomalies": "data/anomalies/LUNAUSDT_2022-05-07_2022-05-11.json",
+    "lookback_hours": 4,
+    "total_features": 7
+  },
+  "features": [
+    {
+      "onset_ts": 1651955100000,
+      "funding_rate_current": -0.00026336,
+      "funding_rate_avg_4h": -0.00026336,
+      "oi_current": 3116673.0,
+      "oi_change_4h": 0.05185830923626467
+    },
+    {
+      "onset_ts": 1652013300000,
+      "funding_rate_current": 4.151e-05,
+      "funding_rate_avg_4h": 4.151e-05,
+      "oi_current": 3565321.0,
+      "oi_change_4h": 0.0455946742525331
+    },
+    {
+      "onset_ts": 1652063100000,
+      "funding_rate_current": -1.492e-05,
+      "funding_rate_avg_4h": -2.3386875e-05,
+      "oi_current": 3253087.0,
+      "oi_change_4h": 0.02024439421590529
+    },
+    {
+      "onset_ts": 1652114100000,
+      "funding_rate_current": -0.00046004,
+      "funding_rate_avg_4h": -7.55375e-06,
+      "oi_current": 3431398.0,
+      "oi_change_4h": 0.11575157035768192
+    },
+    {
+      "onset_ts": 1652119500000,
+      "funding_rate_current": -0.00046004,
+      "funding_rate_avg_4h": -0.00020620625,
+      "oi_current": 3782152.0,
+      "oi_change_4h": 0.2421354017680177
+    },
+    {
+      "onset_ts": 1652210400000,
+      "funding_rate_current": -0.00189747,
+      "funding_rate_avg_4h": -0.0020375104668000003,
+      "oi_current": 8646582.0,
+      "oi_change_4h": -0.015498871418187383
+    },
+    {
+      "onset_ts": 1652217000000,
+      "funding_rate_current": -0.00189747,
+      "funding_rate_avg_4h": -0.00189747,
+      "oi_current": 9493965.0,
+      "oi_change_4h": 0.1309726960932695
+    }
+  ]
+}

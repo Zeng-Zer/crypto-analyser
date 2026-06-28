@@ -1176,7 +1176,7 @@ Max Concurrent: 7 (Wave 2 - 3 YOU + 4 INTERN parallel, demo runs after indexes)
 
 ---
 
-- [ ] 15. Derivatives Context Extractor
+- [x] 15. Derivatives Context Extractor
 
   **What to do**:
   - Create `src/crypto_analyser/derivatives_context.py` (CLI shim as needed):
@@ -1202,9 +1202,9 @@ Max Concurrent: 7 (Wave 2 - 3 YOU + 4 INTERN parallel, demo runs after indexes)
   - **Blocked By**: Task 14 (anomaly timestamps), Task 8 (funding data from Wave 2)
 
   **Acceptance Criteria**:
-  - [ ] Derivatives context extracted for anomalies
-  - [ ] OI data included (from Binance Data Vision)
-  - [ ] Feature vector JSON output saved to `data/context/`
+  - [x] Derivatives context extracted for anomalies (7 feature vectors for 7 episodes)
+  - [x] OI data included (from Binance Data Vision 5-min parquet)
+  - [x] Feature vector JSON output saved to `data/context/`
 
   **QA Scenarios**:
   ```
@@ -1212,10 +1212,18 @@ Max Concurrent: 7 (Wave 2 - 3 YOU + 4 INTERN parallel, demo runs after indexes)
     Tool: Bash (python)
     Steps:
       1. python src/crypto_analyser/derivatives_context.py --anomalies data/anomalies/LUNAUSDT_2022-05-07_2022-05-11.json
-      2. jq '.features[0].funding_rate' data/context/LUNAUSDT_2022-05-07_2022-05-11_context.json
-    Expected Result: funding_rate value present
+      2. jq '.features[0].funding_rate_current' data/context/LUNAUSDT_2022-05-07_2022-05-11_context.json
+    Expected Result: funding_rate_current value present
     Evidence: .sisyphus/evidence/task-15-derivatives-context.txt
   ```
+
+  **Status**: DONE. 7 per-episode feature vectors written to
+  `data/context/LUNAUSDT_2022-05-07_2022-05-11_context.json`. Forward-fill
+  semantics for funding (8h step function) — `funding_rate_avg_4h` is a
+  time-weighted mean over the ≤2 intervals active in the 4h lookback, never
+  null. Field-name drift from prior plan revision (`.funding_rate` →
+  `.funding_rate_current`) corrected to match the spec field list. Evidence:
+  task-15-derivatives-context.txt.
 
   **Commit**: YES
   - Message: `feat: derivatives context extraction`
