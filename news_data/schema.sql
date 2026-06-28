@@ -1,4 +1,3 @@
--- news_data/schema.sql
 CREATE EXTENSION IF NOT EXISTS vector; 
 
 CREATE TABLE IF NOT EXISTS crypto_news(

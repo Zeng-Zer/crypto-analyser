@@ -1,18 +1,13 @@
-"""Configuration loader for crypto-analyser.
-
-Loads config/settings.yaml and exposes a typed Config dataclass.
-Warns if placeholder API keys are detected.
-"""
 from __future__ import annotations
 
 import os
 import warnings
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 import yaml
-
+from dotenv import load_dotenv
 
 _PLACEHOLDER_PATTERNS: tuple[str, ...] = ("changeme_", "your_", "placeholder")
 
@@ -41,23 +36,20 @@ def _check_placeholders(config: dict) -> list[str]:
 
 
 def load_config(config_path: str | Path | None = None) -> Config:
-    """Load configuration from YAML file.
+    """Load configuration from YAML file and inject .env secrets.
 
     Args:
-        config_path: Path to settings.yaml. Defaults to config/settings.yaml
-            relative to the project root.
+        config_path: Path to settings.yaml.
 
     Returns:
         Config: Typed configuration object.
-
-    Raises:
-        FileNotFoundError: If config file does not exist.
-        RuntimeError: If critical placeholder keys are not filled.
     """
+    # Load environment variables from the .env file
+    load_dotenv()
+
     if config_path is None:
         root = Path(__file__).resolve().parent.parent.parent
         config_path = root / "config" / "settings.yaml"
-        # Fallback if src layout changes — search from cwd up to project root
         if not config_path.exists():
             for ancestor in Path.cwd().resolve().parents:
                 candidate = ancestor / "config" / "settings.yaml"
@@ -72,6 +64,17 @@ def load_config(config_path: str | Path | None = None) -> Config:
     with open(path, encoding="utf-8") as f:
         raw = yaml.safe_load(f)
 
+    # --- INJECTION DOTENV ---
+    # Overwrite YAML placeholders with real secrets from .env
+    if "api_keys" not in raw:
+        raw["api_keys"] = {}
+        
+    if os.getenv("api_url"):
+        raw["api_keys"]["llm_api_url"] = os.getenv("api_url")
+        
+    if os.getenv("api_key"):
+        raw["api_keys"]["llm_api_key"] = os.getenv("api_key")
+
     placeholders = _check_placeholders(raw)
     if placeholders:
         required_api_keys = [
@@ -80,7 +83,7 @@ def load_config(config_path: str | Path | None = None) -> Config:
         ]
         msg = (
             f"Placeholder values detected in config: {', '.join(placeholders)}\n"
-            "Please fill in your API keys in config/settings.yaml."
+            "Please fill in your configuration files."
         )
         if required_api_keys:
             raise RuntimeError(msg)
