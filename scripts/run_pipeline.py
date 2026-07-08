@@ -14,11 +14,10 @@ standalone CLIs expose, so behaviour matches the per-task QA scenarios. Every
 stage is wrapped in ``@trace_step`` so Langfuse (if configured) records one
 span per stage of the run; with placeholder credentials tracing is a no-op.
 
-Milestone 1 note (AGENTS.md): batch/historical only; RAG not yet wired
-(Tasks 10-13, 16 pending). ``--mode full`` is accepted and mapped to
-``derivatives_rag`` so the classifier's Run B path runs with an empty RAG
-block per the Task 17 prompt contract — classifications still succeed; they
-just lack retrieved-news context until Task 16 ships.
+Milestone 1 note (AGENTS.md): batch/historical only. RAG retrieval stage
+(Task 16) not yet shipped; ``--mode derivatives_rag`` runs the Run B
+prompt with an empty news block per the Task 17 contract — classifications
+still succeed, they just lack retrieved-news context.
 """
 
 from __future__ import annotations
@@ -28,16 +27,12 @@ import sys
 
 from crypto_analyser.tracing import trace_step
 
-# Map the pipeline-level mode to the classifier/report-generator mode. The
-# pipeline accepts ``full`` from the plan's QA scenario, but the downstream
-# modules only know derivatives_only / derivatives_rag.
-_MODE_MAP: dict[str, str] = {
-    "derivatives_only": "derivatives_only",
-    "derivatives_rag": "derivatives_rag",
-    # ponytail: full -> derivatives_rag until Task 16 ships real RAG blobs.
-    # Mode marker is preserved in the report ``mode`` field.
-    "full": "derivatives_rag",
-}
+# Two pipeline modes direct: derivatives_only (Run A) and derivatives_rag
+# (Run B). downstream classifier / report_generator accept the same two
+# values, so no mapping layer is needed — the orchestrator passes --mode
+# through verbatim. When Task 16 ships RAG retrieval, run_derivatives_rag
+# (or its successor stage) inserts itself before the classifier.
+VALID_MODES = {"derivatives_only", "derivatives_rag"}
 
 
 def _download_script(name: str, argv: list[str]) -> None:
@@ -117,8 +112,9 @@ def run_pipeline(
     force_download: bool = False,
 ) -> None:
     """Execute the full LUNA-style pipeline for the given window."""
+    if mode not in VALID_MODES:
+        raise ValueError(f"invalid mode {mode!r}; expected one of {VALID_MODES}")
     month = start[:7]
-    downstream_mode = _MODE_MAP[mode]
 
     print(f"\n=== Task 20 pipeline: {symbol} {start}..{end} mode={mode} ===")
 
@@ -137,10 +133,10 @@ def run_pipeline(
 
     print("\n[5/6] derivatives context + classification")
     run_derivatives(symbol, start, end)
-    run_classifier(symbol, start, end, downstream_mode)
+    run_classifier(symbol, start, end, mode)
 
     print("\n[6/6] reports")
-    run_report(symbol, start, end, downstream_mode)
+    run_report(symbol, start, end, mode)
 
     print(f"\n=== pipeline done: reports/{symbol}_{start}_{end}_summary.json ===")
 
@@ -154,11 +150,11 @@ def main() -> int:
     p.add_argument("--end", required=True, help="End date YYYY-MM-DD")
     p.add_argument(
         "--mode",
-        choices=sorted(_MODE_MAP),
+        choices=sorted(VALID_MODES),
         default="derivatives_only",
         help=(
             "Pipeline mode. 'derivatives_only' = Run A (no RAG). "
-            "'derivatives_rag' / 'full' = Run B (RAG block empty until Task 16)."
+            "'derivatives_rag' = Run B (RAG block empty until Task 16)."
         ),
     )
     p.add_argument(

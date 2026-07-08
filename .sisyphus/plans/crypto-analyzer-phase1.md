@@ -1490,7 +1490,7 @@ Max Concurrent: 7 (Wave 2 - 3 YOU + 4 INTERN parallel, demo runs after indexes)
   Scenario: LUNA pipeline execution
     Tool: Bash (python)
     Steps:
-      1. python scripts/run_pipeline.py --symbol LUNAUSDT --start 2022-05-07 --end 2022-05-11 --mode full
+      1. python scripts/run_pipeline.py --symbol LUNAUSDT --start 2022-05-07 --end 2022-05-11 --mode derivatives_only
       2. ls reports/LUNAUSDT_*.json | wc -l
     Expected Result: Multiple report files created
     Evidence: .sisyphus/evidence/task-20-luna-pipeline.txt
@@ -1554,7 +1554,7 @@ Max Concurrent: 7 (Wave 2 - 3 YOU + 4 INTERN parallel, demo runs after indexes)
 - [ ] 22. Ablation Study: Derivatives+RAG Run
 
   **What to do**:
-  - Run pipeline with `--mode full` (include RAG retrieval)
+  - Run pipeline with `--mode derivatives_rag` (include RAG retrieval)
   - Classify anomalies using derivatives + RAG context
   - Store results: `results/ablation_derivatives_rag.json`
   - Compare with derivatives-only results
@@ -1581,9 +1581,9 @@ Max Concurrent: 7 (Wave 2 - 3 YOU + 4 INTERN parallel, demo runs after indexes)
   Scenario: Derivatives+RAG ablation run
     Tool: Bash (python)
     Steps:
-      1. python scripts/run_pipeline.py --mode full
+      1. python scripts/run_pipeline.py --mode derivatives_rag
       2. jq '.mode' results/ablation_derivatives_rag.json
-    Expected Result: "full"
+    Expected Result: "derivatives_rag"
     Evidence: .sisyphus/evidence/task-22-rag-ablation.txt
 
   Scenario: Classification includes news_relevance
