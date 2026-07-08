@@ -1412,7 +1412,7 @@ Max Concurrent: 7 (Wave 2 - 3 YOU + 4 INTERN parallel, demo runs after indexes)
 
 ---
 
-- [ ] 19. JSON Report Generator
+- [x] 19. JSON Report Generator
 
   **What to do**:
   - Create `src/crypto_analyser/report_generator.py`:
