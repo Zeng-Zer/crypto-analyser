@@ -1,0 +1,192 @@
+#!/usr/bin/env python3
+"""End-to-end pipeline orchestrator (Task 20).
+
+Chains every Wave 2-3 component for a given symbol/date window:
+
+    download (ohlcv + funding + oi)
+        -> zscore         (Task 14: episodes)
+        -> derivatives    (Task 15: per-episode features)
+        -> classifier     (Task 18: LLM verdict per episode)
+        -> report         (Task 19: per-episode + summary)
+
+Each stage runs as an in-process call to the same module main() that the
+standalone CLIs expose, so behaviour matches the per-task QA scenarios. Every
+stage is wrapped in ``@trace_step`` so Langfuse (if configured) records one
+span per stage of the run; with placeholder credentials tracing is a no-op.
+
+Milestone 1 note (AGENTS.md): batch/historical only; RAG not yet wired
+(Tasks 10-13, 16 pending). ``--mode full`` is accepted and mapped to
+``derivatives_rag`` so the classifier's Run B path runs with an empty RAG
+block per the Task 17 prompt contract — classifications still succeed; they
+just lack retrieved-news context until Task 16 ships.
+"""
+
+from __future__ import annotations
+
+import argparse
+import sys
+
+from crypto_analyser.tracing import trace_step
+
+# Map the pipeline-level mode to the classifier/report-generator mode. The
+# pipeline accepts ``full`` from the plan's QA scenario, but the downstream
+# modules only know derivatives_only / derivatives_rag.
+_MODE_MAP: dict[str, str] = {
+    "derivatives_only": "derivatives_only",
+    "derivatives_rag": "derivatives_rag",
+    # ponytail: full -> derivatives_rag until Task 16 ships real RAG blobs.
+    # Mode marker is preserved in the report ``mode`` field.
+    "full": "derivatives_rag",
+}
+
+
+def _download_script(name: str, argv: list[str]) -> None:
+    """Run a scripts/ download CLI via ``python scripts/<name>.py``."""
+    import subprocess
+    from pathlib import Path
+
+    script = Path(__file__).resolve().parent / f"{name}.py"
+    cmd = [sys.executable, str(script), *argv]
+    print(f"  $ {' '.join(cmd)}")
+    result = subprocess.run(cmd, check=False)
+    if result.returncode != 0:
+        raise RuntimeError(f"{name} exited with code {result.returncode}")
+
+
+def _run_module(module: str, argv: list[str]) -> None:
+    """Invoke ``python -m crypto_analyser.<module>`` with the given argv.
+
+    Subprocess avoids duplicating each CLI's path/config resolution here;
+    cost is a few seconds per stage of uv/python startup, acceptable for a
+    batch pipeline that runs once per window.
+    """
+    import subprocess
+
+    cmd = [sys.executable, "-m", f"crypto_analyser.{module}", *argv]
+    print(f"  $ {' '.join(cmd)}")
+    result = subprocess.run(cmd, check=False)
+    if result.returncode != 0:
+        raise RuntimeError(f"{module} exited with code {result.returncode}")
+
+
+@trace_step(name="pipeline.download_ohlcv")
+def run_download_ohlcv(symbol: str, month: str, force: bool) -> None:
+    _download_script("download_ohlcv", ["--symbol", symbol, "--month", month, *(["--force"] if force else [])])
+
+
+@trace_step(name="pipeline.download_funding")
+def run_download_funding(symbol: str, month: str, force: bool) -> None:
+    _download_script("download_funding", ["--symbol", symbol, "--month", month, *(["--force"] if force else [])])
+
+
+@trace_step(name="pipeline.download_oi")
+def run_download_oi(symbol: str, start: str, end: str, force: bool) -> None:
+    _download_script(
+        "download_oi", ["--symbol", symbol, "--start", start, "--end", end, *(["--force"] if force else [])]
+    )
+
+
+@trace_step(name="pipeline.zscore")
+def run_zscore(symbol: str, start: str, end: str) -> None:
+    _run_module("zscore", ["--symbol", symbol, "--start", start, "--end", end])
+
+
+@trace_step(name="pipeline.derivatives")
+def run_derivatives(symbol: str, start: str, end: str) -> None:
+    anomalies = f"data/anomalies/{symbol}_{start}_{end}.json"
+    _run_module("derivatives_context", ["--anomalies", anomalies])
+
+
+@trace_step(name="pipeline.classifier")
+def run_classifier(symbol: str, start: str, end: str, mode: str) -> None:
+    anomalies = f"data/anomalies/{symbol}_{start}_{end}.json"
+    _run_module("classifier", ["--anomalies", anomalies, "--mode", mode])
+
+
+@trace_step(name="pipeline.report")
+def run_report(symbol: str, start: str, end: str, mode: str) -> None:
+    _run_module("report_generator", ["--symbol", symbol, "--start", start, "--end", end, "--mode", mode])
+
+
+def run_pipeline(
+    symbol: str,
+    start: str,
+    end: str,
+    mode: str,
+    skip_download: bool = False,
+    force_download: bool = False,
+) -> None:
+    """Execute the full LUNA-style pipeline for the given window."""
+    month = start[:7]
+    downstream_mode = _MODE_MAP[mode]
+
+    print(f"\n=== Task 20 pipeline: {symbol} {start}..{end} mode={mode} ===")
+
+    if not skip_download:
+        print("\n[1/6] download ohlcv")
+        run_download_ohlcv(symbol, month, force_download)
+        print("\n[2/6] download funding")
+        run_download_funding(symbol, month, force_download)
+        print("\n[3/6] download open interest")
+        run_download_oi(symbol, start, end, force_download)
+    else:
+        print("\n[1-3/6] download skipped (--skip-download)")
+
+    print("\n[4/6] z-score episodes")
+    run_zscore(symbol, start, end)
+
+    print("\n[5/6] derivatives context + classification")
+    run_derivatives(symbol, start, end)
+    run_classifier(symbol, start, end, downstream_mode)
+
+    print("\n[6/6] reports")
+    run_report(symbol, start, end, downstream_mode)
+
+    print(f"\n=== pipeline done: reports/{symbol}_{start}_{end}_summary.json ===")
+
+
+def main() -> int:
+    p = argparse.ArgumentParser(
+        description="Run the crypto-analyser end-to-end pipeline (Task 20)",
+    )
+    p.add_argument("--symbol", default="LUNAUSDT")
+    p.add_argument("--start", required=True, help="Start date YYYY-MM-DD")
+    p.add_argument("--end", required=True, help="End date YYYY-MM-DD")
+    p.add_argument(
+        "--mode",
+        choices=sorted(_MODE_MAP),
+        default="derivatives_only",
+        help=(
+            "Pipeline mode. 'derivatives_only' = Run A (no RAG). "
+            "'derivatives_rag' / 'full' = Run B (RAG block empty until Task 16)."
+        ),
+    )
+    p.add_argument(
+        "--skip-download",
+        action="store_true",
+        help="Skip OHLCV/funding/OI download (use existing parquet files).",
+    )
+    p.add_argument(
+        "--force-download",
+        action="store_true",
+        help="Force re-download even if parquet files exist (passed to --force on download scripts).",
+    )
+    args = p.parse_args()
+
+    try:
+        run_pipeline(
+            symbol=args.symbol,
+            start=args.start,
+            end=args.end,
+            mode=args.mode,
+            skip_download=args.skip_download,
+            force_download=args.force_download,
+        )
+    except RuntimeError as exc:
+        print(f"\n[ERROR] pipeline failed: {exc}", file=sys.stderr)
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

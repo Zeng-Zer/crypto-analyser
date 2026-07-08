@@ -1458,7 +1458,7 @@ Max Concurrent: 7 (Wave 2 - 3 YOU + 4 INTERN parallel, demo runs after indexes)
 
 ### Wave 4: Validation + Evaluation
 
-- [ ] 20. Run Pipeline on LUNA May 7-11 Window
+- [x] 20. Run Pipeline on LUNA May 7-11 Window
 
   **What to do**:
   - Create `scripts/run_pipeline.py`:
