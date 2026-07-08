@@ -35,6 +35,28 @@ from crypto_analyser.tracing import trace_step
 VALID_MODES = {"derivatives_only", "derivatives_rag"}
 
 
+def _months_in_range(start: str, end: str) -> list[str]:
+    """Return ``['2022-04', '2022-05']`` for ``start='2022-04-25' end='2022-05-02'``.
+
+    Cross-month windows download every covered month's parquet file. The
+    zscore / derivatives loaders glob ``{symbol}_*.parquet`` so multi-month
+    loading works without per-month handling there too.
+    """
+    import datetime as _dt
+
+    s = _dt.date.fromisoformat(start)
+    e = _dt.date.fromisoformat(end)
+    months: list[str] = []
+    y, m = s.year, s.month
+    while (y, m) <= (e.year, e.month):
+        months.append(f"{y:04d}-{m:02d}")
+        m += 1
+        if m > 12:
+            m = 1
+            y += 1
+    return months
+
+
 def _download_script(name: str, argv: list[str]) -> None:
     """Run a scripts/ download CLI via ``python scripts/<name>.py``."""
     import subprocess
@@ -64,21 +86,33 @@ def _run_module(module: str, argv: list[str]) -> None:
         raise RuntimeError(f"{module} exited with code {result.returncode}")
 
 
+def _repeat_months(months: list[str]) -> list[str]:
+    """Flatten ['2022-04','2022-05'] to ['--month','2022-04','--month','2022-05']."""
+    return [tok for m in months for tok in ("--month", m)]
+
+
 @trace_step(name="pipeline.download_ohlcv")
-def run_download_ohlcv(symbol: str, month: str, force: bool) -> None:
-    _download_script("download_ohlcv", ["--symbol", symbol, "--month", month, *(["--force"] if force else [])])
+def run_download_ohlcv(symbol: str, months: list[str], force: bool) -> None:
+    argv = ["--symbol", symbol, *_repeat_months(months)]
+    if force:
+        argv.append("--force")
+    _download_script("download_ohlcv", argv)
 
 
 @trace_step(name="pipeline.download_funding")
-def run_download_funding(symbol: str, month: str, force: bool) -> None:
-    _download_script("download_funding", ["--symbol", symbol, "--month", month, *(["--force"] if force else [])])
+def run_download_funding(symbol: str, months: list[str], force: bool) -> None:
+    argv = ["--symbol", symbol, *_repeat_months(months)]
+    if force:
+        argv.append("--force")
+    _download_script("download_funding", argv)
 
 
 @trace_step(name="pipeline.download_oi")
 def run_download_oi(symbol: str, start: str, end: str, force: bool) -> None:
-    _download_script(
-        "download_oi", ["--symbol", symbol, "--start", start, "--end", end, *(["--force"] if force else [])]
-    )
+    argv = ["--symbol", symbol, "--start", start, "--end", end]
+    if force:
+        argv.append("--force")
+    _download_script("download_oi", argv)
 
 
 @trace_step(name="pipeline.zscore")
@@ -114,15 +148,15 @@ def run_pipeline(
     """Execute the full LUNA-style pipeline for the given window."""
     if mode not in VALID_MODES:
         raise ValueError(f"invalid mode {mode!r}; expected one of {VALID_MODES}")
-    month = start[:7]
+    months = _months_in_range(start, end)
 
     print(f"\n=== Task 20 pipeline: {symbol} {start}..{end} mode={mode} ===")
 
     if not skip_download:
-        print("\n[1/6] download ohlcv")
-        run_download_ohlcv(symbol, month, force_download)
-        print("\n[2/6] download funding")
-        run_download_funding(symbol, month, force_download)
+        print(f"\n[1/6] download ohlcv (months: {' '.join(months)})")
+        run_download_ohlcv(symbol, months, force_download)
+        print(f"\n[2/6] download funding (months: {' '.join(months)})")
+        run_download_funding(symbol, months, force_download)
         print("\n[3/6] download open interest")
         run_download_oi(symbol, start, end, force_download)
     else:

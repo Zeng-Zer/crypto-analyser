@@ -26,24 +26,31 @@ import pandas as pd
 LOOKBACK_HOURS = 4
 
 
-def _load_funding(symbol: str, month: str) -> pd.DataFrame:
-    """Funding-rate parquet sorted by ``calc_time`` (epoch ms)."""
+def _load_funding(symbol: str) -> pd.DataFrame:
+    """Funding-rate parquet sorted by ``calc_time`` (epoch ms).
+
+    Globs all monthly parquet files for ``symbol`` so windows crossing a
+    calendar-month boundary load both months.
+    """
     con = duckdb.connect()
     df = con.execute(f"""
         SELECT calc_time, last_funding_rate AS funding_rate
-        FROM read_parquet('data/funding/{symbol}_{month}.parquet')
+        FROM read_parquet('data/funding/{symbol}_*.parquet')
         ORDER BY calc_time
     """).fetchdf()
     con.close()
     return df
 
 
-def _load_oi(symbol: str, month: str) -> pd.DataFrame:
-    """Open-interest parquet sorted by ``create_time`` (epoch ms)."""
+def _load_oi(symbol: str) -> pd.DataFrame:
+    """Open-interest parquet sorted by ``create_time`` (epoch ms).
+
+    Globs all monthly parquet files for ``symbol`` (see _load_funding).
+    """
     con = duckdb.connect()
     df = con.execute(f"""
         SELECT epoch_ms(create_time) AS create_time_ms, sum_open_interest
-        FROM read_parquet('data/oi/{symbol}_{month}.parquet')
+        FROM read_parquet('data/oi/{symbol}_*.parquet')
         ORDER BY create_time_ms
     """).fetchdf()
     con.close()
@@ -144,12 +151,10 @@ def main() -> None:
     meta = anomalies["meta"]
     episodes = anomalies["episodes"]
     symbol, start, end = meta["symbol"], meta["start"], meta["end"]
-    # ponytail: single-month load (start[:7]); LUNA May 7-11 is in-bounds.
-    month = start[:7]
     lookback = args.lookback_hours if args.lookback_hours is not None else LOOKBACK_HOURS
 
-    funding = _load_funding(symbol, month)
-    oi = _load_oi(symbol, month)
+    funding = _load_funding(symbol)
+    oi = _load_oi(symbol)
     features = extract_features(episodes, funding, oi, lookback_hours=lookback)
 
     output_path = Path(f"data/context/{symbol}_{start}_{end}_context.json")
