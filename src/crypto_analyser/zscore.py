@@ -6,8 +6,8 @@ per-bar flag. Episodes flow through derivatives fetch + LLM classification.
 
 from __future__ import annotations
 
-import pandas as pd
 import numpy as np
+import pandas as pd
 
 
 def compute_anomalies(
@@ -137,16 +137,18 @@ def extract_episodes(
         seg_z_vals = seg_z[seg_mask]
         mean_z = float(np.mean(seg_z_vals)) if seg_z_vals.size else 0.0
         direction = "spike" if mean_z >= 0 else "crash"
-        episodes.append({
-            "onset_ts": int(idxs[start]),
-            "peak_ts": int(idxs[peak_idx]),
-            "peak_z": peak_z,
-            "severity": _severity(abs(peak_z)),
-            "direction": direction,
-            "close_onset": float(closes[start]),
-            "baseline_close": float(closes[start - 1]) if start > 0 else None,
-            "duration_bars": int(end - start + 1),
-        })
+        episodes.append(
+            {
+                "onset_ts": int(idxs[start]),
+                "peak_ts": int(idxs[peak_idx]),
+                "peak_z": peak_z,
+                "severity": _severity(abs(peak_z)),
+                "direction": direction,
+                "close_onset": float(closes[start]),
+                "baseline_close": float(closes[start - 1]) if start > 0 else None,
+                "duration_bars": int(end - start + 1),
+            }
+        )
         i = end + 1
     return episodes
 
@@ -164,7 +166,9 @@ def _load_parquet(symbol: str, start: str, end: str) -> pd.Series:
     # calendar-month boundary would silently drop the other month. LUNA's
     # May 7-11 window is in-bounds; fix when Task 19/20 extends ranges.
     parquet_path = f"data/ohlcv/{symbol}_{month}.parquet"
-    import datetime, zoneinfo
+    import datetime
+    import zoneinfo
+
     tz = zoneinfo.ZoneInfo("UTC")
     start_epoch = int(datetime.datetime.strptime(start, "%Y-%m-%d").replace(tzinfo=tz).timestamp() * 1000)
     end_epoch = int(datetime.datetime.strptime(end, "%Y-%m-%d").replace(tzinfo=tz).timestamp() * 1000 + 86400_000 - 1)
@@ -187,10 +191,12 @@ def main():
 
     import yaml as _yaml
 
+    from crypto_analyser._paths import repo_root
+
     # ponytail: read anomaly_detection directly, bypassing load_config()'s
     # placeholder gate which would crash on unfilled LLM API keys. Z-score CLI
     # has nothing to do with LLM keys.
-    cfg_path = Path(__file__).resolve().parent.parent.parent / "config" / "settings.yaml"
+    cfg_path = repo_root() / "config" / "settings.yaml"
     with open(cfg_path, encoding="utf-8") as _f:
         _raw = _yaml.safe_load(_f) or {}
     ad = _raw.get("anomaly_detection", {}) or {}
@@ -205,14 +211,26 @@ def main():
     parser.add_argument("--symbol", default="LUNAUSDT")
     parser.add_argument("--start", required=True, help="Start date YYYY-MM-DD")
     parser.add_argument("--end", required=True, help="End date YYYY-MM-DD")
-    parser.add_argument("--window", default=None,
-                        help="Rolling window in hours, optional 'h' suffix (default: config window_hours). '12', '12h', '24h'")
-    parser.add_argument("--threshold", type=float, default=None,
-                        help=f"|Z| threshold (default: config threshold = {cfg_threshold})")
-    parser.add_argument("--max-gap", type=int, default=2,
-                        help="Tolerated consecutive non-flagged bars inside a run before splitting (default: 2)")
-    parser.add_argument("--min-consecutive", type=int, default=None,
-                        help=f"Minimum flagged bars to form an episode (default: config min_consecutive = {cfg_min_consecutive})")
+    parser.add_argument(
+        "--window",
+        default=None,
+        help="Rolling window in hours, optional 'h' suffix (default: config window_hours). '12', '12h', '24h'",
+    )
+    parser.add_argument(
+        "--threshold", type=float, default=None, help=f"|Z| threshold (default: config threshold = {cfg_threshold})"
+    )
+    parser.add_argument(
+        "--max-gap",
+        type=int,
+        default=2,
+        help="Tolerated consecutive non-flagged bars inside a run before splitting (default: 2)",
+    )
+    parser.add_argument(
+        "--min-consecutive",
+        type=int,
+        default=None,
+        help=f"Minimum flagged bars to form an episode (default: config min_consecutive = {cfg_min_consecutive})",
+    )
     args = parser.parse_args()
 
     window_hours = _parse_window_hours(args.window) if args.window is not None else cfg_window_hours
@@ -248,6 +266,7 @@ def main():
     print(f"Wrote {len(episodes)} episodes to {output_path}")
     if episodes:
         from collections import Counter
+
         sev = Counter(e["severity"] for e in episodes)
         peak = max(episodes, key=lambda e: abs(e["peak_z"]))
         print(f"Severity distribution: {dict(sev)}")

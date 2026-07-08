@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 import warnings
 from dataclasses import dataclass
 from pathlib import Path
@@ -8,6 +7,8 @@ from typing import Any
 
 import yaml
 from dotenv import load_dotenv
+
+from crypto_analyser._paths import repo_root
 
 _PLACEHOLDER_PATTERNS: tuple[str, ...] = ("changeme_", "your_", "placeholder")
 
@@ -48,7 +49,7 @@ def load_config(config_path: str | Path | None = None) -> Config:
     load_dotenv()
 
     if config_path is None:
-        root = Path(__file__).resolve().parent.parent.parent
+        root = repo_root()
         config_path = root / "config" / "settings.yaml"
         if not config_path.exists():
             for ancestor in Path.cwd().resolve().parents:
@@ -64,23 +65,9 @@ def load_config(config_path: str | Path | None = None) -> Config:
     with open(path, encoding="utf-8") as f:
         raw = yaml.safe_load(f)
 
-    # --- INJECTION DOTENV ---
-    # Overwrite YAML placeholders with real secrets from .env
-    if "api_keys" not in raw:
-        raw["api_keys"] = {}
-        
-    if os.getenv("api_url"):
-        raw["api_keys"]["llm_api_url"] = os.getenv("api_url")
-        
-    if os.getenv("api_key"):
-        raw["api_keys"]["llm_api_key"] = os.getenv("api_key")
-
     placeholders = _check_placeholders(raw)
     if placeholders:
-        required_api_keys = [
-            p for p in placeholders
-            if p.startswith("api_keys.") or p.startswith("langfuse.")
-        ]
+        required_api_keys = [p for p in placeholders if p.startswith("api_keys.") or p.startswith("langfuse.")]
         msg = (
             f"Placeholder values detected in config: {', '.join(placeholders)}\n"
             "Please fill in your configuration files."

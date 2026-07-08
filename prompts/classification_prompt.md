@@ -31,26 +31,24 @@ The thresholds above are reproduced verbatim from
 config/settings.yaml (anomaly_detection.derivatives_thresholds).
 
 Rules:
-1. `severity` is provided in the input (derived from the episode's peak |Z|
-   by Task 14). Echo it verbatim. Do NOT invent or recalibrate severity.
-2. `confidence` is your confidence that the chosen classification is
+1. `confidence` is your confidence that the chosen classification is
    well-supported by the cited feature values — anchored to the evidence you
    cite in `rationale`, not a free-floating self-rating. A classification
    with one clear, non-contradictory signal deserves >= 0.8; a marginal or
    partially null feature set deserves 0.3-0.5; if you would instead pick
    `insufficient_data`, report confidence < 0.3.
-3. `rationale` must cite the specific feature values you used
+2. `rationale` must cite the specific feature values you used
    (e.g. "funding_rate_current=0.0007 exceeds the 0.0005 threshold;
    oi_change_4h=-0.42 is a 42% drop, well past 0.10"). Run B variants must
    also reference why retrieved news does or does not explain the move.
-4. `news_relevance` is null in the derivatives-only variant. In the
+3. `news_relevance` is null in the derivatives-only variant. In the
    derivatives+RAG variant, write 1-3 sentences on whether the retrieved
    news provides a credible explanation the derivatives data did not.
-5. Prefer `unexplained` conservatively — it is the project's highest-priority
+4. Prefer `unexplained` conservatively — it is the project's highest-priority
    signal. Do not inflate `explained_news` by surface pattern matching on
    headlines; only flip to `explained_news` if the news text genuinely
    explains the price move AND derivatives are quiet.
-6. `event_reference` is supplied appended to the user prompt. Echo it verbatim.
+5. `event_reference` is supplied appended to the user prompt. Echo it verbatim.
 
 Categories:
   - explained_derivatives : funding or OI breaches the rubric.
