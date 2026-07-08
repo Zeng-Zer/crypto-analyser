@@ -1,0 +1,69 @@
+=== Task 20 QA: LUNA pipeline end-to-end (derivatives_only, --skip-download) ===
+Date: 2026-07-08T21:28:53Z
+
+Command:
+  uv run python scripts/run_pipeline.py --symbol LUNAUSDT --start 2022-05-07 --end 2022-05-11 --mode derivatives_only --skip-download
+
+Stages executed:
+  [1-3/6] download skipped (--skip-download)
+  [4/6]   zscore     -> data/anomalies/LUNAUSDT_2022-05-07_2022-05-11.json
+  [5/6]   derivatives-> data/context/LUNAUSDT_2022-05-07_2022-05-11_context.json
+  [5/6]   classifier -> data/classifications/derivatives_only/LUNAUSDT_*.json
+  [6/6]   report     -> reports/LUNAUSDT_*.json
+
+Acceptance check 1: pipeline runs end-to-end without errors
+  -> exit code 0 from full run
+
+Acceptance check 2: anomalies detected
+  jq '.episodes | length' = 5
+  jq '.meta.total_episodes' anomalies file = 5
+
+Acceptance check 3: classifications produced for all anomalies
+  classifications count =       11
+  episodes count        = 5
+
+Acceptance check 4: reports generated
+  per-episode report files (onsets for this run) =        5
+  summary report: reports/LUNAUSDT_2022-05-07_2022-05-11_summary.json
+
+=== Plan QA scenario: ls reports/LUNAUSDT_*.json | wc -l ===
+      12
+
+=== Plan QA scenario: jq '.episodes | length' summary ===
+5
+
+=== Classification breakdown (from summary) ===
+{
+  "explained_derivatives": 4,
+  "unexplained": 1
+}
+
+=== Coverage verification (every current episode has classification field non-null) ===
+  1651971000000 -> explained_derivatives
+  1652114100000 -> explained_derivatives
+  1652133000000 -> explained_derivatives
+  1652136300000 -> unexplained
+  1652217600000 -> explained_derivatives
+  -> 5/5 episodes have non-null classification field in summary report
+
+=== Pipeline invocation exit code ===
+  uv run python scripts/run_pipeline.py ... --skip-download  => exit=0
+
+=== Note: episode count drift (data regression, OUT OF Task 20 SCOPE) ===
+  Task 19 evidence showed 7 episodes for this window.
+  Today zscore produces 5 episodes with different onsets:
+    Task 19:  1651955100000, 1652013300000, 1652063100000, 1652114100000,
+              1652119500000, 1652210400000, 1652217000000
+    Today:   1651971000000, 1652114100000, 1652133000000, 1652136300000,
+              1652217600000
+    Overlap: 1652114100000 (1 onset)
+  Root: data/ohlcv/LUNAUSDT_2022-05.parquet has 3350 rows for May 2022
+  (full month would be ~8928 5-min bars). The OHLCV parquet likely lost rows
+  since Task 19 (re-downloaded partial data) -- Task 20 wraps zscore, does not
+  regenerate the OHLCV archive. Fix is in download_ohlcv / re-download scope.
+
+=== Tracing ===
+  Each pipeline stage wrapped in @trace_step(name='pipeline.<stage>'). With
+  placeholder Langfuse credentials (per config/settings.yaml), tracing is a
+  no-op; trace_step decorator falls back to plain function call (best-effort).
+
