@@ -153,7 +153,7 @@ def generate(
 def main() -> None:
     parser = argparse.ArgumentParser(
         prog="crypto_analyser.report_generator",
-        description="Task 19: build JSON reports from anomalies + derivatives + classification.",
+        description="Build JSON reports from anomalies + derivatives + classification.",
     )
     parser.add_argument("--symbol", required=True)
     parser.add_argument("--start", required=True, help="YYYY-MM-DD")
@@ -168,7 +168,7 @@ def main() -> None:
 
     summary_path, per_paths = generate(args.symbol, args.start, args.end, args.mode)
 
-    print(f"Task 19 report_generator: symbol={args.symbol} mode={args.mode}")
+    print(f"report_generator: symbol={args.symbol} mode={args.mode}")
     print(f"  summary:  {summary_path.relative_to(REPO)}")
     print(f"  episodes: {len(per_paths)} per-episode reports under reports/")
 
