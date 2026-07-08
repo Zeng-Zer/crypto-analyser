@@ -91,10 +91,11 @@ def extract_features(
             win_start = onset - lookback_ms
             before = max(boundary - win_start, 0)
             after = max(onset - boundary, 0)
-            funding_avg_4h = float(
-                (f_rates[prev_idx] * before + f_rates[cur_idx] * after)
-                / (before + after)
-            ) if (before + after) > 0 else None
+            funding_avg_4h = (
+                float((f_rates[prev_idx] * before + f_rates[cur_idx] * after) / (before + after))
+                if (before + after) > 0
+                else None
+            )
 
         # open interest: value at onset + pct change vs lookback start
         oi_cur_idx = _nearest_before(oi_times, onset)
@@ -102,18 +103,18 @@ def extract_features(
         oi_prev_idx = _nearest_before(oi_times, onset - lookback_ms)
         oi_4h_ago = float(oi_vals[oi_prev_idx]) if oi_prev_idx >= 0 else None
         oi_change_4h = (
-            (oi_current - oi_4h_ago) / oi_4h_ago
-            if oi_current is not None and oi_4h_ago and oi_4h_ago != 0
-            else None
+            (oi_current - oi_4h_ago) / oi_4h_ago if oi_current is not None and oi_4h_ago and oi_4h_ago != 0 else None
         )
 
-        features.append({
-            "onset_ts": onset,
-            "funding_rate_current": funding_current,
-            "funding_rate_avg_4h": funding_avg_4h,
-            "oi_current": oi_current,
-            "oi_change_4h": oi_change_4h,
-        })
+        features.append(
+            {
+                "onset_ts": onset,
+                "funding_rate_current": funding_current,
+                "funding_rate_avg_4h": funding_avg_4h,
+                "oi_current": oi_current,
+                "oi_change_4h": oi_change_4h,
+            }
+        )
     return features
 
 
@@ -125,11 +126,14 @@ def main() -> None:
         description="Extract derivatives context (funding + OI) for anomaly episodes",
     )
     parser.add_argument(
-        "--anomalies", required=True,
-        help="Path to bulk anomalies JSON from Task 14",
+        "--anomalies",
+        required=True,
+        help="Path to bulk anomalies JSON",
     )
     parser.add_argument(
-        "--lookback-hours", type=float, default=None,
+        "--lookback-hours",
+        type=float,
+        default=None,
         help=f"Lookback window in hours (default {LOOKBACK_HOURS})",
     )
     args = parser.parse_args()
@@ -168,9 +172,7 @@ def main() -> None:
     print(f"Wrote {len(features)} feature vectors to {output_path}")
     for feat in features:
         print(
-            f"  onset {feat['onset_ts']}: "
-            f"funding={feat['funding_rate_current']}, "
-            f"oi_change_4h={feat['oi_change_4h']}"
+            f"  onset {feat['onset_ts']}: funding={feat['funding_rate_current']}, oi_change_4h={feat['oi_change_4h']}"
         )
 
 
