@@ -1,0 +1,12 @@
+QUERY PLAN
+rows=1 width=332) (actual time=0.052..0.092 rows=5.00 loops=1)
+Seq Scan
+on crypto_news
+(cost=0.00..6.28
+Filter: (tickers @> '{BTC}':: text[l)
+Rows Removed by Filter: 17
+Buffers: shared hit=13
+Planning:
+Buffers: shared hit=261
+Planning Time: 1.563 ms
+Execution Time: 0.116 ms
