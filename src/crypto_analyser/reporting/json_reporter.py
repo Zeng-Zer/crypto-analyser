@@ -152,7 +152,7 @@ def generate(
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        prog="crypto_analyser.report_generator",
+        prog="crypto_analyser.reporting.json_reporter",
         description="Build JSON reports from anomalies + derivatives + classification.",
     )
     parser.add_argument("--symbol", required=True)

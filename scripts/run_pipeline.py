@@ -117,24 +117,24 @@ def run_download_oi(symbol: str, start: str, end: str, force: bool) -> None:
 
 @trace_step(name="pipeline.zscore")
 def run_zscore(symbol: str, start: str, end: str) -> None:
-    _run_module("zscore", ["--symbol", symbol, "--start", start, "--end", end])
+    _run_module("detection.zscore", ["--symbol", symbol, "--start", start, "--end", end])
 
 
 @trace_step(name="pipeline.derivatives")
 def run_derivatives(symbol: str, start: str, end: str) -> None:
     anomalies = f"data/anomalies/{symbol}_{start}_{end}.json"
-    _run_module("derivatives_context", ["--anomalies", anomalies])
+    _run_module("detection.derivatives", ["--anomalies", anomalies])
 
 
 @trace_step(name="pipeline.classifier")
 def run_classifier(symbol: str, start: str, end: str, mode: str) -> None:
     anomalies = f"data/anomalies/{symbol}_{start}_{end}.json"
-    _run_module("classifier", ["--anomalies", anomalies, "--mode", mode])
+    _run_module("classifiers.derivatives", ["--anomalies", anomalies, "--mode", mode])
 
 
 @trace_step(name="pipeline.report")
 def run_report(symbol: str, start: str, end: str, mode: str) -> None:
-    _run_module("report_generator", ["--symbol", symbol, "--start", start, "--end", end, "--mode", mode])
+    _run_module("reporting.json_reporter", ["--symbol", symbol, "--start", start, "--end", end, "--mode", mode])
 
 
 def run_pipeline(

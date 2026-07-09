@@ -10,6 +10,7 @@ URL pattern: {base_url}/data/futures/um/monthly/klines/{SYMBOL}/5m/{SYMBOL}-5m-{
 
 Output: data/ohlcv/{symbol}_{month}.parquet
 """
+
 from __future__ import annotations
 
 import argparse
@@ -20,7 +21,7 @@ from pathlib import Path
 import duckdb
 import requests
 
-from crypto_analyser.download_utils import (
+from crypto_analyser.downloaders.binance import (
     BASE_URL,
     csv_to_parquet,
     download_zip,
@@ -47,10 +48,7 @@ COLUMNS: dict[str, str] = {
 
 
 def build_url(base_url: str, symbol: str, interval: str, month: str) -> str:
-    return (
-        f"{base_url}/data/futures/um/monthly/klines/"
-        f"{symbol}/{interval}/{symbol}-{interval}-{month}.zip"
-    )
+    return f"{base_url}/data/futures/um/monthly/klines/{symbol}/{interval}/{symbol}-{interval}-{month}.zip"
 
 
 def download_ohlcv(
@@ -74,20 +72,20 @@ def download_ohlcv(
         zip_bytes = download_zip(url)
         csv_path = extract_csv(zip_bytes)
         row_count = csv_to_parquet(
-            csv_path, output_path,
+            csv_path,
+            output_path,
             columns=COLUMNS,
             where_clause="volume > 0",
         )
 
         con = duckdb.connect()
-        ts_range = con.execute(
-            f"SELECT MIN(open_time), MAX(open_time) FROM read_parquet('{output_path}')"
-        ).fetchone()
+        ts_range = con.execute(f"SELECT MIN(open_time), MAX(open_time) FROM read_parquet('{output_path}')").fetchone()
         first_dt = datetime.fromtimestamp(ts_range[0] / 1000, tz=timezone.utc)
         last_dt = datetime.fromtimestamp(ts_range[1] / 1000, tz=timezone.utc)
         logger.info(
             "Wrote %d rows to %s (%s to %s)",
-            row_count, output_path,
+            row_count,
+            output_path,
             first_dt.strftime("%Y-%m-%d %H:%M"),
             last_dt.strftime("%Y-%m-%d %H:%M"),
         )
@@ -105,9 +103,7 @@ def download_ohlcv(
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Download OHLCV kline data from Binance Data Vision"
-    )
+    parser = argparse.ArgumentParser(description="Download OHLCV kline data from Binance Data Vision")
     parser.add_argument("--symbol", default="LUNAUSDT")
     parser.add_argument("--month", action="append", required=True)
     parser.add_argument("--interval", default=None)
@@ -133,8 +129,14 @@ def main() -> None:
     success_count = 0
     for month in args.month:
         logger.info("--- %s %s ---", args.symbol, month)
-        if download_ohlcv(symbol=args.symbol, month=month, output_dir=output_dir,
-                          interval=interval, base_url=base_url, force=args.force):
+        if download_ohlcv(
+            symbol=args.symbol,
+            month=month,
+            output_dir=output_dir,
+            interval=interval,
+            base_url=base_url,
+            force=args.force,
+        ):
             success_count += 1
 
     logger.info("Completed: %d/%d months downloaded", success_count, len(args.month))

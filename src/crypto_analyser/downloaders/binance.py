@@ -4,12 +4,12 @@ Provides zip download/extraction, CSV-to-Parquet conversion,
 type-safe column definitions, and config loading.
 
 Usage:
-    from crypto_analyser.download_utils import download_zip, extract_csv, csv_to_parquet
+    from crypto_analyser.downloaders.binance import download_zip, extract_csv, csv_to_parquet
 """
+
 from __future__ import annotations
 
 import io
-import logging
 import tempfile
 import zipfile
 from pathlib import Path
@@ -122,7 +122,5 @@ def csv_to_parquet(
         """
     )
 
-    row_count = con.execute(
-        f"SELECT COUNT(*) FROM read_parquet('{output_path}')"
-    ).fetchone()[0]
+    row_count = con.execute(f"SELECT COUNT(*) FROM read_parquet('{output_path}')").fetchone()[0]
     return row_count

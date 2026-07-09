@@ -8,6 +8,7 @@ Usage:
 URL: {base}/data/futures/um/daily/metrics/{SYMBOL}/{SYMBOL}-metrics-{YYYY-MM-DD}.zip
 5-min intervals (~288/day). Output: data/oi/{symbol}_{start_month}.parquet
 """
+
 from __future__ import annotations
 
 import argparse
@@ -18,7 +19,7 @@ from pathlib import Path
 import duckdb
 import requests
 
-from crypto_analyser.download_utils import (
+from crypto_analyser.downloaders.binance import (
     BASE_URL,
     build_projection,
     download_zip,
@@ -63,9 +64,7 @@ def download_oi_range(
         while current <= end_date:
             day_str = current.strftime("%Y-%m-%d")
             try:
-                csv_path = extract_csv(
-                    download_zip(build_url(base_url, symbol, day_str))
-                )
+                csv_path = extract_csv(download_zip(build_url(base_url, symbol, day_str)))
                 csv_paths.append(csv_path)
             except requests.HTTPError as e:
                 if e.response and e.response.status_code == 404:
@@ -80,29 +79,25 @@ def download_oi_range(
 
         projection = build_projection(COLUMNS)
         con = duckdb.connect()
-        union_parts = [
-            f"SELECT {projection} FROM read_csv('{p}', header=true, all_varchar=true)"
-            for p in csv_paths
-        ]
+        union_parts = [f"SELECT {projection} FROM read_csv('{p}', header=true, all_varchar=true)" for p in csv_paths]
         con.execute(
             f"""
             COPY (
                 SELECT * FROM (
-                    {' UNION ALL '.join(union_parts)}
+                    {" UNION ALL ".join(union_parts)}
                 ) sub ORDER BY create_time
             ) TO '{output_path}' (FORMAT PARQUET, COMPRESSION 'zstd');
             """
         )
 
-        row_count = con.execute(
-            f"SELECT COUNT(*) FROM read_parquet('{output_path}')"
-        ).fetchone()[0]
+        row_count = con.execute(f"SELECT COUNT(*) FROM read_parquet('{output_path}')").fetchone()[0]
         ts_range = con.execute(
             f"SELECT MIN(create_time), MAX(create_time) FROM read_parquet('{output_path}')"
         ).fetchone()
         logger.info(
             "Wrote %d rows to %s (%s to %s)",
-            row_count, output_path,
+            row_count,
+            output_path,
             ts_range[0].strftime("%Y-%m-%d %H:%M"),
             ts_range[1].strftime("%Y-%m-%d %H:%M"),
         )

@@ -1,7 +1,9 @@
-"""Tests for crypto_analyser.zscore.compute_anomalies."""
-import pandas as pd
+"""Tests for crypto_analyser.detection.zscore.compute_anomalies."""
+
 import numpy as np
-from crypto_analyser.zscore import compute_anomalies
+import pandas as pd
+
+from crypto_analyser.detection.zscore import compute_anomalies
 
 
 def test_flat_line_no_anomalies():
