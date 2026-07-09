@@ -1,0 +1,15 @@
+QUERY PLAN
+Index
+Scan using crypto_news_link_date_pub_key
+on crypto_news
+(cost=0.14..12.37 rows=1 width=332) (actual time=0.085..0.085
+rows=0.00 l00ps=1)
+Index Cond: ((date_pub ≥ '2026-06-01 00:00:00+00':: timestamp with time zone) AND (date_pub ≤'2026-06-30 00:00:00+00':: timestamp with time zone))
+Index
+Searches: 1
+Buffers: shared hit=3
+Planning:
+Buffers:
+shared hit=13
+Planning Time: 0.152 ms
+Execution Time: 0.108 ms
