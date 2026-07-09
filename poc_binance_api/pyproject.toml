@@ -1,7 +1,0 @@
-[project]
-name = "poc-binance-api"
-version = "0.1.0"
-description = "Download LUNAUSDT derivatives data from data.binance.vision"
-readme = "README.md"
-requires-python = ">=3.12"
-dependencies = []

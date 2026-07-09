@@ -1,99 +1,74 @@
 # Storage Strategy
 
-## Overview
+## Current architecture
 
-This project uses two complementary storage approaches:
+| Data | Storage | Access pattern |
+|---|---|---|
+| OHLCV, funding, open interest | Parquet partitioned by symbol and month | DuckDB SQL scans and joins |
+| News articles and embeddings | PostgreSQL with pgvector | Full-text and vector retrieval |
+| Episodes, features, classifications, reports | Gitignored JSON | Batch pipeline handoff and reproducible artifacts |
 
-| Format   | Purpose                                      | When Used                        |
-|----------|----------------------------------------------|----------------------------------|
-| Parquet  | Columnar storage for historical OHLCV data  | Batch writes, analytical queries |
-| DuckDB   | In-process analytical database for queries   | Ad-hoc queries, joins, aggregations |
+PostgreSQL tables for pipeline outputs and TimescaleDB live ingestion are planned for Milestone 2. They are not implemented in Milestone 1.
 
-## Directory Structure
+## Data directory
 
-```
+```text
 data/
-  ohlcv/           # OHLCV Parquet files (1-min klines from Binance Data Vision)
-  funding/          # Funding rate Parquet files (8h intervals)
-  oi/               # Open Interest Parquet files (5-min metrics)
-  anomalies/        # Detected anomalies JSON (Z-score outputs)
-  context/          # Derivatives context JSON (funding + OI at anomaly timestamps)
-  classifications/  # LLM classification results (structured verdicts)
-  reports/          # Final JSON reports (ablation study outputs)
-  raw/              # Downloaded CSV/ZIP before Parquet conversion
-  crypto.duckdb     # DuckDB database (created on first query)
+├── ohlcv/                         # {symbol}_{YYYY-MM}.parquet, 5-minute candles
+├── funding/                       # {symbol}_{YYYY-MM}.parquet, 8-hour snapshots
+├── oi/                            # {symbol}_{YYYY-MM}.parquet, 5-minute metrics
+├── anomalies/                     # Episode batches from Z-score detection
+├── context/                       # Derivatives features at episode onset
+├── classifications/
+│   ├── derivatives_only/
+│   └── derivatives_rag/
+├── rag/                           # Per-episode retrieved-news context
+└── reports/
+    ├── derivatives_only/
+    └── derivatives_rag/
 ```
 
-## DuckDB Database
+All generated files under `data/` are ignored by Git and can be regenerated.
 
-**Path:** `data/crypto.duckdb`
+## Parquet and DuckDB
 
-DuckDB is used as an in-process analytical database. It reads Parquet files
-directly without loading them into memory, enabling efficient queries on
-historical time-series data.
+Binance archives are converted to compressed Parquet. DuckDB queries those files directly; no persistent `.duckdb` file or load step is required.
 
 ```python
 import duckdb
 
-conn = duckdb.connect("data/crypto.duckdb")
-
-# Query Parquet files directly
-conn.execute("""
-    SELECT * FROM read_parquet('data/ohlcv/*.parquet')
-    WHERE symbol = 'LUNAUSDT'
-      AND timestamp BETWEEN '2022-05-07' AND '2022-05-11'
-""")
-
-conn.close()
+rows = duckdb.sql("""
+    SELECT open_time, close
+    FROM read_parquet('data/ohlcv/LUNAUSDT_*.parquet')
+    WHERE open_time BETWEEN 1651881600000 AND 1652313599999
+    ORDER BY open_time
+""").fetchall()
 ```
 
-## Why Parquet + DuckDB
+This keeps immutable historical data columnar while retaining SQL filtering, aggregation, and joins.
 
-| Concern       | Parquet                                  | DuckDB                                      |
-|---------------|------------------------------------------|---------------------------------------------|
-| Storage       | Compressed columnar, 60-80% smaller      | Zero-copy reads from Parquet                 |
-| Queries       | Requires loading into a DataFrame        | SQL interface, no data movement              |
-| Schema        | Embedded in file metadata                | Inferred from Parquet schema                 |
-| Time-series   | Partitioned by symbol/date              | Native date/timestamp functions              |
-| Interop       | Pandas, Polars, Spark, DuckDB           | Reads Parquet, CSV, JSON directly            |
+## PostgreSQL and pgvector
 
-## Data Flow
+`sql/schema.sql` creates:
 
-```
-Binance Data Vision (CSV/ZIP)
-        |
-        v
-    data/raw/          -- Downloaded archives, ephemeral
-        |
-        v
-    Parquet conversion -- Batch script reads CSV, writes Parquet
-        |
-        v
-    data/ohlcv/        -- Partitioned Parquet files
-    data/funding/
-    data/oi/
-        |
-        v
-    DuckDB queries     -- Analytical SQL on Parquet files
-        |
-        v
-    data/anomalies/    -- Z-score detection outputs (JSON)
-        |
-        v
-    data/context/      -- Derivatives context at anomalies (JSON)
-        |
-        v
-    data/classifications/  -- LLM verdicts (JSON)
-        |
-        v
-    data/reports/      -- Final ablation reports (JSON)
+- `crypto_news` article metadata
+- generated combined-text and `tsvector` columns
+- a 4,096-dimensional embedding column
+- GIN, BRIN, and HNSW indexes
+
+Run:
+
+```bash
+docker compose up -d pgvector
+./scripts/init_db.sh
+uv run python scripts/load_archive.py --archive-dir /path/to/archive/2022/05
+uv run python scripts/generate_embeddings.py
 ```
 
-## Git Policy
+The HNSW index uses the first 2,000 dimensions because pgvector's `vector` HNSW operator class has a 2,000-dimension limit. Retrieval queries must use the same indexed expression.
 
-Binary data files (Parquet, DuckDB, CSV, ZIP) are excluded from version control
-via `data/.gitignore`. Only the directory structure (preserved via `.gitkeep`
-files) and the gitignore rules are tracked.
+## Deployment path
 
-Re-downloading data from Binance Data Vision is free and deterministic, so
-there is no need to version the data itself.
+- Milestone 1 showcase: publish curated report data from a completed batch run.
+- Historical data at larger scale: store Parquet in object storage and query with DuckDB.
+- Milestone 2 live writes: add a serving/time-series database after ingestion and query requirements are defined.

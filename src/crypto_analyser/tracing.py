@@ -3,6 +3,7 @@
 Provides decorators and helpers to automatically trace pipeline steps
 and attach scores to Langfuse traces.
 """
+
 from __future__ import annotations
 
 import functools

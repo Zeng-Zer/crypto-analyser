@@ -1,94 +1,77 @@
 #!/usr/bin/env python3
-import argparse, sys, os
-from datetime import datetime, timezone, timedelta
-from pathlib import Path
+"""Run anomaly-window retrieval and verify ticker/time invariants."""
+
+from __future__ import annotations
+
+import argparse
+import os
+from datetime import date, datetime, time, timedelta, timezone
+
+import psycopg2
 from dotenv import load_dotenv
 
-# Set up paths and load environment variables
-script_dir = Path(__file__).resolve().parent
-sys.path.insert(0, str(script_dir.parent))
-from src.retrieval import retrieve_relevant_news
+from crypto_analyser._paths import repo_root
+from crypto_analyser.rag.retrieval import retrieve_relevant_news
 
-load_dotenv(dotenv_path=script_dir.parent / '.env')
 
-def get_args():
-    parser = argparse.ArgumentParser(description="CLI test for hybrid search.")
-    parser.add_argument('--ticker', type=str, required=True, help="Crypto ticker (e.g., LUNA)")
-    parser.add_argument('--date', type=str, help="Date format YYYY-MM-DD")
-    parser.add_argument('--timestamp', type=str, help="Exact timestamp ISO 8601")
-    parser.add_argument('--top-k', type=int, default=10, help="Max results")
-    args = parser.parse_args()
+def main(argv: list[str] | None = None) -> int:
+    load_dotenv(repo_root() / ".env")
+    parser = argparse.ArgumentParser(description="Test hybrid historical-news retrieval")
+    parser.add_argument("--ticker", required=True, help="Crypto ticker, for example LUNA")
+    when = parser.add_mutually_exclusive_group(required=True)
+    when.add_argument("--date", type=date.fromisoformat, help="UTC date; searches around noon")
+    when.add_argument("--timestamp", type=datetime.fromisoformat, help="ISO-8601 anomaly timestamp")
+    parser.add_argument("--top-k", type=int, default=10)
+    args = parser.parse_args(argv)
 
-    if not args.date and not args.timestamp:
-        parser.error("You must provide --date or --timestamp.")
+    timestamp = args.timestamp or datetime.combine(args.date, time(12), timezone.utc)
+    if timestamp.tzinfo is None:
+        timestamp = timestamp.replace(tzinfo=timezone.utc)
 
-    # Parse date or timestamp to UTC
-    if args.timestamp:
-        target_time = datetime.fromisoformat(args.timestamp)
-    else:
-        target_time = datetime.strptime(args.date, "%Y-%m-%d")
+    required = {name: os.getenv(name) for name in ("DATABASE_URL", "LLM_API_URL", "LLM_API_KEY")}
+    missing = [name for name, value in required.items() if not value]
+    if missing:
+        parser.error(f"required environment variables missing: {', '.join(missing)}")
 
-    if target_time.tzinfo is None:
-        target_time = target_time.replace(tzinfo=timezone.utc)
-
-    return args.ticker, target_time, args.top_k
-
-def main():
-    ticker, target_time, top_k = get_args()
-    db_url = os.getenv("DATABASE_URL")
-    
-    if not db_url:
-        print("Error: DATABASE_URL not found in .env file.")
-        sys.exit(1)
-
-    print(f"--- Searching for {ticker} at {target_time.isoformat()} ---")
-    start_time = target_time - timedelta(hours=12)
-    end_time = target_time + timedelta(hours=12)
-
-    # Fetch data
     try:
-        results = retrieve_relevant_news(
-            anomaly_timestamp=target_time,
-            ticker=ticker,
-            top_k=top_k,
-            window_hours=12,
-            dsn=db_url
+        rows = retrieve_relevant_news(
+            timestamp,
+            args.ticker,
+            top_k=args.top_k,
+            dsn=required["DATABASE_URL"],
+            api_url=required["LLM_API_URL"],
+            api_key=required["LLM_API_KEY"],
         )
-    except Exception as e:
-        print(f"Critical error with SQL or API: {e}")
-        sys.exit(1)
+    except (psycopg2.Error, RuntimeError, ValueError) as exc:
+        print(f"Retrieval failed: {exc}")
+        return 1
 
-    # Handle empty results
-    if not results:
-        print(f"\nInfo: No articles found for {ticker} on this date.")
-        sys.exit(0)
+    ticker = args.ticker.strip().upper()
+    start_time, end_time = timestamp - timedelta(hours=12), timestamp + timedelta(hours=12)
+    valid = bool(rows)
+    print(f"Retrieved {len(rows)} {ticker} articles around {timestamp.isoformat()}")
+    if not rows:
+        print("No matching articles found.")
+    for index, row in enumerate(rows, 1):
+        ticker_ok = ticker in row["tickers"]
+        time_ok = start_time <= row["date_pub"] <= end_time
+        valid &= ticker_ok and time_ok
+        print(
+            f"{index}. ticker={'PASS' if ticker_ok else 'FAIL'} "
+            f"time={'PASS' if time_ok else 'FAIL'} "
+            f"score={row['rrf_score']:.6f} {row['title']}"
+        )
 
-    # QA Verification for Sisyphus
-    print("\n=== QA VERIFICATION ===")
+    if ticker == "LUNA" and rows:
+        relevant = any(
+            term in f"{row['title']} {row.get('description') or ''}".lower()
+            for row in rows
+            for term in ("luna", "terra", "ust", "depeg")
+        )
+        valid &= relevant
+        print(f"LUNA relevance={'PASS' if relevant else 'FAIL'}")
+    return 0 if valid else 1
 
-    keywords = [ticker.lower(), 'crash', 'collapse', 'surge', 'drop']
-    
-    for i, art in enumerate(results, 1):
-        tickers = art.get('tickers', [])
-        pub_date = art.get('date_pub')
-        
-        if pub_date and pub_date.tzinfo is None:
-             pub_date = pub_date.replace(tzinfo=timezone.utc)
-
-        title = art.get('title') or ""
-        desc = art.get('description') or ""
-        content = f"{title} {desc}".lower()
-
-        # Check conditions
-        t_pass = "PASS" if ticker in tickers else "FAIL"
-        d_pass = "PASS" if start_time <= pub_date <= end_time else "FAIL"
-        k_pass = "PASS" if any(kw in content for kw in keywords) else "FAIL"
-        k_text = "contains 'Terra'" if k_pass == "PASS" else "missing target keywords"
-
-        # Print results
-        print(f"[Ticker check] article {i}: tickers=[{', '.join(tickers)}] {t_pass} {ticker} present")
-        print(f"[Time check]   article {i}: pub_date={pub_date.isoformat()} {d_pass} within 12h")
-        print(f"[Keyword check] article {i}: {k_text} {k_pass}")
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
