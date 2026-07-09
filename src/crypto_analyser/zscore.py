@@ -161,11 +161,10 @@ def _load_parquet(symbol: str, start: str, end: str) -> pd.Series:
     import duckdb
 
     con = duckdb.connect()
-    month = start[:7]  # "2022-05"
-    # ponytail: only one month file is loaded (start[:7]). Windows crossing a
-    # calendar-month boundary would silently drop the other month. LUNA's
-    # May 7-11 window is in-bounds; fix when Task 19/20 extends ranges.
-    parquet_path = f"data/ohlcv/{symbol}_{month}.parquet"
+    # Glob all monthly parquet files for symbol so windows crossing a
+    # calendar-month boundary load both months. SQL date-range filter
+    # restricts to the requested window.
+    parquet_glob = f"data/ohlcv/{symbol}_*.parquet"
     import datetime
     import zoneinfo
 
@@ -174,7 +173,7 @@ def _load_parquet(symbol: str, start: str, end: str) -> pd.Series:
     end_epoch = int(datetime.datetime.strptime(end, "%Y-%m-%d").replace(tzinfo=tz).timestamp() * 1000 + 86400_000 - 1)
     df = con.execute(f"""
         SELECT open_time, close
-        FROM read_parquet('{parquet_path}')
+        FROM read_parquet('{parquet_glob}')
         WHERE open_time >= {start_epoch}
           AND open_time <= {end_epoch}
         ORDER BY open_time

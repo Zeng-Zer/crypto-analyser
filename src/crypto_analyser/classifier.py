@@ -34,7 +34,7 @@ RAG_DIR = REPO_ROOT / "data" / "rag"
 # Run B defaults for the not-yet-shipped Task 16 RAG step.
 _RAG_K_DEFAULT = 5
 _RAG_WINDOW_DEFAULT = "±24h"
-_RAG_BLOCK_EMPTY = "(Task 16 not yet shipped — no retrieved news available.)"
+_RAG_BLOCK_EMPTY = "(No retrieved news available — RAG retrieval stage not yet run.)"
 
 MODE_TO_SUBDIR = {
     "derivatives_only": "derivatives_only",
@@ -238,18 +238,18 @@ def classify_episodes(
 
 
 def _main(argv: list[str] | None = None) -> int:
-    p = argparse.ArgumentParser(description="LLM classifier execution wrapper (Task 18)")
+    p = argparse.ArgumentParser(description="LLM classifier execution wrapper")
     p.add_argument(
         "--anomalies",
         type=Path,
         default=DEFAULT_ANOMALIES,
-        help="Task 14 episodes bulk file (default: LUNA pre-crash window)",
+        help="Bulk anomaly episodes file (default: LUNA pre-crash window)",
     )
     p.add_argument(
         "--context",
         type=Path,
         default=None,
-        help="Task 15 derivatives context bulk file (default: <anomalies_stem>_context.json)",
+        help="Bulk derivatives context file (default: <anomalies_stem>_context.json)",
     )
     p.add_argument(
         "--mode",
@@ -274,7 +274,7 @@ def _main(argv: list[str] | None = None) -> int:
     template = PromptTemplate.load()
     client = LLMClient()
 
-    print(f"Task 18 classifier: {len(anomalies['episodes'])} episodes, mode={args.mode}")
+    print(f"classifier: {len(anomalies['episodes'])} episodes, mode={args.mode}")
     paths = classify_episodes(
         anomalies["episodes"],
         context,

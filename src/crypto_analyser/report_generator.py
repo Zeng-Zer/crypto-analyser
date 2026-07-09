@@ -40,7 +40,7 @@ def _episode_report(
 
     Field shape keeps spec-named keys (timestamp, Z-score, derivatives,
     classification) and includes all intermediate-file fields verbatim under
-    ``task14_episode`` / ``task15_features`` / ``task18_classification``.
+    ``raw_episode`` / ``raw_features`` / ``raw_classification``.
     """
     onset = episode["onset_ts"]
     deriv = (
@@ -70,10 +70,12 @@ def _episode_report(
         if classification
         else None,
         # ponytail: passthrough of intermediate-file fields for traceability;
-        # the headline fields above are the report's user-facing read.
-        "task14_episode": episode,
-        "task15_features": features,
-        "task18_classification": classification,
+        # the headline fields above are the report's user-facing read. Keys are
+        # named after their semantic source (episode / features / classification),
+        # NOT after internal plan task numbers — schema must outlive renumbering.
+        "raw_episode": episode,
+        "raw_features": features,
+        "raw_classification": classification,
     }
 
 
@@ -151,7 +153,7 @@ def generate(
 def main() -> None:
     parser = argparse.ArgumentParser(
         prog="crypto_analyser.report_generator",
-        description="Task 19: build JSON reports from anomalies + derivatives + classification.",
+        description="Build JSON reports from anomalies + derivatives + classification.",
     )
     parser.add_argument("--symbol", required=True)
     parser.add_argument("--start", required=True, help="YYYY-MM-DD")
@@ -166,7 +168,7 @@ def main() -> None:
 
     summary_path, per_paths = generate(args.symbol, args.start, args.end, args.mode)
 
-    print(f"Task 19 report_generator: symbol={args.symbol} mode={args.mode}")
+    print(f"report_generator: symbol={args.symbol} mode={args.mode}")
     print(f"  summary:  {summary_path.relative_to(REPO)}")
     print(f"  episodes: {len(per_paths)} per-episode reports under reports/")
 
