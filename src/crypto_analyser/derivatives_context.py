@@ -26,24 +26,31 @@ import pandas as pd
 LOOKBACK_HOURS = 4
 
 
-def _load_funding(symbol: str, month: str) -> pd.DataFrame:
-    """Funding-rate parquet sorted by ``calc_time`` (epoch ms)."""
+def _load_funding(symbol: str) -> pd.DataFrame:
+    """Funding-rate parquet sorted by ``calc_time`` (epoch ms).
+
+    Globs all monthly parquet files for ``symbol`` so windows crossing a
+    calendar-month boundary load both months.
+    """
     con = duckdb.connect()
     df = con.execute(f"""
         SELECT calc_time, last_funding_rate AS funding_rate
-        FROM read_parquet('data/funding/{symbol}_{month}.parquet')
+        FROM read_parquet('data/funding/{symbol}_*.parquet')
         ORDER BY calc_time
     """).fetchdf()
     con.close()
     return df
 
 
-def _load_oi(symbol: str, month: str) -> pd.DataFrame:
-    """Open-interest parquet sorted by ``create_time`` (epoch ms)."""
+def _load_oi(symbol: str) -> pd.DataFrame:
+    """Open-interest parquet sorted by ``create_time`` (epoch ms).
+
+    Globs all monthly parquet files for ``symbol`` (see _load_funding).
+    """
     con = duckdb.connect()
     df = con.execute(f"""
         SELECT epoch_ms(create_time) AS create_time_ms, sum_open_interest
-        FROM read_parquet('data/oi/{symbol}_{month}.parquet')
+        FROM read_parquet('data/oi/{symbol}_*.parquet')
         ORDER BY create_time_ms
     """).fetchdf()
     con.close()
@@ -91,10 +98,11 @@ def extract_features(
             win_start = onset - lookback_ms
             before = max(boundary - win_start, 0)
             after = max(onset - boundary, 0)
-            funding_avg_4h = float(
-                (f_rates[prev_idx] * before + f_rates[cur_idx] * after)
-                / (before + after)
-            ) if (before + after) > 0 else None
+            funding_avg_4h = (
+                float((f_rates[prev_idx] * before + f_rates[cur_idx] * after) / (before + after))
+                if (before + after) > 0
+                else None
+            )
 
         # open interest: value at onset + pct change vs lookback start
         oi_cur_idx = _nearest_before(oi_times, onset)
@@ -102,18 +110,18 @@ def extract_features(
         oi_prev_idx = _nearest_before(oi_times, onset - lookback_ms)
         oi_4h_ago = float(oi_vals[oi_prev_idx]) if oi_prev_idx >= 0 else None
         oi_change_4h = (
-            (oi_current - oi_4h_ago) / oi_4h_ago
-            if oi_current is not None and oi_4h_ago and oi_4h_ago != 0
-            else None
+            (oi_current - oi_4h_ago) / oi_4h_ago if oi_current is not None and oi_4h_ago and oi_4h_ago != 0 else None
         )
 
-        features.append({
-            "onset_ts": onset,
-            "funding_rate_current": funding_current,
-            "funding_rate_avg_4h": funding_avg_4h,
-            "oi_current": oi_current,
-            "oi_change_4h": oi_change_4h,
-        })
+        features.append(
+            {
+                "onset_ts": onset,
+                "funding_rate_current": funding_current,
+                "funding_rate_avg_4h": funding_avg_4h,
+                "oi_current": oi_current,
+                "oi_change_4h": oi_change_4h,
+            }
+        )
     return features
 
 
@@ -125,11 +133,14 @@ def main() -> None:
         description="Extract derivatives context (funding + OI) for anomaly episodes",
     )
     parser.add_argument(
-        "--anomalies", required=True,
-        help="Path to bulk anomalies JSON from Task 14",
+        "--anomalies",
+        required=True,
+        help="Path to bulk anomalies JSON",
     )
     parser.add_argument(
-        "--lookback-hours", type=float, default=None,
+        "--lookback-hours",
+        type=float,
+        default=None,
         help=f"Lookback window in hours (default {LOOKBACK_HOURS})",
     )
     args = parser.parse_args()
@@ -140,12 +151,10 @@ def main() -> None:
     meta = anomalies["meta"]
     episodes = anomalies["episodes"]
     symbol, start, end = meta["symbol"], meta["start"], meta["end"]
-    # ponytail: single-month load (start[:7]); LUNA May 7-11 is in-bounds.
-    month = start[:7]
     lookback = args.lookback_hours if args.lookback_hours is not None else LOOKBACK_HOURS
 
-    funding = _load_funding(symbol, month)
-    oi = _load_oi(symbol, month)
+    funding = _load_funding(symbol)
+    oi = _load_oi(symbol)
     features = extract_features(episodes, funding, oi, lookback_hours=lookback)
 
     output_path = Path(f"data/context/{symbol}_{start}_{end}_context.json")
@@ -168,9 +177,7 @@ def main() -> None:
     print(f"Wrote {len(features)} feature vectors to {output_path}")
     for feat in features:
         print(
-            f"  onset {feat['onset_ts']}: "
-            f"funding={feat['funding_rate_current']}, "
-            f"oi_change_4h={feat['oi_change_4h']}"
+            f"  onset {feat['onset_ts']}: funding={feat['funding_rate_current']}, oi_change_4h={feat['oi_change_4h']}"
         )
 
 
