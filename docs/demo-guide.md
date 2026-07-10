@@ -42,38 +42,34 @@ Here are some great examples to test how well the semantic search works:
 
 Here is what your terminal should look like when a search is successful:
 
-Starting demo with the following parameters:
-- Request : Bitcoin ETF approval
-- Limit   : 3 articles
-- Model   : qwen3-embedding
+Starting demo with query: 'Bitcoin ETF approval' (Limit: 3)
 
-[1/3] Connecting to PostgreSQL database...
-✅ Connected and pgvector enabled.
-
-[2/3] Generating search vector...
-✅ Success! Vector retrieved (Dimension: 4096)
-
-[3/3] Searching and displaying similar articles...
-✅ SQL search latency: 34.12 ms (using HNSW index)
-
-================================================================================
 🏆 TOP 3 RESULTS FOR: 'Bitcoin ETF approval'
-================================================================================
-[88.4% Match] 📄 SEC Officially Approves Spot Bitcoin ETFs
-📝 The Securities and Exchange Commission has officially approved the first spot Bitcoin exchange-traded...
-📅 2024-01-10 15:45:00+00:00 | 📰 CryptoDaily | 🏷️  [BTC]
---------------------------------------------------------------------------------
-[82.1% Match] 📄 What the Bitcoin ETF Means for Crypto Markets
-📝 With the landmark approval of several Bitcoin ETFs, institutional investors are finally stepping into...
-📅 2024-01-11 09:30:00+00:00 | 📰 MarketWatch | 🏷️  [BTC, ETH]
---------------------------------------------------------------------------------
-[79.5% Match] 📄 Fake SEC Tweet Causes Bitcoin Price Rollercoaster
-📝 A compromised social media account led to a premature announcement of the Bitcoin ETF approval, causi...
-📅 2024-01-09 21:15:00+00:00 | 📰 CoinDesk | 🏷️  [BTC]
---------------------------------------------------------------------------------
 
-🔒 Cleanup: Database connection closed properly.
+╭─ 59.4% Match ──────────────────────────────────────────────────────────────────╮
+│ RT @btsfav: Earn &amp; Buy #bitcoin and crypto -                               │
+│                                                                                │
+│ No description available.                                                      │
+│                                                                                │
+│ 📅 2021-02-01 11:15:38+00:00 | 📰 Historical | 🏷️  [STEEM]                     │
+╰────────────────────────────────────────────────────────────────────────────────╯
+╭─ 57.7% Match ──────────────────────────────────────────────────────────────────╮
+│ [ARK Weekly Discussion Thread] - February 01, 2021                             │
+│                                                                                │
+│ No description available.                                                      │
+│                                                                                │
+│ 📅 2021-02-01 09:00:23+00:00 | 📰 Historical | 🏷️  [ARK]                       │
+╰────────────────────────────────────────────────────────────────────────────────╯
+╭─ 55.2% Match ──────────────────────────────────────────────────────────────────╮
+│ Tesla CEO Elon Musk: Bitcoin On ‘The Verge Of Broad Acceptance’                │
+│                                                                                │
+│ Elon Musk, the billionaire founder of Tesla, has said he thinks the            │
+│ cryptocurrency bitcoin is on "the verge" of breaking...                        │
+│                                                                                │
+│ 📅 2021-02-01 06:55:47+00:00 | 📰 Historical | 🏷️  [BTC, XVG]                  │
+╰────────────────────────────────────────────────────────────────────────────────╯
 
+📊 Performance: latency 90ms | HNSW index | 3 rows
 
 ## 6. Performance
 
