@@ -1,15 +1,8 @@
-"""LLM classifier execution wrapper (Task 18).
+"""Classify anomaly episodes with structured LLM output.
 
-Renders the Task 17 prompt template per episode using the Task 14 bulk
-episodes file + Task 15 bulk derivatives context, calls
-:class:`~crypto_analyser.llm_client.LLMClient.classify` with OpenAI-style
-structured output, validates the response, and writes one classification JSON
-per episode to ``data/classifications/{derivatives_only,derivatives_rag}/``.
-
-Run B (``derivatives_rag``) additionally composes a retrieved-news block.
-Until Task 16 ships per-episode RAG blobs at
-``data/rag/{symbol}_{onset_ts}_rag.json`` it runs with an empty news block per
-the Task 17 prompt contract (the LLM falls back to the Run A category set).
+``derivatives_rag`` additionally consumes per-episode news retrieval files
+from ``data/rag/`` when present. Without them, it renders an explicit empty
+news block rather than inventing context.
 """
 
 from __future__ import annotations
@@ -33,13 +26,8 @@ RAG_DIR = REPO_ROOT / "data" / "rag"
 
 # Run B defaults for the not-yet-shipped Task 16 RAG step.
 _RAG_K_DEFAULT = 5
-_RAG_WINDOW_DEFAULT = "±24h"
+_RAG_WINDOW_DEFAULT = "24h"
 _RAG_BLOCK_EMPTY = "(No retrieved news available — RAG retrieval stage not yet run.)"
-
-MODE_TO_SUBDIR = {
-    "derivatives_only": "derivatives_only",
-    "derivatives_rag": "derivatives_rag",
-}
 
 
 _FENCE_RE = re.compile(r"```[a-zA-Z]*\n(.*?)```", re.DOTALL)
@@ -54,7 +42,7 @@ class ClassificationValidationError(RuntimeError):
 
 
 class PromptTemplate:
-    """Loads the three fenced prompt blocks from the Task 17 prompt file."""
+    """Load the three fenced blocks from the classification prompt file."""
 
     def __init__(self, system: str, user_run_a: str, user_run_b: str) -> None:
         self.system = system
@@ -125,10 +113,8 @@ def _episode_vars(
 def _rag_block(symbol: str, onset_ts: int) -> dict[str, str]:
     """Return ``{rag_context_block, k, window}`` for the Run B template.
 
-    Task 16 will write per-episode RAG blobs at
-    ``data/rag/{symbol}_{onset_ts}_rag.json`` with at least ``block``, ``k``,
-    and ``window`` keys. Until it ships an empty block is returned per the
-    Task 17 contract.
+    Retrieval writes per-episode JSON with ``block``, ``k``, and ``window``
+    keys. An explicit empty block is returned while retrieval is unavailable.
     """
     rag_path = RAG_DIR / f"{symbol}_{onset_ts}_rag.json"
     if rag_path.exists():
@@ -166,8 +152,7 @@ def _build_prompts(
 
 
 def _out_path(symbol: str, onset_ts: int, mode: str) -> Path:
-    sub = MODE_TO_SUBDIR[mode]
-    target = CLASSIFICATIONS_DIR / sub
+    target = CLASSIFICATIONS_DIR / mode
     target.mkdir(parents=True, exist_ok=True)
     return target / f"{symbol}_{onset_ts}.json"
 
@@ -179,8 +164,8 @@ def _write_classification(result: ClassificationResult, episode: dict, symbol: s
             {
                 "event_reference": result.event_reference,
                 "classification": result.classification,
-                # severity: derived from Task 14's peak |Z|, written verbatim
-                # from the canonical episode record — NOT LLM-emitted (ADR-0002).
+                # Derived from peak |Z| and copied from the canonical episode;
+                # never emitted by the LLM (ADR-0002).
                 "severity": episode["severity"],
                 "confidence": result.confidence,
                 "rationale": result.rationale,

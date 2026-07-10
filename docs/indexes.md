@@ -1,25 +1,29 @@
-Technical Documentation: crypto_news Table Indexing
+# `crypto_news` indexes
 
-This document summarizes the architecture choices made to optimize the database response times. The goal was to avoid full table reads (Sequential Scans) by applying specific indexes based on the data type.
+`sql/schema.sql` creates indexes matched to each query shape:
 
-Standard Index Choices
+- **GIN on `tickers`** for array membership filters.
+- **GIN on `research`** for PostgreSQL full-text search.
+- **BRIN on `date_pub`** for chronological range filtering over append-ordered rows.
+- **HNSW on `text_embedding`** for approximate cosine similarity.
 
-To avoid using standard B-Tree indexes, which do not fit all our use cases, we opted for GIN and BRIN indexes.
+## High-dimensional vectors
 
-For the tickers column (which contains text arrays) and the research column (which contains tsvector formatted text), we implemented GIN indexes. This type of index works like an inverted dictionary. It is the most efficient way to quickly check if a specific tag or exact word is located inside a list or a long text.
+The embedding model emits 4,096 dimensions, while pgvector's HNSW `vector` operator class supports at most 2,000. The index therefore uses the first 2,000 dimensions:
 
-For chronological filtering on the date_pub column, we used a BRIN index. Because articles are inserted chronologically into the database, they are stored in the same order on the hard drive. The BRIN index simply records the minimum and maximum values by physical blocks. This gives us an extremely lightweight index compared to a B-Tree, while being very fast for targeting date ranges.
+```sql
+(subvector(text_embedding, 1, 2000)::VECTOR(2000)) vector_cosine_ops
+```
 
-Vector Index Implementation (HNSW) and Truncation
+Retrieval queries must use the identical expression for PostgreSQL to use the index. The complete 4,096-dimensional vector remains stored, allowing later migration or quality comparison. Truncation is an explicit recall/latency tradeoff and should be measured during evaluation rather than assumed lossless.
 
-The most complex part was indexing the ai_emb column for similarity search. We chose an HNSW index, which allows for highly performant navigation between closely related vectors.
+## Development testing
 
-However, we ran into a technical limit: our model (Qwen3) generates 4096-dimensional vectors, but the pgvector extension limits index creation to 2000 dimensions for physical performance reasons.
+PostgreSQL may choose a sequential scan for tiny fixture tables because that is cheaper than consulting an index. Index QA may temporarily use:
 
-To solve this blocker, we decided to directly truncate the vectors to 2000 dimensions in the index. This is possible without degrading the search quality thanks to the model's training method, Matryoshka Representation Learning. This technique concentrates the core semantics in the first dimensions of the vector. The dimensions beyond 2000 only contain negligible nuances for our use case. By cutting it at 2000 dimensions, we divide the server's memory consumption by two and speed up mathematical calculations, while keeping highly relevant results.
+```sql
+SET enable_seqscan = off;
+EXPLAIN ANALYZE ...;
+```
 
-Note on Development Testing
-
-During the validation phase of these indexes in the local environment, the execution plans (EXPLAIN ANALYZE) systematically showed Seq Scans instead of using our indexes.
-
-This is a normal behavior of the PostgreSQL Query Planner: since our test table only contained about twenty articles, the engine decided it was faster to read the entire table at once rather than making the effort to consult an index. To generate proof that our indexes work for QA, we had to temporarily force their use by disabling sequential scanning via the SET enable_seqscan = off; command.
+Do not disable sequential scans in application sessions.

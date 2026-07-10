@@ -1,14 +1,7 @@
-"""JSON report generator (Task 19).
+"""Build mode-isolated JSON reports from pipeline outputs.
 
-Joins Task 14 anomaly episodes + Task 15 derivatives features + Task 17/18
-classification into two report shapes under ``reports/``:
-
-- Per-episode report: ``reports/{symbol}_{onset_ts}_report.json``
-- Summary report:     ``reports/{symbol}_{start}_{end}_summary.json``
-
-Run B (``--mode derivatives_rag``) additionally inlines classification
-``news_relevance`` when present. Until Task 16 ships per-episode RAG blobs no
-extra RAG block is emitted; ``rag_context`` is ``null`` for Run A.
+Reports are written under ``data/reports/{mode}/`` so ablation runs cannot
+overwrite one another.
 """
 
 from __future__ import annotations
@@ -36,12 +29,7 @@ def _episode_report(
     classification: dict[str, Any] | None,
     mode: str,
 ) -> dict[str, Any]:
-    """Merge one Task 14 episode with its Task 15 features + Task 18 verdict.
-
-    Field shape keeps spec-named keys (timestamp, Z-score, derivatives,
-    classification) and includes all intermediate-file fields verbatim under
-    ``raw_episode`` / ``raw_features`` / ``raw_classification``.
-    """
+    """Merge one episode with its derivatives features and classification."""
     onset = episode["onset_ts"]
     deriv = (
         {k: features[k] for k in ("funding_rate_current", "funding_rate_avg_4h", "oi_current", "oi_change_4h")}
@@ -108,7 +96,7 @@ def generate(
             cd = _load_json(cf)
             cls_by_onset[cd["onset_ts"]] = cd
 
-    reports_dir = REPO / "reports"
+    reports_dir = REPO / "data" / "reports" / mode
     reports_dir.mkdir(parents=True, exist_ok=True)
 
     summary_episodes: list[dict[str, Any]] = []
@@ -152,7 +140,7 @@ def generate(
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        prog="crypto_analyser.reporting.json_reporter",
+        prog="crypto_analyser.reporting.json_reports",
         description="Build JSON reports from anomalies + derivatives + classification.",
     )
     parser.add_argument("--symbol", required=True)
@@ -170,7 +158,7 @@ def main() -> None:
 
     print(f"report_generator: symbol={args.symbol} mode={args.mode}")
     print(f"  summary:  {summary_path.relative_to(REPO)}")
-    print(f"  episodes: {len(per_paths)} per-episode reports under reports/")
+    print(f"  episodes: {len(per_paths)} per-episode reports under data/reports/{args.mode}/")
 
 
 if __name__ == "__main__":

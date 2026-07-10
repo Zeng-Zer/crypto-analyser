@@ -1,12 +1,7 @@
-"""Derivatives context extraction for anomaly episodes.
+"""Extract funding-rate and open-interest features for anomaly episodes.
 
-For each price episode from Task 14 (z-score), pull the derivatives market
-snapshot anchored at the episode's ``onset_ts``: funding rate from the active
-8h interval + open interest at 5-min granularity. Emits a feature vector per
-episode that the LLM classifier (Task 17/18) consumes.
-
-Anchor is ``onset_ts`` — the moment the deviation became statistically real —
-not ``peak_ts`` (descriptive only). See ADR-0001.
+Features anchor on ``onset_ts``—when the deviation became statistically real—
+not the descriptive peak timestamp (ADR-0001).
 """
 
 from __future__ import annotations
@@ -18,6 +13,10 @@ from typing import Any
 import duckdb
 import numpy as np
 import pandas as pd
+
+from crypto_analyser._paths import repo_root
+
+REPO = repo_root()
 
 # ponytail: lookback matches the spec field suffixes (_avg_4h, _change_4h).
 # 8h funding snapshots mean a 4h window captures at most one funding point,
@@ -32,10 +31,11 @@ def _load_funding(symbol: str) -> pd.DataFrame:
     Globs all monthly parquet files for ``symbol`` so windows crossing a
     calendar-month boundary load both months.
     """
+    parquet_glob = (REPO / "data" / "funding" / f"{symbol}_*.parquet").as_posix()
     con = duckdb.connect()
     df = con.execute(f"""
         SELECT calc_time, last_funding_rate AS funding_rate
-        FROM read_parquet('data/funding/{symbol}_*.parquet')
+        FROM read_parquet('{parquet_glob}')
         ORDER BY calc_time
     """).fetchdf()
     con.close()
@@ -47,10 +47,11 @@ def _load_oi(symbol: str) -> pd.DataFrame:
 
     Globs all monthly parquet files for ``symbol`` (see _load_funding).
     """
+    parquet_glob = (REPO / "data" / "oi" / f"{symbol}_*.parquet").as_posix()
     con = duckdb.connect()
     df = con.execute(f"""
         SELECT epoch_ms(create_time) AS create_time_ms, sum_open_interest
-        FROM read_parquet('data/oi/{symbol}_*.parquet')
+        FROM read_parquet('{parquet_glob}')
         ORDER BY create_time_ms
     """).fetchdf()
     con.close()
@@ -146,6 +147,8 @@ def main() -> None:
     args = parser.parse_args()
 
     anomalies_path = Path(args.anomalies)
+    if not anomalies_path.is_absolute():
+        anomalies_path = REPO / anomalies_path
     with open(anomalies_path, encoding="utf-8") as f:
         anomalies = json.load(f)
     meta = anomalies["meta"]
@@ -157,7 +160,7 @@ def main() -> None:
     oi = _load_oi(symbol)
     features = extract_features(episodes, funding, oi, lookback_hours=lookback)
 
-    output_path = Path(f"data/context/{symbol}_{start}_{end}_context.json")
+    output_path = REPO / "data" / "context" / f"{symbol}_{start}_{end}_context.json"
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     output = {

@@ -9,6 +9,8 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
+from crypto_analyser._paths import repo_root
+
 
 def compute_anomalies(
     prices: pd.Series,
@@ -164,7 +166,7 @@ def _load_parquet(symbol: str, start: str, end: str) -> pd.Series:
     # Glob all monthly parquet files for symbol so windows crossing a
     # calendar-month boundary load both months. SQL date-range filter
     # restricts to the requested window.
-    parquet_glob = f"data/ohlcv/{symbol}_*.parquet"
+    parquet_glob = (repo_root() / "data" / "ohlcv" / f"{symbol}_*.parquet").as_posix()
     import datetime
     import zoneinfo
 
@@ -186,11 +188,8 @@ def main():
     """CLI entry point: detect price anomalies as contiguous episodes."""
     import argparse
     import json
-    from pathlib import Path
 
     import yaml as _yaml
-
-    from crypto_analyser._paths import repo_root
 
     # ponytail: read anomaly_detection directly, bypassing load_config()'s
     # placeholder gate which would crash on unfilled LLM API keys. Z-score CLI
@@ -241,7 +240,7 @@ def main():
     result = compute_anomalies(prices, window=window_bars, threshold=threshold)
     episodes = extract_episodes(result, prices, max_gap=args.max_gap, min_consecutive=min_consecutive)
 
-    output_path = Path(f"data/anomalies/{args.symbol}_{args.start}_{args.end}.json")
+    output_path = repo_root() / "data" / "anomalies" / f"{args.symbol}_{args.start}_{args.end}.json"
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     output = {
