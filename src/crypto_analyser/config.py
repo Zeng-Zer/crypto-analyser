@@ -65,6 +65,17 @@ def load_config(config_path: str | Path | None = None) -> Config:
     with open(path, encoding="utf-8") as f:
         raw = yaml.safe_load(f)
 
+    # --- INJECTION DOTENV ---
+    # Overwrite YAML placeholders with real secrets from .env
+    if "api_keys" not in raw:
+        raw["api_keys"] = {}
+        
+    if os.getenv("api_url"):
+        raw["api_keys"]["llm_api_url"] = os.getenv("api_url")
+        
+    if os.getenv("api_key"):
+        raw["api_keys"]["llm_api_key"] = os.getenv("api_key")
+
     placeholders = _check_placeholders(raw)
     if placeholders:
         required_api_keys = [p for p in placeholders if p.startswith("api_keys.") or p.startswith("langfuse.")]
