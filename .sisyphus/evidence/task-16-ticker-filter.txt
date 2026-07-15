@@ -1,6 +1,0 @@
---- Searching for XRP at 2021-02-01T00:00:00+00:00 ---
-
-=== QA VERIFICATION ===
-[Ticker check] article 1: tickers=[BTC, XRP, DOGE] PASS XRP present
-[Time check]   article 1: pub_date=2021-02-01T08:15:41+00:00 PASS within 12h
-[Keyword check] article 1: contains 'Terra' PASS

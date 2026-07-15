@@ -1,0 +1,26 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - run: uv sync --locked
+      - run: uv run ruff check src scripts tests
+      - run: uv run python -m compileall -q src scripts tests
+      - run: bash -n scripts/init_db.sh
+      - run: docker compose up -d --wait pgvector
+      - run: |
+          docker compose exec -T pgvector psql -v ON_ERROR_STOP=1 -U postgres -d crypto < sql/schema.sql
+          docker compose exec -T pgvector psql -v ON_ERROR_STOP=1 -U postgres -d crypto < sql/schema.sql
+      - run: uv run pytest -q
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/crypto
