@@ -4,4 +4,4 @@
 from crypto_analyser.rag.embeddings import main
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
