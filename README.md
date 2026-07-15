@@ -43,7 +43,7 @@ uv run python scripts/run_pipeline.py \
   --mode derivatives_only
 ```
 
-`derivatives_rag` consumes existing per-episode retrieval files from `data/rag/`. Retrieval and ablation evaluation are still in progress, so `derivatives_only` is the honest runnable default.
+`derivatives_rag` consumes existing per-episode retrieval files from `data/rag/`. Database retrieval now works, but pipeline wiring and ablation evaluation are still in progress, so `derivatives_only` remains the runnable default.
 
 ### Historical news database
 
@@ -64,7 +64,7 @@ src/crypto_analyser/
 ├── detection/         # Z-score episode detection
 ├── features/          # Derivatives feature extraction
 ├── classification/    # Structured episode classification
-├── rag/               # News loading and embedding generation
+├── rag/               # News loading, embeddings, and retrieval
 ├── reporting/         # Mode-isolated JSON reports
 ├── llm_client.py
 ├── config.py
@@ -89,4 +89,4 @@ Milestone 1 validates the LUNAUSDT crash window from May 7–11, 2022 using Bina
 
 ## Status
 
-Historical download, detection, derivatives enrichment, classification, and report generation work end-to-end. Historical-news retrieval, ablation comparison, and evaluation remain.
+Historical download, detection, derivatives enrichment, classification, report generation, and database retrieval work. Pipeline retrieval wiring, ablation comparison, and evaluation remain.

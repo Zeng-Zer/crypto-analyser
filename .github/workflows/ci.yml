@@ -17,8 +17,10 @@ jobs:
       - run: uv run ruff check src scripts tests
       - run: uv run python -m compileall -q src scripts tests
       - run: bash -n scripts/init_db.sh
-      - run: uv run pytest -q
       - run: docker compose up -d --wait pgvector
       - run: |
           docker compose exec -T pgvector psql -U postgres -d crypto < sql/schema.sql
           docker compose exec -T pgvector psql -U postgres -d crypto < sql/schema.sql
+      - run: uv run pytest -q
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/crypto

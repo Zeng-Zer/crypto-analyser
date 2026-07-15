@@ -20,3 +20,5 @@ Canonical definition: [`sql/schema.sql`](../sql/schema.sql).
 | `text_embedding` | `VECTOR(4096)` | Qwen3 embedding |
 
 `(link, date_pub)` is unique, making archive loading idempotent. Generated columns are stored so they can be indexed. Index choices are documented in [`indexes.md`](indexes.md).
+
+Applying `sql/schema.sql` migrates legacy `ai_emb` data to `text_embedding`, replaces legacy index names, and is idempotent.
