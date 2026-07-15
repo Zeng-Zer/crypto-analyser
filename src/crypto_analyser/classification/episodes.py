@@ -1,8 +1,8 @@
 """Classify anomaly episodes with structured LLM output.
 
-``derivatives_rag`` additionally consumes per-episode news retrieval files
-from ``data/rag/`` when present. Without them, it renders an explicit empty
-news block rather than inventing context.
+``derivatives_rag`` consumes per-episode news retrieval files from
+``data/rag/`` and fails when any are missing, preventing an empty-context run
+from masquerading as a RAG experiment.
 """
 
 from __future__ import annotations
@@ -24,10 +24,8 @@ DEFAULT_ANOMALIES = REPO_ROOT / "data" / "anomalies" / "LUNAUSDT_2022-05-07_2022
 CLASSIFICATIONS_DIR = REPO_ROOT / "data" / "classifications"
 RAG_DIR = REPO_ROOT / "data" / "rag"
 
-# Run B defaults for the not-yet-shipped Task 16 RAG step.
 _RAG_K_DEFAULT = 5
-_RAG_WINDOW_DEFAULT = "24h"
-_RAG_BLOCK_EMPTY = "(No retrieved news available — RAG retrieval stage not yet run.)"
+_RAG_WINDOW_DEFAULT = "24h before onset"
 
 
 _FENCE_RE = re.compile(r"```[a-zA-Z]*\n(.*?)```", re.DOTALL)
@@ -44,18 +42,20 @@ class ClassificationValidationError(RuntimeError):
 class PromptTemplate:
     """Load the three fenced blocks from the classification prompt file."""
 
-    def __init__(self, system: str, user_run_a: str, user_run_b: str) -> None:
+    def __init__(self, system: str, user_run_a: str, user_run_b: str, system_run_c: str, user_run_c: str) -> None:
         self.system = system
         self.user_run_a = user_run_a
         self.user_run_b = user_run_b
+        self.system_run_c = system_run_c
+        self.user_run_c = user_run_c
 
     @classmethod
     def load(cls, path: Path = PROMPT_PATH) -> "PromptTemplate":
         text = path.read_text(encoding="utf-8")
         blocks = _FENCE_RE.findall(text)
-        if len(blocks) < 3:
-            raise ValueError(f"{path}: expected >=3 fenced prompt blocks, found {len(blocks)}")
-        return cls(blocks[0].strip(), blocks[1].strip(), blocks[2].strip())
+        if len(blocks) < 5:
+            raise ValueError(f"{path}: expected >=5 fenced prompt blocks, found {len(blocks)}")
+        return cls(*(block.strip() for block in blocks[:5]))
 
 
 def _render(template: str, variables: dict[str, Any]) -> str:
@@ -111,23 +111,15 @@ def _episode_vars(
 
 
 def _rag_block(symbol: str, onset_ts: int) -> dict[str, str]:
-    """Return ``{rag_context_block, k, window}`` for the Run B template.
-
-    Retrieval writes per-episode JSON with ``block``, ``k``, and ``window``
-    keys. An explicit empty block is returned while retrieval is unavailable.
-    """
+    """Return ``{rag_context_block, k, window}`` for the Run B template."""
     rag_path = RAG_DIR / f"{symbol}_{onset_ts}_rag.json"
-    if rag_path.exists():
-        rag = json.loads(rag_path.read_text(encoding="utf-8"))
-        return {
-            "rag_context_block": rag.get("block") or _RAG_BLOCK_EMPTY,
-            "k": str(rag.get("k", _RAG_K_DEFAULT)),
-            "window": rag.get("window", _RAG_WINDOW_DEFAULT),
-        }
+    if not rag_path.exists():
+        raise FileNotFoundError(f"RAG context not found: {rag_path}; run retrieval before derivatives_rag")
+    rag = json.loads(rag_path.read_text(encoding="utf-8"))
     return {
-        "rag_context_block": _RAG_BLOCK_EMPTY,
-        "k": str(_RAG_K_DEFAULT),
-        "window": _RAG_WINDOW_DEFAULT,
+        "rag_context_block": rag["block"],
+        "k": str(rag.get("k", _RAG_K_DEFAULT)),
+        "window": rag.get("window", _RAG_WINDOW_DEFAULT),
     }
 
 
@@ -141,13 +133,18 @@ def _build_prompts(
 ) -> tuple[str, str, str]:
     """Return ``(system_prompt, user_prompt, event_reference)`` for one episode."""
     event_reference = f"{anomalies_meta['symbol']}_{episode['onset_ts']}"
-    system = _render(template.system, _threshold_vars(cfg))
     user_vars = _episode_vars(episode, features, anomalies_meta, event_reference)
-    if mode == "derivatives_rag":
+    if mode == "news_only":
+        system = template.system_run_c
         user_vars.update(_rag_block(anomalies_meta["symbol"], episode["onset_ts"]))
-        user = _render(template.user_run_b, user_vars)
+        user = _render(template.user_run_c, user_vars)
     else:
-        user = _render(template.user_run_a, user_vars)
+        system = _render(template.system, _threshold_vars(cfg))
+        if mode == "derivatives_rag":
+            user_vars.update(_rag_block(anomalies_meta["symbol"], episode["onset_ts"]))
+            user = _render(template.user_run_b, user_vars)
+        else:
+            user = _render(template.user_run_a, user_vars)
     return system, user, event_reference
 
 
@@ -214,7 +211,7 @@ def classify_episodes(
     cfg: Config,
     mode: str,
 ) -> list[Path]:
-    """Classify each episode; ``mode`` selects Run A (derivatives_only) or Run B (derivatives_rag)."""
+    """Classify each episode using derivatives-only, derivatives+RAG, or news-only evidence."""
     out: list[Path] = []
     for ep in episodes:
         feats = _episode_features(context, ep["onset_ts"])
@@ -238,7 +235,7 @@ def _main(argv: list[str] | None = None) -> int:
     )
     p.add_argument(
         "--mode",
-        choices=("derivatives_only", "derivatives_rag"),
+        choices=("derivatives_only", "derivatives_rag", "news_only"),
         default="derivatives_only",
         help="Which Run variant to execute",
     )
@@ -250,10 +247,13 @@ def _main(argv: list[str] | None = None) -> int:
     anomalies = json.loads(args.anomalies.read_text(encoding="utf-8"))
 
     context_path = args.context or args.anomalies.parent.parent / "context" / f"{args.anomalies.stem}_context.json"
-    if not context_path.exists():
+    if args.mode == "news_only":
+        context = {"features": []}
+    elif not context_path.exists():
         print(f"derivatives context file not found: {context_path}", file=sys.stderr)
         return 2
-    context = json.loads(context_path.read_text(encoding="utf-8"))
+    else:
+        context = json.loads(context_path.read_text(encoding="utf-8"))
 
     cfg = load_config()
     template = PromptTemplate.load()

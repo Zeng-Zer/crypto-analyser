@@ -18,7 +18,13 @@ from crypto_analyser._paths import repo_root
 DEFAULT_MODEL = "qwen3-embedding"
 
 
-def get_unprocessed_articles(cursor: Any, limit: int) -> list[dict[str, Any]]:
+def get_unprocessed_articles(
+    cursor: Any,
+    limit: int,
+    start: str | None = None,
+    end: str | None = None,
+    query: str | None = None,
+) -> list[dict[str, Any]]:
     cursor.execute(
         """
         SELECT id, title_description
@@ -26,10 +32,13 @@ def get_unprocessed_articles(cursor: Any, limit: int) -> list[dict[str, Any]]:
         WHERE text_embedding IS NULL
           AND title_description IS NOT NULL
           AND TRIM(title_description) != ''
+          AND (%s IS NULL OR date_pub >= %s::TIMESTAMPTZ)
+          AND (%s IS NULL OR date_pub < %s::TIMESTAMPTZ)
+          AND (%s IS NULL OR research @@ websearch_to_tsquery('english', %s))
         ORDER BY id
         LIMIT %s
         """,
-        (limit,),
+        (start, start, end, end, query, query, limit),
     )
     return [{"id": row[0], "text": row[1]} for row in cursor.fetchall()]
 
@@ -87,15 +96,18 @@ def generate_pending_embeddings(
     model: str,
     batch_size: int,
     max_attempts: int,
+    start: str | None = None,
+    end: str | None = None,
+    query: str | None = None,
 ) -> int:
-    """Embed pending rows until none remain; return processed count."""
+    """Embed pending rows matching optional date/text filters; return processed count."""
     connection = psycopg2.connect(database_url)
     register_vector(connection)
     processed = 0
     try:
         while True:
             with connection.cursor() as cursor:
-                articles = get_unprocessed_articles(cursor, batch_size)
+                articles = get_unprocessed_articles(cursor, batch_size, start, end, query)
             if not articles:
                 return processed
 
@@ -121,6 +133,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--batch-size", type=int, default=20)
     parser.add_argument("--model", default=os.getenv("EMBEDDING_MODEL", DEFAULT_MODEL))
     parser.add_argument("--max-attempts", type=int, default=3)
+    parser.add_argument("--start", help="Only articles at or after this ISO timestamp")
+    parser.add_argument("--end", help="Only articles before this ISO timestamp")
+    parser.add_argument("--query", help="PostgreSQL websearch query, e.g. 'LUNA OR UST OR Terra'")
     args = parser.parse_args(argv)
 
     required = {name: os.getenv(name) for name in ("DATABASE_URL", "LLM_API_URL", "LLM_API_KEY")}
@@ -138,6 +153,9 @@ def main(argv: list[str] | None = None) -> int:
             args.model,
             args.batch_size,
             args.max_attempts,
+            args.start,
+            args.end,
+            args.query,
         )
     except RuntimeError as exc:
         print(exc, file=sys.stderr)

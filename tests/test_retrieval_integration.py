@@ -54,7 +54,8 @@ def test_live_pgvector_retrieval(monkeypatch):
         )
         semantic = retrieval.semantic_search(connection, query_vector, limit=2)
 
-        assert [row["title"] for row in hybrid] == ["Terra LUNA UST depeg"]
+        assert hybrid[0]["title"] == "Terra LUNA UST depeg"
+        assert all(row["date_pub"] <= datetime(2022, 5, 9, 14, tzinfo=timezone.utc) for row in hybrid)
         assert semantic[0]["title"] == "Terra LUNA UST depeg"
     finally:
         connection.rollback()

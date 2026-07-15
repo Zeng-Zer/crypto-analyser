@@ -14,7 +14,7 @@ from typing import Any
 from crypto_analyser._paths import repo_root
 
 REPO = repo_root()
-VALID_MODES = {"derivatives_only", "derivatives_rag"}
+VALID_MODES = {"derivatives_only", "derivatives_rag", "news_only"}
 
 
 def _load_json(path: Path) -> dict[str, Any]:
@@ -33,7 +33,7 @@ def _episode_report(
     onset = episode["onset_ts"]
     deriv = (
         {k: features[k] for k in ("funding_rate_current", "funding_rate_avg_4h", "oi_current", "oi_change_4h")}
-        if features
+        if features and mode != "news_only"
         else None
     )
     rag_context = None
@@ -104,7 +104,7 @@ def generate(
     breakdown: dict[str, int] = {}
     for ep in episodes:
         onset = ep["onset_ts"]
-        features = feat_by_onset.get(onset)
+        features = feat_by_onset.get(onset) if mode != "news_only" else None
         classification = cls_by_onset.get(onset)
 
         per = _episode_report(symbol, ep, features, classification, mode)
@@ -124,7 +124,7 @@ def generate(
         "mode": mode,
         "sources": {
             "anomalies": str(anomalies_path.relative_to(REPO)),
-            "context": str(context_path.relative_to(REPO)) if context_path.exists() else None,
+            "context": str(context_path.relative_to(REPO)) if context_path.exists() and mode != "news_only" else None,
             "classifications_dir": str(cls_dir.relative_to(REPO)),
         },
         "episode_count": len(summary_episodes),

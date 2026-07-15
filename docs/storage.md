@@ -21,11 +21,13 @@ data/
 ├── context/                       # Derivatives features at episode onset
 ├── classifications/
 │   ├── derivatives_only/
-│   └── derivatives_rag/
+│   ├── derivatives_rag/
+│   └── news_only/
 ├── rag/                           # Per-episode retrieved-news context
 └── reports/
     ├── derivatives_only/
-    └── derivatives_rag/
+    ├── derivatives_rag/
+    └── news_only/
 ```
 
 All generated files under `data/` are ignored by Git and can be regenerated.
@@ -61,8 +63,10 @@ Run:
 ```bash
 docker compose up -d pgvector
 ./scripts/init_db.sh
-uv run python scripts/load_archive.py --archive-dir /path/to/archive/2022/05
-uv run python scripts/generate_embeddings.py
+uv run python scripts/load_archive.py --archive-dir /path/to/archive
+uv run python scripts/generate_embeddings.py \
+  --start 2022-05-06 --end 2022-05-12 \
+  --query 'LUNA OR UST OR Terra'
 ```
 
 The HNSW index uses the first 2,000 dimensions because pgvector's `vector` HNSW operator class has a 2,000-dimension limit. Retrieval queries must use the same indexed expression.
