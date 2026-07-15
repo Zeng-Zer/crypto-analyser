@@ -19,8 +19,8 @@ jobs:
       - run: bash -n scripts/init_db.sh
       - run: docker compose up -d --wait pgvector
       - run: |
-          docker compose exec -T pgvector psql -U postgres -d crypto < sql/schema.sql
-          docker compose exec -T pgvector psql -U postgres -d crypto < sql/schema.sql
+          docker compose exec -T pgvector psql -v ON_ERROR_STOP=1 -U postgres -d crypto < sql/schema.sql
+          docker compose exec -T pgvector psql -v ON_ERROR_STOP=1 -U postgres -d crypto < sql/schema.sql
       - run: uv run pytest -q
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/crypto
