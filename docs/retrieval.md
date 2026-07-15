@@ -1,51 +1,39 @@
-# Hybrid News Retrieval
+# Hybrid news retrieval
 
-## 1. Overview
-This function finds relevant crypto news articles during a market crash. It gives us context about why a price anomaly happened. It returns a simple list of article dictionaries.
+`crypto_analyser.rag.retrieval.retrieve_relevant_news()` retrieves historical news around an anomaly timestamp.
 
-## 2. Inputs 
-*   `anomaly_timestamp` (datetime): The exact time of the crash.
-*   `ticker` (str): The crypto coin (e.g., "BTC", "LUNA").
-*   `top_k` (int): Max articles to return (default: 10).
-*   `window_hours` (int): Time window before/after the crash (default: 12).
-*   `conn` or `dsn`: Use `conn` if you already have a database connection, or pass a `dsn` string to let the function handle it.
+## Filters and ranking
 
-## 3. Pipeline
-The SQL query does 3 things:
-1. **Ticker filter:** Keeps articles matching the coin (`tickers @> ARRAY[...]`).
-2. **Time filter:** Keeps articles within the 12-hour window (`date_pub BETWEEN ... AND ...`).
-3. **Ranking:** Ranks them using Reciprocal Rank Fusion (RRF).
+Candidates must:
 
-## 4. Scoring Formula
-We combine the text rank and vector rank using the RRF formula:
-`score = 1 / (60 + rank_v) + 1 / (60 + rank_t)`
+- contain the requested ticker in `tickers`;
+- fall within the configured window (12 hours before and after by default);
+- have an embedding for vector ranking or match the full-text query.
 
-We use `k=60` because it is the standard value for RRF. This rank-based method safely balances vector and text scores.
+PostgreSQL ranks vector and full-text candidates separately, then combines them with reciprocal rank fusion:
 
-## 5. Vector vs Text Similarity
-*   **Vector (Semantic):** Uses the `<=>` (cosine distance) operator. 
-*   **Text (Keyword):** Uses `websearch_to_tsquery` to find words like "crash" or "depeg".
-We use both because they are complementary (Vector gets the context, Text gets the exact words).
+```text
+score = 1 / (rrf_k + vector_rank) + 1 / (rrf_k + text_rank)
+```
 
-## 6. Dimensionality Note
-The AI model (`qwen3-embedding`) gives 4096 dimensions. However, the database HNSW index is limited to 2000. We truncate the vector to 2000 (`[:2000]`) before sending it to PostgreSQL to prevent database errors.
+A candidate present in only one ranking receives only that ranking's term. Default `rrf_k` is 60.
 
-## 7. Usage Example
+Qwen3 embeddings remain stored at 4,096 dimensions. Queries use the same 2,000-dimensional expression as the HNSW index:
+
+```sql
+subvector(text_embedding, 1, 2000)::VECTOR(2000)
+```
+
+## Usage
+
+Set `DATABASE_URL`, `LLM_API_URL`, and `LLM_API_KEY`, then run:
 
 ```bash
-python3 scripts/test_retrieval.py --ticker BTC --timestamp 2021-02-01T14:00:00
+uv run python scripts/test_retrieval.py \
+  --ticker LUNA \
+  --timestamp 2022-05-09T14:00:00+00:00
 ```
-Here's the uoutput : 
 
---- Searching for BTC at 2021-02-01T14:00:00+00:00 ---
+`--date 2022-05-09` searches around noon UTC. The script exits nonzero when any result violates the ticker/time filters or LUNA results lack LUNA/Terra/UST/depeg text.
 
-=== QA VERIFICATION ===
-[Ticker check] article 1: tickers=[BTC, XVG] PASS BTC present
-[Time check]   article 1: pub_date=2021-02-01T11:45:06+00:00 PASS within 12h
-[Keyword check] article 1: contains target keywords PASS
-[Ticker check] article 2: tickers=[BTC, ETH] PASS BTC present
-[Time check]   article 2: pub_date=2021-02-01T13:10:00+00:00 PASS within 12h
-[Keyword check] article 2: missing target keywords FAIL
-[Ticker check] article 3: tickers=[BTC, DOGE, XVG] PASS BTC present
-[Time check]   article 3: pub_date=2021-02-01T09:21:40+00:00 PASS within 12h
-[Keyword check] article 3: missing target keywords FAIL
+Task 16's LUNA acceptance still requires a database populated with May 2022 LUNA articles and embeddings.

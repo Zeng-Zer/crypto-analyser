@@ -1,6 +1,0 @@
-# Ignore all generated report outputs (per-episode + summary).
-# Reports are regenerable from source data + scripts (data/anomalies/ +
-# data/context/ + data/classifications/), so they never belong in the repo.
-*
-!.gitignore
-!.gitkeep
