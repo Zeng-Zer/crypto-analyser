@@ -15,7 +15,7 @@ from datetime import date
 from crypto_analyser._paths import repo_root
 from crypto_analyser.tracing import trace_step
 
-VALID_MODES = {"derivatives_only", "derivatives_rag"}
+VALID_MODES = {"derivatives_only", "derivatives_rag", "news_only"}
 
 
 def _months_in_range(start: str, end: str) -> list[str]:
@@ -84,9 +84,17 @@ def run_derivatives(symbol: str, start: str, end: str) -> None:
     _run_module("features.derivatives", ["--anomalies", anomalies])
 
 
+@trace_step(name="pipeline.retrieval")
+def run_retrieval(symbol: str, start: str, end: str) -> None:
+    anomalies = f"data/anomalies/{symbol}_{start}_{end}.json"
+    _run_module("rag.retrieval", ["--anomalies", anomalies])
+
+
 @trace_step(name="pipeline.classifier")
 def run_classifier(symbol: str, start: str, end: str, mode: str) -> None:
     anomalies = f"data/anomalies/{symbol}_{start}_{end}.json"
+    if mode in {"derivatives_rag", "news_only"}:
+        run_retrieval(symbol, start, end)
     _run_module("classification.episodes", ["--anomalies", anomalies, "--mode", mode])
 
 
@@ -120,8 +128,9 @@ def run_pipeline(
 
     print("\n[4/6] z-score episodes")
     run_zscore(symbol, start, end)
-    print("\n[5/6] derivatives context + classification")
-    run_derivatives(symbol, start, end)
+    print("\n[5/6] evidence context + classification")
+    if mode != "news_only":
+        run_derivatives(symbol, start, end)
     run_classifier(symbol, start, end, mode)
     print("\n[6/6] reports")
     run_report(symbol, start, end, mode)
@@ -137,7 +146,7 @@ def main() -> int:
         "--mode",
         choices=sorted(VALID_MODES),
         default="derivatives_only",
-        help="derivatives_only uses market structure; derivatives_rag also consumes existing retrieved-news files",
+        help="Choose derivatives-only, derivatives+news, or news-only evidence",
     )
     parser.add_argument("--skip-download", action="store_true", help="Use existing parquet files")
     parser.add_argument("--force-download", action="store_true", help="Overwrite existing parquet files")

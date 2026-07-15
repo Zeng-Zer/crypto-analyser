@@ -1,0 +1,6 @@
+Task 16: pre-onset LUNA retrieval
+LUNAUSDT_1651971000000_rag.json articles= 2 cutoff= 2022-05-08T00:50:00+00:00
+LUNAUSDT_1652114100000_rag.json articles= 3 cutoff= 2022-05-09T16:35:00+00:00
+LUNAUSDT_1652133000000_rag.json articles= 5 cutoff= 2022-05-09T21:50:00+00:00
+LUNAUSDT_1652136300000_rag.json articles= 5 cutoff= 2022-05-09T22:45:00+00:00
+LUNAUSDT_1652217600000_rag.json articles= 5 cutoff= 2022-05-10T21:20:00+00:00
