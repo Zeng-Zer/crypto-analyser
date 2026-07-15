@@ -6,6 +6,7 @@ from crypto_analyser.rag.archive_loader import clean_value, parse_file
 def test_clean_value_normalizes_null_and_cdata():
     assert clean_value("NULL") is None
     assert clean_value(" <![CDATA[headline]]> ") == "headline"
+    assert clean_value("broken \ud83d text") == "broken ? text"
 
 
 def test_parse_file_normalizes_archive_article(tmp_path):

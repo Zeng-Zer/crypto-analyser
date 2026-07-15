@@ -31,7 +31,8 @@ def clean_value(value: Any) -> Any:
     if value is None or value == "NULL":
         return None
     if isinstance(value, str):
-        return value.replace("<![CDATA[", "").replace("]]>", "").strip()
+        cleaned = value.replace("<![CDATA[", "").replace("]]>", "").strip()
+        return cleaned.encode("utf-8", errors="replace").decode("utf-8")
     return value
 
 
