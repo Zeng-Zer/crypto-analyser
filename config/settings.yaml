@@ -7,7 +7,9 @@
 # at point of use (e.g., crypto_analyser.llm_client reads LLM_API_URL / 
 # LLM_API_KEY directly via os.getenv).
 api_keys:
-  # Wayback machine CDX API (public, no key required)
+  # LLM API endpoint and key for the classification pipeline
+  # Supports any OpenAI-compatible endpoint (OpenAI, Together, Anyscale, Groq, etc.)
+  # Optional: wayback machine CDX API (no key required)
   wayback_api_url: "https://web.archive.org/cdx/search/cdx"
 
 # ─── Data Sources ───
