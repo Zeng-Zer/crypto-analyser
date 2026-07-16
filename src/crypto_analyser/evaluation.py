@@ -1,18 +1,14 @@
-#!/usr/bin/env python3
-"""Evaluate LUNA evidence modes and write tracked Milestone 1 results."""
+"""Evaluate evidence modes with Ragas and direct comparison metrics."""
 
 from __future__ import annotations
 
-import argparse
 import json
-import os
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from statistics import fmean
 from typing import Any
 
 import psycopg2
-from dotenv import load_dotenv
 from openai import AsyncOpenAI
 from ragas.embeddings.base import embedding_factory
 from ragas.llms import llm_factory
@@ -118,12 +114,21 @@ def compare_modes(mode_results: dict[str, dict[str, Any]]) -> dict[str, Any]:
     }
 
 
-def evaluate(symbol: str, start: str, end: str, database_url: str, judge_model: str) -> dict[str, Any]:
-    client = AsyncOpenAI(api_key=os.environ["LLM_API_KEY"], base_url=os.environ["LLM_API_URL"])
+def evaluate(
+    symbol: str,
+    start: str,
+    end: str,
+    database_url: str,
+    judge_model: str,
+    api_url: str,
+    api_key: str,
+    embedding_model: str = "qwen3-embedding",
+) -> dict[str, Any]:
+    client = AsyncOpenAI(api_key=api_key, base_url=api_url)
     llm = llm_factory(judge_model, client=client)
     embeddings = embedding_factory(
         "openai",
-        model=os.getenv("EMBEDDING_MODEL", "qwen3-embedding"),
+        model=embedding_model,
         client=client,
         interface="modern",
     )
@@ -209,19 +214,18 @@ def evaluate(symbol: str, start: str, end: str, database_url: str, judge_model: 
     return comparison
 
 
-def main() -> int:
-    load_dotenv(repo_root() / ".env")
-    parser = argparse.ArgumentParser(description="Evaluate LUNA ablation modes with Ragas and direct metrics")
-    parser.add_argument("--symbol", default="LUNAUSDT")
-    parser.add_argument("--start", default="2022-05-07")
-    parser.add_argument("--end", default="2022-05-11")
-    parser.add_argument("--judge-model", default=os.getenv("RAGAS_JUDGE_MODEL", "glm-5.2-short"))
-    args = parser.parse_args()
-    required = [name for name in ("DATABASE_URL", "LLM_API_URL", "LLM_API_KEY") if not os.getenv(name)]
-    if required:
-        parser.error(f"required environment variables missing: {', '.join(required)}")
-
-    comparison = evaluate(args.symbol, args.start, args.end, os.environ["DATABASE_URL"], args.judge_model)
+def write_evaluation(
+    symbol: str,
+    start: str,
+    end: str,
+    database_url: str,
+    judge_model: str,
+    api_url: str,
+    api_key: str,
+    embedding_model: str = "qwen3-embedding",
+) -> Path:
+    """Evaluate all modes, persist comparison artifacts, and return final summary path."""
+    comparison = evaluate(symbol, start, end, database_url, judge_model, api_url, api_key, embedding_model)
     results_dir = repo_root() / "results"
     reports_dir = repo_root() / "reports"
     results_dir.mkdir(exist_ok=True)
@@ -233,7 +237,7 @@ def main() -> int:
     (results_dir / "ablation_comparison.json").write_text(json.dumps(comparison, indent=2), encoding="utf-8")
     final = {
         "milestone": "Historical LUNA anomaly evidence ablation",
-        "symbol": args.symbol,
+        "symbol": symbol,
         "window": comparison["window"],
         "episodes_total": comparison["derivatives_only"]["episode_count"],
         "classifications_total": sum(comparison[mode]["episode_count"] for mode in MODES),
@@ -251,10 +255,6 @@ def main() -> int:
         "limitations": comparison["limitations"],
         "generated_at": comparison["evaluated_at"],
     }
-    (reports_dir / "FINAL_PHASE1_SUMMARY.json").write_text(json.dumps(final, indent=2), encoding="utf-8")
-    print(comparison["comparison"]["finding"])
-    return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())
+    summary_path = reports_dir / "FINAL_PHASE1_SUMMARY.json"
+    summary_path.write_text(json.dumps(final, indent=2), encoding="utf-8")
+    return summary_path

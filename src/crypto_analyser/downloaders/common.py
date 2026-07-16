@@ -1,7 +1,7 @@
 """Shared utilities for downloading data from Binance Data Vision.
 
-Provides zip download/extraction, CSV-to-Parquet conversion,
-type-safe column definitions, and config loading.
+Provides zip download/extraction, CSV-to-Parquet conversion, and
+type-safe column definitions.
 
 Usage:
     from crypto_analyser.downloaders.common import download_zip, extract_csv, csv_to_parquet
@@ -17,7 +17,6 @@ from pathlib import Path
 import duckdb
 import requests
 
-from crypto_analyser.config import load_config as _load_config
 from crypto_analyser.logging_config import get_logger as _get_logger
 
 logger = _get_logger(__name__)
@@ -27,18 +26,7 @@ logger = _get_logger(__name__)
 BASE_URL = "https://data.binance.vision"
 
 
-def load_config_or_defaults():
-    """Load project config, falling back to defaults if placeholders not filled.
 
-    Returns:
-        (config_dict, use_fallback) — config is None when fallback is used.
-    """
-    try:
-        cfg = _load_config()
-        return cfg, False
-    except RuntimeError:
-        logger.warning("Config has placeholder values — using defaults")
-        return None, True
 
 
 def build_projection(columns: dict[str, str]) -> str:

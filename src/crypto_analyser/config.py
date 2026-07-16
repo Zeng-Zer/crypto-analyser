@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import warnings
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -8,32 +7,7 @@ from typing import Any
 import yaml
 from dotenv import load_dotenv
 
-from crypto_analyser._paths import repo_root
-
-_PLACEHOLDER_PATTERNS: tuple[str, ...] = ("changeme_", "your_", "placeholder")
-
-
-def _is_placeholder(value: str) -> bool:
-    """Check if a config value is still a placeholder."""
-    return any(pattern in value.lower() for pattern in _PLACEHOLDER_PATTERNS)
-
-
-def _check_placeholders(config: dict) -> list[str]:
-    """Recursively scan config dict for unfilled placeholders."""
-    found: list[str] = []
-
-    def walk(obj: Any, path: str = "") -> None:
-        if isinstance(obj, dict):
-            for key, val in obj.items():
-                walk(val, f"{path}.{key}" if path else key)
-        elif isinstance(obj, list):
-            for idx, val in enumerate(obj):
-                walk(val, f"{path}[{idx}]")
-        elif isinstance(obj, str) and obj.strip() and _is_placeholder(obj):
-            found.append(path)
-
-    walk(config)
-    return found
+from crypto_analyser._paths import asset_path
 
 
 def load_config(config_path: str | Path | None = None) -> Config:
@@ -49,14 +23,7 @@ def load_config(config_path: str | Path | None = None) -> Config:
     load_dotenv()
 
     if config_path is None:
-        root = repo_root()
-        config_path = root / "config" / "settings.yaml"
-        if not config_path.exists():
-            for ancestor in Path.cwd().resolve().parents:
-                candidate = ancestor / "config" / "settings.yaml"
-                if candidate.exists():
-                    config_path = candidate
-                    break
+        config_path = asset_path("settings.yaml")
 
     path = Path(config_path)
     if not path.exists():
@@ -64,17 +31,6 @@ def load_config(config_path: str | Path | None = None) -> Config:
 
     with open(path, encoding="utf-8") as f:
         raw = yaml.safe_load(f)
-
-    placeholders = _check_placeholders(raw)
-    if placeholders:
-        required_api_keys = [p for p in placeholders if p.startswith("api_keys.") or p.startswith("langfuse.")]
-        msg = (
-            f"Placeholder values detected in config: {', '.join(placeholders)}\n"
-            "Please fill in your configuration files."
-        )
-        if required_api_keys:
-            raise RuntimeError(msg)
-        warnings.warn(msg, stacklevel=2)
 
     return Config(raw)
 

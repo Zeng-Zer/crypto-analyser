@@ -7,20 +7,18 @@ from masquerading as a RAG experiment.
 
 from __future__ import annotations
 
-import argparse
 import json
 import re
-import sys
 from pathlib import Path
 from typing import Any
 
-from crypto_analyser._paths import repo_root
+from crypto_analyser._paths import asset_path, repo_root
 from crypto_analyser.config import Config, load_config
 from crypto_analyser.llm_client import ClassificationResult, LLMClient
 
 REPO_ROOT = repo_root()
-PROMPT_PATH = REPO_ROOT / "prompts" / "classification_prompt.md"
-DEFAULT_ANOMALIES = REPO_ROOT / "data" / "anomalies" / "LUNAUSDT_2022-05-07_2022-05-11.json"
+PROMPT_PATH = asset_path("classification_prompt.md")
+
 CLASSIFICATIONS_DIR = REPO_ROOT / "data" / "classifications"
 RAG_DIR = REPO_ROOT / "data" / "rag"
 
@@ -31,7 +29,7 @@ _RAG_WINDOW_DEFAULT = "24h before onset"
 _FENCE_RE = re.compile(r"```[a-zA-Z]*\n(.*?)```", re.DOTALL)
 # Match only slot-shaped tokens like {symbol} or {peak_z_abs}; leaves prose
 # comma-lists such as {explained_derivatives, unexplained, insufficient_data}
-# in the Task 17 template untouched.
+# in the prompt template untouched.
 _SLOT_RE = re.compile(r"\{([a-zA-Z_][a-zA-Z0-9_]*)\}")
 
 
@@ -40,7 +38,7 @@ class ClassificationValidationError(RuntimeError):
 
 
 class PromptTemplate:
-    """Load the three fenced blocks from the classification prompt file."""
+    """Load system and user templates for all three evidence modes."""
 
     def __init__(self, system: str, user_run_a: str, user_run_b: str, system_run_c: str, user_run_c: str) -> None:
         self.system = system
@@ -219,59 +217,26 @@ def classify_episodes(
     return out
 
 
-def _main(argv: list[str] | None = None) -> int:
-    p = argparse.ArgumentParser(description="LLM classifier execution wrapper")
-    p.add_argument(
-        "--anomalies",
-        type=Path,
-        default=DEFAULT_ANOMALIES,
-        help="Bulk anomaly episodes file (default: LUNA pre-crash window)",
-    )
-    p.add_argument(
-        "--context",
-        type=Path,
-        default=None,
-        help="Bulk derivatives context file (default: <anomalies_stem>_context.json)",
-    )
-    p.add_argument(
-        "--mode",
-        choices=("derivatives_only", "derivatives_rag", "news_only"),
-        default="derivatives_only",
-        help="Which Run variant to execute",
-    )
-    args = p.parse_args(argv)
-
-    if not args.anomalies.exists():
-        print(f"anomalies file not found: {args.anomalies}", file=sys.stderr)
-        return 2
-    anomalies = json.loads(args.anomalies.read_text(encoding="utf-8"))
-
-    context_path = args.context or args.anomalies.parent.parent / "context" / f"{args.anomalies.stem}_context.json"
-    if args.mode == "news_only":
+def classify_batch(
+    anomalies_path: Path,
+    mode: str,
+    *,
+    context_path: Path | None = None,
+    client: LLMClient | None = None,
+) -> list[Path]:
+    """Classify every episode in one anomaly batch."""
+    anomalies = json.loads(anomalies_path.read_text(encoding="utf-8"))
+    if mode == "news_only":
         context = {"features": []}
-    elif not context_path.exists():
-        print(f"derivatives context file not found: {context_path}", file=sys.stderr)
-        return 2
     else:
+        context_path = context_path or anomalies_path.parent.parent / "context" / f"{anomalies_path.stem}_context.json"
         context = json.loads(context_path.read_text(encoding="utf-8"))
-
-    cfg = load_config()
-    template = PromptTemplate.load()
-    client = LLMClient()
-
-    print(f"classifier: {len(anomalies['episodes'])} episodes, mode={args.mode}")
-    paths = classify_episodes(
+    return classify_episodes(
         anomalies["episodes"],
         context,
         anomalies["meta"],
-        client,
-        template,
-        cfg,
-        args.mode,
+        client or LLMClient(),
+        PromptTemplate.load(),
+        load_config(),
+        mode,
     )
-    print(f"  wrote {len(paths)} classifications to data/classifications/{args.mode}/")
-    return 0
-
-
-if __name__ == "__main__":
-    sys.exit(_main())

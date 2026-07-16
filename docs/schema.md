@@ -1,6 +1,6 @@
 # News schema
 
-Canonical definition: [`sql/schema.sql`](../sql/schema.sql).
+Canonical definition: [`src/crypto_analyser/assets/schema.sql`](../src/crypto_analyser/assets/schema.sql).
 
 ## `crypto_news`
 
@@ -21,4 +21,4 @@ Canonical definition: [`sql/schema.sql`](../sql/schema.sql).
 
 `(link, date_pub)` is unique, making archive loading idempotent. Generated columns are stored so they can be indexed. Index choices are documented in [`indexes.md`](indexes.md).
 
-Applying `sql/schema.sql` migrates legacy `ai_emb` data to `text_embedding`, replaces legacy index names, and is idempotent.
+Applying the packaged schema migrates legacy `ai_emb` data to `text_embedding`, replaces legacy index names, and is idempotent.

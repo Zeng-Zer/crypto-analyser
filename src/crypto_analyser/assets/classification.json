@@ -14,7 +14,7 @@
   "properties": {
     "event_reference": {
       "type": "string",
-      "description": "Correlation key set by the caller (Task 18) — typically the episode onset_ts. Echoed back by the LLM; back-filled by llm_client.ClassificationResult.from_dict if the LLM omits it."
+      "description": "Correlation key set by the classifier caller — typically the episode onset_ts. Echoed back by the LLM; back-filled by llm_client.ClassificationResult.from_dict if the LLM omits it."
     },
     "classification": {
       "type": "string",

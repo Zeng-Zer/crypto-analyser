@@ -16,7 +16,7 @@ from typing import Any, Self
 
 import requests
 
-from crypto_analyser._paths import repo_root
+from crypto_analyser._paths import asset_path
 from crypto_analyser.config import Config, load_config
 
 PLACEHOLDER_PATTERNS: tuple[str, ...] = ("changeme_", "your_", "placeholder")
@@ -30,9 +30,8 @@ class PlaceholderValueError(ValueError):
 class ClassificationResult:
     """Typed wrapper for LLM classification output.
 
-    Note: `severity` is intentionally absent — it is a Task 14 derived field,
-    not LLM-emitted (ADR-0002). Task 18 writes it directly from the episode
-    record to the output JSON.
+    Note: `severity` is intentionally absent because detection derives it.
+    Classification copies it directly from the episode record (ADR-0002).
     """
 
     event_reference: str
@@ -86,7 +85,7 @@ class LLMClient:
 
     Reads ``LLM_API_URL`` and ``LLM_API_KEY`` from the environment (loaded via
     :func:`crypto_analyser.config.load_config` -> :func:`dotenv.load_dotenv`).
-    Model, temperature, and max_tokens come from ``config/settings.yaml``.
+    Model comes from packaged settings; request limits use constructor defaults.
     """
 
     def __init__(
@@ -129,7 +128,7 @@ class LLMClient:
     @staticmethod
     @functools.lru_cache(maxsize=1)
     def _load_schema() -> dict[str, Any]:
-        schema_path = repo_root() / "schemas" / "classification.json"
+        schema_path = asset_path("classification.json")
         if not schema_path.exists():
             raise FileNotFoundError(f"Classification schema not found: {schema_path}")
         with open(schema_path, encoding="utf-8") as f:
@@ -145,8 +144,7 @@ class LLMClient:
 
         Uses ``response_format={"type": "json_schema", "strict": true}`` for
         deterministic structured output. If *system_prompt* is None, a default
-        crypto-analyst system message is used (Task 17's full template is passed
-        by Task 18's wrapper via this parameter).
+        crypto-analyst system message is used.
         """
         schema = self._load_schema()
 

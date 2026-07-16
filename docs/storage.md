@@ -51,7 +51,7 @@ This keeps immutable historical data columnar while retaining SQL filtering, agg
 
 ## PostgreSQL and pgvector
 
-`sql/schema.sql` creates:
+Packaged `crypto_analyser/assets/schema.sql` creates:
 
 - `crypto_news` article metadata
 - generated combined-text and `tsvector` columns
@@ -62,9 +62,9 @@ Run:
 
 ```bash
 docker compose up -d pgvector
-./scripts/init_db.sh
-uv run python scripts/load_archive.py --archive-dir /path/to/archive
-uv run python scripts/generate_embeddings.py \
+uv run crypto-analyser news init
+uv run crypto-analyser news load --archive-dir /path/to/archive
+uv run crypto-analyser news embed \
   --start 2022-05-06 --end 2022-05-12 \
   --query 'LUNA OR UST OR Terra'
 ```
