@@ -37,7 +37,7 @@ uv sync --locked
 cp .env.example .env
 
 # Historical pipeline; downloads Binance data when missing
-uv run python scripts/run_pipeline.py \
+uv run crypto-analyser run \
   --symbol LUNAUSDT \
   --start 2022-05-07 \
   --end 2022-05-11 \
@@ -50,17 +50,18 @@ uv run python scripts/run_pipeline.py \
 
 ```bash
 docker compose up -d pgvector
-./scripts/init_db.sh
-uv run python scripts/load_archive.py --archive-dir /path/to/archive
-uv run python scripts/generate_embeddings.py \
+uv run crypto-analyser news init
+uv run crypto-analyser news load --archive-dir /path/to/archive
+uv run crypto-analyser news embed \
   --start 2022-05-06 --end 2022-05-12 \
   --query 'LUNA OR UST OR Terra'
+uv run crypto-analyser news search --query 'Terra UST depeg'
 
 # Run all three evidence modes, then evaluate
-uv run python scripts/run_pipeline.py --symbol LUNAUSDT --start 2022-05-07 --end 2022-05-11 --mode derivatives_only
-uv run python scripts/run_pipeline.py --symbol LUNAUSDT --start 2022-05-07 --end 2022-05-11 --mode derivatives_rag --skip-download
-uv run python scripts/run_pipeline.py --symbol LUNAUSDT --start 2022-05-07 --end 2022-05-11 --mode news_only --skip-download
-uv run python scripts/evaluate_ragas.py
+uv run crypto-analyser run --symbol LUNAUSDT --start 2022-05-07 --end 2022-05-11 --mode derivatives_only
+uv run crypto-analyser run --symbol LUNAUSDT --start 2022-05-07 --end 2022-05-11 --mode derivatives_rag --skip-download
+uv run crypto-analyser run --symbol LUNAUSDT --start 2022-05-07 --end 2022-05-11 --mode news_only --skip-download
+uv run crypto-analyser evaluate
 ```
 
 Required environment variables: `DATABASE_URL`, `LLM_API_URL`, and `LLM_API_KEY`. `NEWS_ARCHIVE_DIR` can replace `--archive-dir`.
@@ -75,13 +76,15 @@ src/crypto_analyser/
 ├── classification/    # Structured episode classification
 ├── rag/               # News loading, embeddings, and retrieval
 ├── reporting/         # Mode-isolated JSON reports
+├── cli.py             # Single installed command surface
+├── pipeline.py        # In-process orchestration
+├── evaluation.py      # Direct + Ragas comparison
+├── assets/            # Packaged config, prompts, schema, and SQL
 ├── llm_client.py
 ├── config.py
 ├── logging_config.py
 └── tracing.py
 
-scripts/               # Thin CLI wrappers and pipeline orchestration
-sql/                   # PostgreSQL schema and indexes
 data/                  # Gitignored parquet and generated JSON
 ```
 

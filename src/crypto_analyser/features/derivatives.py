@@ -126,63 +126,35 @@ def extract_features(
     return features
 
 
-def main() -> None:
-    """CLI: extract derivatives context for the episodes in an anomalies file."""
-    import argparse
-
-    parser = argparse.ArgumentParser(
-        description="Extract derivatives context (funding + OI) for anomaly episodes",
-    )
-    parser.add_argument(
-        "--anomalies",
-        required=True,
-        help="Path to bulk anomalies JSON",
-    )
-    parser.add_argument(
-        "--lookback-hours",
-        type=float,
-        default=None,
-        help=f"Lookback window in hours (default {LOOKBACK_HOURS})",
-    )
-    args = parser.parse_args()
-
-    anomalies_path = Path(args.anomalies)
-    if not anomalies_path.is_absolute():
-        anomalies_path = REPO / anomalies_path
-    with open(anomalies_path, encoding="utf-8") as f:
-        anomalies = json.load(f)
+def write_context(anomalies_path: Path, lookback_hours: float = LOOKBACK_HOURS) -> Path:
+    """Extract and persist derivatives features for an anomaly batch."""
+    anomalies_path = anomalies_path if anomalies_path.is_absolute() else REPO / anomalies_path
+    anomalies = json.loads(anomalies_path.read_text(encoding="utf-8"))
     meta = anomalies["meta"]
-    episodes = anomalies["episodes"]
     symbol, start, end = meta["symbol"], meta["start"], meta["end"]
-    lookback = args.lookback_hours if args.lookback_hours is not None else LOOKBACK_HOURS
-
-    funding = _load_funding(symbol)
-    oi = _load_oi(symbol)
-    features = extract_features(episodes, funding, oi, lookback_hours=lookback)
-
+    features = extract_features(
+        anomalies["episodes"],
+        _load_funding(symbol),
+        _load_oi(symbol),
+        lookback_hours=lookback_hours,
+    )
     output_path = REPO / "data" / "context" / f"{symbol}_{start}_{end}_context.json"
     output_path.parent.mkdir(parents=True, exist_ok=True)
-
-    output = {
-        "meta": {
-            "symbol": symbol,
-            "start": start,
-            "end": end,
-            "source_anomalies": str(anomalies_path),
-            "lookback_hours": lookback,
-            "total_features": len(features),
-        },
-        "features": features,
-    }
-    with open(output_path, "w", encoding="utf-8") as f:
-        json.dump(output, f, indent=2)
-
-    print(f"Wrote {len(features)} feature vectors to {output_path}")
-    for feat in features:
-        print(
-            f"  onset {feat['onset_ts']}: funding={feat['funding_rate_current']}, oi_change_4h={feat['oi_change_4h']}"
-        )
-
-
-if __name__ == "__main__":
-    main()
+    output_path.write_text(
+        json.dumps(
+            {
+                "meta": {
+                    "symbol": symbol,
+                    "start": start,
+                    "end": end,
+                    "source_anomalies": str(anomalies_path),
+                    "lookback_hours": lookback_hours,
+                    "total_features": len(features),
+                },
+                "features": features,
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    return output_path

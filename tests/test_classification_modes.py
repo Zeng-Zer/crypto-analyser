@@ -1,5 +1,3 @@
-from pathlib import Path
-
 import pytest
 
 from crypto_analyser.classification import episodes
@@ -13,7 +11,7 @@ def test_rag_mode_requires_retrieval_file(monkeypatch, tmp_path):
 
 
 def test_news_only_prompt_excludes_derivatives(monkeypatch, tmp_path):
-    prompt = episodes.PromptTemplate.load(Path("prompts/classification_prompt.md"))
+    prompt = episodes.PromptTemplate.load()
     monkeypatch.setattr(
         episodes,
         "_rag_block",

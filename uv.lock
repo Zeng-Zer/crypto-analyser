@@ -316,7 +316,6 @@ dependencies = [
     { name = "pyyaml" },
     { name = "ragas" },
     { name = "requests" },
-    { name = "rich" },
 ]
 
 [package.dev-dependencies]
@@ -339,7 +338,6 @@ requires-dist = [
     { name = "pyyaml", specifier = ">=6.0" },
     { name = "ragas", specifier = ">=0.4,<0.5" },
     { name = "requests", specifier = ">=2.32" },
-    { name = "rich", specifier = ">=13.9" },
 ]
 
 [package.metadata.requires-dev]

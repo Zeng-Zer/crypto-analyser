@@ -31,11 +31,14 @@ subvector(text_embedding, 1, 2000)::VECTOR(2000)
 Set `DATABASE_URL`, `LLM_API_URL`, and `LLM_API_KEY`, then run:
 
 ```bash
-uv run python scripts/test_retrieval.py \
-  --ticker LUNA \
-  --timestamp 2022-05-09T14:00:00+00:00
+uv run crypto-analyser run \
+  --symbol LUNAUSDT \
+  --start 2022-05-07 \
+  --end 2022-05-11 \
+  --mode derivatives_rag \
+  --skip-download
 ```
 
-`--date 2022-05-09` searches around noon UTC. The script exits nonzero when any result violates the ticker/time filters or LUNA results lack LUNA/Terra/UST/depeg text.
+Unit and PostgreSQL integration tests verify ticker aliases, onset cutoff, ranking expression, and result ordering.
 
-`python -m crypto_analyser.rag.retrieval --anomalies <file>` writes one `data/rag/*_rag.json` file per episode. The LUNA experiment embeds only May 6–11 text matches; embedding all 172K archive rows is unnecessary for Milestone 1.
+`crypto-analyser run --mode derivatives_rag` writes one `data/rag/*_rag.json` file per episode before classification. The LUNA experiment embeds only May 6–11 text matches; embedding all 172K archive rows is unnecessary for Milestone 1.

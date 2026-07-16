@@ -6,7 +6,6 @@ overwrite one another.
 
 from __future__ import annotations
 
-import argparse
 import json
 from pathlib import Path
 from typing import Any
@@ -136,30 +135,3 @@ def generate(
         json.dump(summary, f, indent=2, ensure_ascii=False)
 
     return summary_path, per_paths
-
-
-def main() -> None:
-    parser = argparse.ArgumentParser(
-        prog="crypto_analyser.reporting.json_reports",
-        description="Build JSON reports from anomalies + derivatives + classification.",
-    )
-    parser.add_argument("--symbol", required=True)
-    parser.add_argument("--start", required=True, help="YYYY-MM-DD")
-    parser.add_argument("--end", required=True, help="YYYY-MM-DD")
-    parser.add_argument(
-        "--mode",
-        required=True,
-        choices=sorted(VALID_MODES),
-        help="Classification run mode (determines input directory).",
-    )
-    args = parser.parse_args()
-
-    summary_path, per_paths = generate(args.symbol, args.start, args.end, args.mode)
-
-    print(f"report_generator: symbol={args.symbol} mode={args.mode}")
-    print(f"  summary:  {summary_path.relative_to(REPO)}")
-    print(f"  episodes: {len(per_paths)} per-episode reports under data/reports/{args.mode}/")
-
-
-if __name__ == "__main__":
-    main()

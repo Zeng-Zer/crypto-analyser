@@ -1,4 +1,0 @@
-# Ignore local copies of settings.yaml with real secrets.
-# The committed settings.yaml contains placeholders (changeme_) for reference.
-# To commit changes to the template, use: git add -f config/settings.yaml
-settings.yaml

@@ -1,35 +1,18 @@
-#!/usr/bin/env python
-"""Download funding rate data from Binance Data Vision and store as Parquet.
-
-Usage:
-    uv run python scripts/download_funding.py --symbol LUNAUSDT --month 2022-05
-    uv run python scripts/download_funding.py --symbol LUNAUSDT --month 2022-04 --month 2022-05
-    uv run python scripts/download_funding.py --symbol LUNAUSDT --month 2022-05 --force
-
-URL pattern: {base_url}/data/futures/um/monthly/fundingRate/{SYMBOL}/{SYMBOL}-fundingRate-{YYYY-MM}.zip
-
-Funding rate is 8-hour intervals (3 funding events per day).
-
-Output: data/funding/{symbol}_{month}.parquet
-"""
+"""Download Binance funding-rate archives and convert them to Parquet."""
 
 from __future__ import annotations
 
-import argparse
-import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
 import duckdb
 import requests
 
-from crypto_analyser._paths import repo_root
 from crypto_analyser.downloaders.common import (
     BASE_URL,
     csv_to_parquet,
     download_zip,
     extract_csv,
-    load_config_or_defaults,
     logger,
 )
 
@@ -93,41 +76,3 @@ def download_funding(
     finally:
         if csv_path:
             Path(csv_path).unlink(missing_ok=True)
-
-
-def main() -> None:
-    parser = argparse.ArgumentParser(description="Download funding rate data from Binance Data Vision")
-    parser.add_argument("--symbol", default="LUNAUSDT")
-    parser.add_argument("--month", action="append", required=True)
-    parser.add_argument("--force", action="store_true")
-    parser.add_argument("--output-dir", default=None)
-    args = parser.parse_args()
-
-    base_url = BASE_URL
-    output_dir = repo_root() / "data" / "funding"
-
-    cfg, fallback = load_config_or_defaults()
-    if cfg and not fallback:
-        base_url = cfg.get("sources.binance.base_url", base_url)
-        if args.output_dir is None:
-            configured = Path(cfg.get("paths.funding_dir", "data/funding"))
-            output_dir = configured if configured.is_absolute() else repo_root() / configured
-
-    if args.output_dir:
-        output_dir = Path(args.output_dir).expanduser().resolve()
-
-    success_count = 0
-    for month in args.month:
-        logger.info("--- %s %s ---", args.symbol, month)
-        if download_funding(
-            symbol=args.symbol, month=month, output_dir=output_dir, base_url=base_url, force=args.force
-        ):
-            success_count += 1
-
-    logger.info("Completed: %d/%d months downloaded", success_count, len(args.month))
-    if success_count < len(args.month):
-        sys.exit(1)
-
-
-if __name__ == "__main__":
-    main()

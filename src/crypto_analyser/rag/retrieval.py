@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import argparse
 import json
 import os
 from datetime import datetime, timedelta, timezone
@@ -10,7 +9,6 @@ from pathlib import Path
 from typing import Any
 
 import psycopg2
-from dotenv import load_dotenv
 from pgvector import Vector
 from pgvector.psycopg2 import register_vector
 from psycopg2.extras import RealDictCursor
@@ -113,14 +111,22 @@ def semantic_search(connection: Any, query_vector: list[float], limit: int = 10)
         return [dict(row) for row in cursor.fetchall()]
 
 
-def explain_semantic_search(connection: Any, query_vector: list[float], limit: int = 10) -> str:
-    """Return PostgreSQL's planned execution path for a semantic search."""
-    _validate_limit(limit)
-    vector = _index_vector(query_vector)
-    register_vector(connection)
-    with connection.cursor() as cursor:
-        cursor.execute(f"EXPLAIN (FORMAT TEXT) {_SEMANTIC_SEARCH_SQL}", (vector, vector, limit))
-        return "\n".join(row[0] for row in cursor.fetchall())
+def search_news(
+    query: str,
+    database_url: str,
+    api_url: str,
+    api_key: str,
+    *,
+    limit: int = 10,
+    model: str = DEFAULT_MODEL,
+) -> list[dict[str, Any]]:
+    """Embed a query and return semantically similar historical articles."""
+    vector = get_embeddings([query], api_url, api_key, model=model)[0]
+    connection = psycopg2.connect(database_url)
+    try:
+        return semantic_search(connection, vector, limit)
+    finally:
+        connection.close()
 
 
 def retrieve_relevant_news(
@@ -246,30 +252,3 @@ def write_episode_contexts(
         )
         paths.append(path)
     return paths
-
-
-def main(argv: list[str] | None = None) -> int:
-    load_dotenv(repo_root() / ".env")
-    parser = argparse.ArgumentParser(description="Retrieve historical news for anomaly episodes")
-    parser.add_argument("--anomalies", type=Path, required=True)
-    parser.add_argument("--top-k", type=int, default=5)
-    parser.add_argument("--window-hours", type=int, default=24)
-    args = parser.parse_args(argv)
-    required = {name: os.getenv(name) for name in ("DATABASE_URL", "LLM_API_URL", "LLM_API_KEY")}
-    missing = [name for name, value in required.items() if not value]
-    if missing:
-        parser.error(f"required environment variables missing: {', '.join(missing)}")
-    paths = write_episode_contexts(
-        args.anomalies,
-        required["DATABASE_URL"],
-        required["LLM_API_URL"],
-        required["LLM_API_KEY"],
-        args.top_k,
-        args.window_hours,
-    )
-    print(f"Wrote {len(paths)} RAG contexts to data/rag/.")
-    return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())
