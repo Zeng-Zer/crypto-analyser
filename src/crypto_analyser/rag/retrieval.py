@@ -2,15 +2,20 @@
 
 from __future__ import annotations
 
+import argparse
+import json
 import os
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import Any
 
 import psycopg2
+from dotenv import load_dotenv
 from pgvector import Vector
 from pgvector.psycopg2 import register_vector
 from psycopg2.extras import RealDictCursor
 
+from crypto_analyser._paths import repo_root
 from crypto_analyser.rag.embeddings import DEFAULT_MODEL, get_embeddings
 
 _INDEX_DIMENSIONS = 2000
@@ -35,8 +40,9 @@ WITH vector_ranked AS (
                         <=> %(query_vector)s::VECTOR(2000)
            ) AS vector_rank
     FROM crypto_news
-    WHERE tickers @> ARRAY[%(ticker)s]::TEXT[]
-      AND date_pub BETWEEN %(start_time)s AND %(end_time)s
+    WHERE date_pub BETWEEN %(start_time)s AND %(end_time)s
+      AND (tickers && %(aliases)s::TEXT[]
+           OR research @@ websearch_to_tsquery('english', %(text_query)s))
       AND text_embedding IS NOT NULL
     ORDER BY subvector(text_embedding, 1, 2000)::VECTOR(2000)
              <=> %(query_vector)s::VECTOR(2000)
@@ -51,9 +57,9 @@ text_ranked AS (
                ) DESC
            ) AS text_rank
     FROM crypto_news
-    WHERE tickers @> ARRAY[%(ticker)s]::TEXT[]
-      AND date_pub BETWEEN %(start_time)s AND %(end_time)s
-      AND research @@ websearch_to_tsquery('english', %(text_query)s)
+    WHERE date_pub BETWEEN %(start_time)s AND %(end_time)s
+      AND (tickers && %(aliases)s::TEXT[]
+           OR research @@ websearch_to_tsquery('english', %(text_query)s))
     ORDER BY ts_rank_cd(
         research,
         websearch_to_tsquery('english', %(text_query)s)
@@ -149,10 +155,15 @@ def retrieve_relevant_news(
     if anomaly_timestamp.tzinfo is None:
         anomaly_timestamp = anomaly_timestamp.replace(tzinfo=timezone.utc)
     start_time = anomaly_timestamp - timedelta(hours=window_hours)
-    end_time = anomaly_timestamp + timedelta(hours=window_hours)
+    end_time = anomaly_timestamp
+    aliases = [ticker]
+    text_query = ticker
+    if ticker == "LUNA":
+        aliases = ["LUNA", "UST", "TERRA"]
+        text_query = "LUNA OR UST OR Terra"
     query_vector = _index_vector(
         get_embeddings(
-            [f"{ticker} price anomaly crypto news"],
+            [f"{text_query} price anomaly crypto news"],
             api_url,
             api_key,
             model=model or os.getenv("EMBEDDING_MODEL", DEFAULT_MODEL),
@@ -160,8 +171,8 @@ def retrieve_relevant_news(
     )
     params = {
         "query_vector": query_vector,
-        "text_query": f'"{ticker}" OR crash OR collapse OR depeg',
-        "ticker": ticker,
+        "text_query": text_query,
+        "aliases": aliases,
         "start_time": start_time,
         "end_time": end_time,
         "candidate_limit": top_k * 5,
@@ -179,3 +190,86 @@ def retrieve_relevant_news(
     finally:
         if own_connection:
             connection.close()
+
+
+def write_episode_contexts(
+    anomalies_path: Path,
+    dsn: str,
+    api_url: str,
+    api_key: str,
+    top_k: int = 5,
+    window_hours: int = 24,
+) -> list[Path]:
+    """Retrieve news published by each episode onset and write classifier inputs."""
+    anomalies = json.loads(anomalies_path.read_text(encoding="utf-8"))
+    symbol = anomalies["meta"]["symbol"]
+    ticker = symbol.removesuffix("USDT")
+    output_dir = repo_root() / "data" / "rag"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    paths: list[Path] = []
+    for episode in anomalies["episodes"]:
+        onset_ts = episode["onset_ts"]
+        onset = datetime.fromtimestamp(onset_ts / 1000, tz=timezone.utc)
+        articles = retrieve_relevant_news(
+            onset,
+            ticker,
+            top_k=top_k,
+            window_hours=window_hours,
+            dsn=dsn,
+            api_url=api_url,
+            api_key=api_key,
+        )
+        serializable = [
+            {**article, "date_pub": article["date_pub"].isoformat() if article.get("date_pub") else None}
+            for article in articles
+        ]
+        block = "\n\n".join(
+            f"[{article['date_pub']}] {article['title']}\n{article.get('description') or ''}"
+            for article in serializable
+        ) or "(No relevant news was published before this episode onset.)"
+        path = output_dir / f"{symbol}_{onset_ts}_rag.json"
+        path.write_text(
+            json.dumps(
+                {
+                    "symbol": symbol,
+                    "onset_ts": onset_ts,
+                    "cutoff": onset.isoformat(),
+                    "window": f"{window_hours}h before onset",
+                    "k": top_k,
+                    "articles": serializable,
+                    "block": block,
+                },
+                indent=2,
+                default=str,
+            ),
+            encoding="utf-8",
+        )
+        paths.append(path)
+    return paths
+
+
+def main(argv: list[str] | None = None) -> int:
+    load_dotenv(repo_root() / ".env")
+    parser = argparse.ArgumentParser(description="Retrieve historical news for anomaly episodes")
+    parser.add_argument("--anomalies", type=Path, required=True)
+    parser.add_argument("--top-k", type=int, default=5)
+    parser.add_argument("--window-hours", type=int, default=24)
+    args = parser.parse_args(argv)
+    required = {name: os.getenv(name) for name in ("DATABASE_URL", "LLM_API_URL", "LLM_API_KEY")}
+    missing = [name for name, value in required.items() if not value]
+    if missing:
+        parser.error(f"required environment variables missing: {', '.join(missing)}")
+    paths = write_episode_contexts(
+        args.anomalies,
+        required["DATABASE_URL"],
+        required["LLM_API_URL"],
+        required["LLM_API_KEY"],
+        args.top_k,
+        args.window_hours,
+    )
+    print(f"Wrote {len(paths)} RAG contexts to data/rag/.")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

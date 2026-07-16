@@ -1,0 +1,233 @@
+{
+  "mode": "news_only",
+  "episode_count": 5,
+  "classification_breakdown": {
+    "unexplained": 1,
+    "explained_news": 4
+  },
+  "average_confidence": 0.8800000000000001,
+  "faithfulness": 0.42857142857142855,
+  "answer_relevancy": 0.8290823145789918,
+  "episodes": [
+    {
+      "onset_ts": 1651971000000,
+      "verdict": "unexplained",
+      "confidence": 0.85,
+      "rationale": "The retrieved news articles do not credibly explain a medium-severity price anomaly in LUNAUSDT. The first article discusses Cardano and IOST launching algorithmic stablecoins inspired by Terra, which is a tangential industry development rather than a direct catalyst for a LUNA price move. The second article is a broad market warning about potential government bans on cryptocurrencies, mentioning Luna among many other assets (Ethereum, BNB, XRP, Solana, Cardano, Avalanche) in the context of a general price crash. Neither article provides a specific, credible driver for a localized LUNA price anomaly. The actual catalyst for LUNA's collapse in this period (the UST depeg and associated liquidity crisis) is not present in the retrieved news context.",
+      "news_relevance": "Article 1 (Cardano algorithmic stablecoins) is only tangentially related to LUNA, mentioning Terra as a reference point but providing no direct price-moving information. Article 2 (Bitcoin warning) is a broad market commentary listing Luna among many tokens; it does not contain LUNA-specific news that would explain a targeted price anomaly. No retrieved article addresses the UST depeg or any Terra-specific event that would credibly explain the observed price move.",
+      "derivatives": null,
+      "retrieved_news": [
+        {
+          "date_pub": "2022-05-07T22:10:04+00:00",
+          "title": "Cardano Set to Onboard Game-Changing Algorithmic Stablecoins, Rivaling Terra\u2019s UST",
+          "source": "Historical",
+          "link": null
+        },
+        {
+          "date_pub": "2022-05-07T10:10:47+00:00",
+          "title": "\u2018A De Facto Ban\u2019\u2014Serious Bitcoin Warning Issued As Price Crash Hits Ethereum, BNB, XRP, Luna, Solana, Cardano And Avalanche",
+          "source": "Historical",
+          "link": null
+        }
+      ],
+      "faithfulness": 0.42857142857142855,
+      "answer_relevancy": 0.8626199673514703,
+      "retrieved_articles": 2,
+      "latest_news_age_at_onset_minutes": 159.9,
+      "first_matching_news_after_onset": {
+        "date_pub": "2022-05-08T09:30:18+00:00",
+        "title": "\u2018Extreme Fear\u2019 Crypto Crash Suddenly Wipes $200 Billion From The Price Of Bitcoin, Ethereum, BNB, XRP, Luna, Solana, Cardano And Avalanche",
+        "link": "https://cryptopanic.com/news/cardano/15147649/Extreme-Fear-Crypto-Crash-Suddenly-Wipes-200-Billion-From-The-Price-Of-Bitcoin-Ethereum-BNB-XRP-Luna-Solana-Cardano-And-Avalanche",
+        "delay_minutes": 520.3
+      }
+    },
+    {
+      "onset_ts": 1652114100000,
+      "verdict": "explained_news",
+      "confidence": 0.85,
+      "rationale": "The retrieved news directly and credibly explains the severe LUNA price anomaly. On 2022-05-09, the Luna Foundation Guard announced it would deploy $1.5B (in BTC and UST) to defend the UST peg, and a separate article reports LFG 'sold' $1.5B in Bitcoin (bought at ~$47K) for ~$33K. These actions\u2014massive BTC liquidation at a major loss and emergency UST peg defense\u2014directly impacted LUNA's ecosystem mechanics and market confidence, explaining the high-severity price move. A third article confirms LUNA was 'among the biggest' losers during the broader market dive, consistent with the anomaly.",
+      "news_relevance": "The first article (LFG deploying $1.5B to protect UST peg) is highly relevant as it describes the emergency peg-defense mechanism directly tied to LUNA's collapse dynamics. The second article (LFG selling $1.5B BTC at a loss) is directly relevant as it quantifies the scale of reserve depletion undermining confidence. The third article (broader market dive naming LUNA among biggest losers) provides corroboration of LUNA-specific severity beyond general market conditions.",
+      "derivatives": null,
+      "retrieved_news": [
+        {
+          "date_pub": "2022-05-09T11:15:07+00:00",
+          "title": "Terra\u2019s LFG to Deploy $1.5B to \u201cProtect the UST Peg\u201d",
+          "source": "Historical",
+          "link": null
+        },
+        {
+          "date_pub": "2022-05-09T08:21:00+00:00",
+          "title": "Luna Foundation \"Sells\" $1.5 Billion in Bitcoin Bought at $47,000 for $33,000: Details",
+          "source": "Historical",
+          "link": null
+        },
+        {
+          "date_pub": "2022-05-09T00:52:47+00:00",
+          "title": "Bitcoin, crypto market dive to lowest mark since February",
+          "source": "Historical",
+          "link": null
+        }
+      ],
+      "faithfulness": 0.42857142857142855,
+      "answer_relevancy": 0.8624447361184715,
+      "retrieved_articles": 3,
+      "latest_news_age_at_onset_minutes": 319.9,
+      "first_matching_news_after_onset": {
+        "date_pub": "2022-05-09T16:50:00+00:00",
+        "title": "Luna Foundation Guard \u2018Is Not Trying to Exit Its Bitcoin Position\u2019, Says Terra\u2019s Do Kwon",
+        "link": "https://cryptopanic.com/news/15156430/Luna-Foundation-Guard-Is-Not-Trying-to-Exit-Its-Bitcoin-Position-Says-Terras-Do-Kwon",
+        "delay_minutes": 15.0
+      }
+    },
+    {
+      "onset_ts": 1652133000000,
+      "verdict": "explained_news",
+      "confidence": 0.85,
+      "rationale": "The retrieved news from May 9, 2022 directly explains the LUNA price anomaly. Multiple articles describe the Luna Foundation Guard (LFG) deploying $1.5 billion in BTC and UST to defend the UST stablecoin peg, which had fallen to $0.95 and then below $0.95. Because LUNA is the algorithmic token that absorbs UST peg pressure, the UST depeg and LFG's emergency reserve deployment credibly explain the LUNA price movement during this window. The articles are published at or before the episode onset and directly concern the mechanism driving LUNA's price.",
+      "news_relevance": "All five retrieved articles are directly relevant: they report the UST stablecoin losing its dollar peg (falling to $0.95 and below), LFG voting to deploy $1.5B in reserves to defend the peg, and Do Kwon's public statements about not exiting the BTC position. These events are the proximate cause of LUNA's price stress, as LUNA's design ties its value to absorbing UST imbalances.",
+      "derivatives": null,
+      "retrieved_news": [
+        {
+          "date_pub": "2022-05-09T16:50:00+00:00",
+          "title": "Luna Foundation Guard \u2018Is Not Trying to Exit Its Bitcoin Position\u2019, Says Terra\u2019s Do Kwon",
+          "source": "Historical",
+          "link": null
+        },
+        {
+          "date_pub": "2022-05-09T17:29:03+00:00",
+          "title": "Luna Foundation Guard To Support Struggling UST Peg With BTC Reserves",
+          "source": "Historical",
+          "link": null
+        },
+        {
+          "date_pub": "2022-05-09T11:15:07+00:00",
+          "title": "Terra\u2019s LFG to Deploy $1.5B to \u201cProtect the UST Peg\u201d",
+          "source": "Historical",
+          "link": null
+        },
+        {
+          "date_pub": "2022-05-09T21:03:14+00:00",
+          "title": "TerraUSD Stablecoin Plunges Below $0.95",
+          "source": "Historical",
+          "link": null
+        },
+        {
+          "date_pub": "2022-05-09T19:06:54+00:00",
+          "title": "UST stablecoin falls to record low amid continued market tumult",
+          "source": "Historical",
+          "link": null
+        }
+      ],
+      "faithfulness": 0.2857142857142857,
+      "answer_relevancy": 0.8610602074712865,
+      "retrieved_articles": 5,
+      "latest_news_age_at_onset_minutes": 46.8,
+      "first_matching_news_after_onset": {
+        "date_pub": "2022-05-09T22:49:08+00:00",
+        "title": "Terra Stablecoin Peg Slips Below $0.70\u2014Despite Loan From Bitcoin Reserves",
+        "link": "https://cryptopanic.com/news/15157573/Terra-Stablecoin-Peg-Slips-Below-070Despite-Loan-From-Bitcoin-Reserves",
+        "delay_minutes": 59.1
+      }
+    },
+    {
+      "onset_ts": 1652136300000,
+      "verdict": "explained_news",
+      "confidence": 0.9,
+      "rationale": "The retrieved news directly and credibly explains the LUNA price anomaly. Multiple articles from May 9, 2022 document that UST depegged to ~$0.95 (a record low), prompting the Luna Foundation Guard to deploy $1.5 billion in BTC and UST reserves to defend the peg. Because LUNA is the algorithmic stablecoin's collateralary token\u2014minted/burned to absorb UST supply imbalances\u2014a UST depeg event directly and mechanically pressures LUNA's price. The articles describe the exact mechanism (UST peg failure, LFG reserve deployment) that would drive a medium-severity LUNA price anomaly at this timestamp.",
+      "news_relevance": "All five retrieved articles are highly relevant. The first three (16:50, 17:29, 11:15 UTC) describe LFG's emergency $1.5B deployment to defend the UST peg, indicating acute stress in the Terra ecosystem. The fourth and fifth articles (21:03, 19:06 UTC) confirm UST had fallen to approximately $0.95, a record low. Together, these articles establish a direct causal chain: UST depegged from $1, LFG intervened with reserves, and LUNA\u2014the token structurally exposed to UST's stability\u2014experienced the observed price anomaly.",
+      "derivatives": null,
+      "retrieved_news": [
+        {
+          "date_pub": "2022-05-09T16:50:00+00:00",
+          "title": "Luna Foundation Guard \u2018Is Not Trying to Exit Its Bitcoin Position\u2019, Says Terra\u2019s Do Kwon",
+          "source": "Historical",
+          "link": null
+        },
+        {
+          "date_pub": "2022-05-09T17:29:03+00:00",
+          "title": "Luna Foundation Guard To Support Struggling UST Peg With BTC Reserves",
+          "source": "Historical",
+          "link": null
+        },
+        {
+          "date_pub": "2022-05-09T11:15:07+00:00",
+          "title": "Terra\u2019s LFG to Deploy $1.5B to \u201cProtect the UST Peg\u201d",
+          "source": "Historical",
+          "link": null
+        },
+        {
+          "date_pub": "2022-05-09T21:03:14+00:00",
+          "title": "TerraUSD Stablecoin Plunges Below $0.95",
+          "source": "Historical",
+          "link": null
+        },
+        {
+          "date_pub": "2022-05-09T19:06:54+00:00",
+          "title": "UST stablecoin falls to record low amid continued market tumult",
+          "source": "Historical",
+          "link": null
+        }
+      ],
+      "faithfulness": 0.3333333333333333,
+      "answer_relevancy": 0.8850126492902183,
+      "retrieved_articles": 5,
+      "latest_news_age_at_onset_minutes": 101.8,
+      "first_matching_news_after_onset": {
+        "date_pub": "2022-05-09T22:49:08+00:00",
+        "title": "Terra Stablecoin Peg Slips Below $0.70\u2014Despite Loan From Bitcoin Reserves",
+        "link": "https://cryptopanic.com/news/15157573/Terra-Stablecoin-Peg-Slips-Below-070Despite-Loan-From-Bitcoin-Reserves",
+        "delay_minutes": 4.1
+      }
+    },
+    {
+      "onset_ts": 1652217600000,
+      "verdict": "explained_news",
+      "confidence": 0.95,
+      "rationale": "The retrieved news articles from May 10, 2022 provide a direct and credible explanation for the severe LUNA price decline. Multiple articles report that UST lost its dollar peg, plummeting to as low as $0.61\u2013$0.62, which triggered Terra's algorithmic mechanism that mints/burns LUNA to defend the peg. The Luna Foundation Guard draining $1.5 billion from its BTC treasury, Binance halting LUNA and UST withdrawals, and the headline explicitly stating LUNA 'nosedives a staggering 60%' collectively explain the medium-severity anomaly captured in the LUNAUSDT price data at the episode onset.",
+      "news_relevance": "All five retrieved articles are directly relevant: (1) 'LUNA Nosedives A Staggering 60% As Binance Disables Terra Withdrawals' explicitly quantifies the LUNA crash and ties it to UST's depegging and Binance's withdrawal halt; (2) 'Luna Foundation Guard Drains Bitcoin Treasury To Save UST Peg' explains the mechanism\u2014LFG spent $1.5B in BTC defending UST, and Binance suspended LUNA/UST withdrawals; (3) 'Binance Halts Terra Withdrawals Amid UST Meltdown' confirms UST fell to $0.62, directly impacting LUNA via the dual-token algorithmic relationship; (4) 'Cryptocurrency Luna Lurches as Terra USD Volatility Continues, Erasing Billions' confirms LUNA's price collapse and billions in market cap erased, with Do Kwon signaling a recovery plan; (5) 'Cardano Founder on UST Collapse' corroborates the UST free fall context. Together, these articles credibly explain the LUNA price anomaly through the UST depeg event and its cascading effects on LUNA.",
+      "derivatives": null,
+      "retrieved_news": [
+        {
+          "date_pub": "2022-05-10T17:30:37+00:00",
+          "title": "LUNA Nosedives A Staggering 60% As Binance Disables Terra Withdrawals \u2014 What\u2019s Next For UST?",
+          "source": "Historical",
+          "link": null
+        },
+        {
+          "date_pub": "2022-05-10T09:19:11+00:00",
+          "title": "Luna Foundation Guard Drains Bitcoin Treasury To Save UST Peg",
+          "source": "Historical",
+          "link": null
+        },
+        {
+          "date_pub": "2022-05-10T10:25:00+00:00",
+          "title": "Binance Halts Terra Withdrawals Amid UST Meltdown",
+          "source": "Historical",
+          "link": null
+        },
+        {
+          "date_pub": "2022-05-10T18:47:48+00:00",
+          "title": "Cryptocurrency Luna Lurches as Terra USD Volatility Continues, Erasing Billions",
+          "source": "Historical",
+          "link": null
+        },
+        {
+          "date_pub": "2022-05-10T11:05:00+00:00",
+          "title": "Cardano Founder on UST Collapse: Markets Are Defined Best Under Stress",
+          "source": "Historical",
+          "link": null
+        }
+      ],
+      "faithfulness": 0.6666666666666666,
+      "answer_relevancy": 0.6742740126635128,
+      "retrieved_articles": 5,
+      "latest_news_age_at_onset_minutes": 152.2,
+      "first_matching_news_after_onset": {
+        "date_pub": "2022-05-10T21:28:58+00:00",
+        "title": "What Terra's Meltdown Means for Centralized Stablecoins Tether and USDC",
+        "link": "https://cryptopanic.com/news/15168494/What-Terras-Meltdown-Means-for-Centralized-Stablecoins-Tether-and-USDC",
+        "delay_minutes": 9.0
+      }
+    }
+  ]
+}

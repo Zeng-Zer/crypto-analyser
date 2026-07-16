@@ -15,8 +15,9 @@ Binance historical data
 
 Ablation:
   Run A: derivatives only
-  Run B: derivatives + historical-news retrieval
-  Compare with faithfulness and answer-relevancy metrics
+  Run B: derivatives + pre-onset historical news
+  Run C: pre-onset historical news only
+  Compare verdict overlap, news timing, faithfulness, and answer relevancy
 ```
 
 ## Current storage
@@ -43,15 +44,23 @@ uv run python scripts/run_pipeline.py \
   --mode derivatives_only
 ```
 
-`derivatives_rag` consumes existing per-episode retrieval files from `data/rag/`. Database retrieval now works, but pipeline wiring and ablation evaluation are still in progress, so `derivatives_only` remains the runnable default.
+`derivatives_rag` and `news_only` retrieve articles published at or before each episode onset. Missing retrieval files fail closed rather than silently producing an empty RAG run.
 
 ### Historical news database
 
 ```bash
 docker compose up -d pgvector
 ./scripts/init_db.sh
-uv run python scripts/load_archive.py --archive-dir /path/to/archive/2022/05
-uv run python scripts/generate_embeddings.py
+uv run python scripts/load_archive.py --archive-dir /path/to/archive
+uv run python scripts/generate_embeddings.py \
+  --start 2022-05-06 --end 2022-05-12 \
+  --query 'LUNA OR UST OR Terra'
+
+# Run all three evidence modes, then evaluate
+uv run python scripts/run_pipeline.py --symbol LUNAUSDT --start 2022-05-07 --end 2022-05-11 --mode derivatives_only
+uv run python scripts/run_pipeline.py --symbol LUNAUSDT --start 2022-05-07 --end 2022-05-11 --mode derivatives_rag --skip-download
+uv run python scripts/run_pipeline.py --symbol LUNAUSDT --start 2022-05-07 --end 2022-05-11 --mode news_only --skip-download
+uv run python scripts/evaluate_ragas.py
 ```
 
 Required environment variables: `DATABASE_URL`, `LLM_API_URL`, and `LLM_API_KEY`. `NEWS_ARCHIVE_DIR` can replace `--archive-dir`.
@@ -89,4 +98,4 @@ Milestone 1 validates the LUNAUSDT crash window from May 7–11, 2022 using Bina
 
 ## Status
 
-Historical download, detection, derivatives enrichment, classification, report generation, and database retrieval work. Pipeline retrieval wiring, ablation comparison, and evaluation remain.
+Milestone 1 LUNA run is complete. Five episodes produced 15 classifications across three modes. Derivatives-only and news-only each explained four episodes; three overlapped, one was derivatives-only, and one was news-only. This single event shows complementary evidence, not general derivatives superiority. See `reports/FINAL_PHASE1_SUMMARY.json`.

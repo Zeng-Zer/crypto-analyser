@@ -114,11 +114,11 @@ Build complete historical analysis pipeline that validates: derivatives signals 
 - JSON reports: saved per event
 
 ### Definition of Done
-- [ ] LUNA pre-crash window (May 7-11) validates: Z-score catches anomalies
-- [ ] LLM classifies anomalies with structured output
-- [ ] Ablation study produces publishable result (faithfulness scores)
-- [ ] JSON reports saved with classifications
-- [ ] All data sources verified (Binance Data Vision, Wayback RSS)
+- [x] LUNA pre-crash window (May 7-11) validates: Z-score catches 5 episodes
+- [x] LLM classifies anomalies with structured output
+- [x] Three-way ablation produces direct and Ragas metrics
+- [x] JSON reports saved with classifications
+- [x] Data sources verified (Binance Data Vision, local news archive, pgvector)
 
 ### Must Have
 - Historical OHLCV download working (Binance Data Vision - FREE)
@@ -1231,7 +1231,7 @@ Max Concurrent: 7 (Wave 2 - 3 YOU + 4 INTERN parallel, demo runs after indexes)
 
 ---
 
-- [ ] 16. Build RAG Retrieval Query — **INTERN TASK**
+- [x] 16. Build RAG Retrieval Query — **INTERN TASK**
 
   **What to do**:
   - Understand the goal: given an anomaly timestamp and ticker, retrieve relevant news
@@ -1509,7 +1509,7 @@ Max Concurrent: 7 (Wave 2 - 3 YOU + 4 INTERN parallel, demo runs after indexes)
 
 ---
 
-- [ ] 21. Ablation Study: Derivatives-Only Run
+- [x] 21. Ablation Study: Derivatives-Only Run
 
   **What to do**:
   - Run pipeline with `--mode derivatives_only` (skip RAG retrieval)
@@ -1551,7 +1551,7 @@ Max Concurrent: 7 (Wave 2 - 3 YOU + 4 INTERN parallel, demo runs after indexes)
 
 ---
 
-- [ ] 22. Ablation Study: Derivatives+RAG Run
+- [x] 22. Ablation Study: Derivatives+RAG Run
 
   **What to do**:
   - Run pipeline with `--mode derivatives_rag` (include RAG retrieval)
@@ -1600,7 +1600,7 @@ Max Concurrent: 7 (Wave 2 - 3 YOU + 4 INTERN parallel, demo runs after indexes)
 
 ---
 
-- [ ] 23. Ragas Evaluation + Comparison
+- [x] 23. Ragas Evaluation + Comparison
 
   **What to do**:
   - Create `scripts/evaluate_ragas.py`:
@@ -1655,7 +1655,7 @@ Max Concurrent: 7 (Wave 2 - 3 YOU + 4 INTERN parallel, demo runs after indexes)
 
 ---
 
-- [ ] 24. JSON Report Finalization
+- [x] 24. JSON Report Finalization
 
   **What to do**:
   - Finalize all JSON reports:

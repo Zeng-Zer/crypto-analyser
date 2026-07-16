@@ -1,0 +1,133 @@
+{
+  "mode": "derivatives_only",
+  "episode_count": 5,
+  "classification_breakdown": {
+    "explained_derivatives": 4,
+    "unexplained": 1
+  },
+  "average_confidence": 0.89,
+  "faithfulness": 0.34393939393939393,
+  "answer_relevancy": 0.5940808035933175,
+  "episodes": [
+    {
+      "onset_ts": 1651971000000,
+      "verdict": "explained_derivatives",
+      "confidence": 0.85,
+      "rationale": "funding_rate_current=-0.00060605 breaches the |0.0005| threshold, indicating unusual derivatives pressure (negative funding suggests heavy short positioning). oi_change_4h=0.055 is below the 0.10 threshold, so OI alone would not trigger, but the funding rate signal is sufficient to classify this as derivatives-explained. The negative funding is consistent with bearish positioning that could drive a price anomaly.",
+      "news_relevance": null,
+      "derivatives": {
+        "funding_rate_current": -0.00060605,
+        "funding_rate_avg_4h": -0.00033475374999999996,
+        "oi_current": 3365562.0,
+        "oi_change_4h": 0.05498252594933356
+      },
+      "retrieved_news": [],
+      "faithfulness": 0.25,
+      "answer_relevancy": 0.6537391550065677,
+      "retrieved_articles": 0,
+      "latest_news_age_at_onset_minutes": null,
+      "first_matching_news_after_onset": {
+        "date_pub": "2022-05-08T09:30:18+00:00",
+        "title": "\u2018Extreme Fear\u2019 Crypto Crash Suddenly Wipes $200 Billion From The Price Of Bitcoin, Ethereum, BNB, XRP, Luna, Solana, Cardano And Avalanche",
+        "link": "https://cryptopanic.com/news/cardano/15147649/Extreme-Fear-Crypto-Crash-Suddenly-Wipes-200-Billion-From-The-Price-Of-Bitcoin-Ethereum-BNB-XRP-Luna-Solana-Cardano-And-Avalanche",
+        "delay_minutes": 520.3
+      }
+    },
+    {
+      "onset_ts": 1652114100000,
+      "verdict": "explained_derivatives",
+      "confidence": 0.85,
+      "rationale": "oi_change_4h=0.1158 (approximately 11.6%) exceeds the 0.10 threshold, indicating unusual derivatives activity. While funding_rate_current=-0.00046 is below the 0.0005 threshold, the OI surge alone breaches the rubric criterion. The combination of rising open interest alongside negative funding suggests significant new short positions entering the market, consistent with the derivatives-driven anomaly classification.",
+      "news_relevance": null,
+      "derivatives": {
+        "funding_rate_current": -0.00046004,
+        "funding_rate_avg_4h": -7.55375e-06,
+        "oi_current": 3431398.0,
+        "oi_change_4h": 0.11575157035768192
+      },
+      "retrieved_news": [],
+      "faithfulness": 0.3333333333333333,
+      "answer_relevancy": 0.7105401066695309,
+      "retrieved_articles": 0,
+      "latest_news_age_at_onset_minutes": null,
+      "first_matching_news_after_onset": {
+        "date_pub": "2022-05-09T16:50:00+00:00",
+        "title": "Luna Foundation Guard \u2018Is Not Trying to Exit Its Bitcoin Position\u2019, Says Terra\u2019s Do Kwon",
+        "link": "https://cryptopanic.com/news/15156430/Luna-Foundation-Guard-Is-Not-Trying-to-Exit-Its-Bitcoin-Position-Says-Terras-Do-Kwon",
+        "delay_minutes": 15.0
+      }
+    },
+    {
+      "onset_ts": 1652133000000,
+      "verdict": "explained_derivatives",
+      "confidence": 0.95,
+      "rationale": "oi_change_4h=0.2449 (a ~24.5% increase in open interest over 4h) clearly breaches the 0.10 threshold from the rubric, indicating significant derivatives activity accompanying this price anomaly. While funding_rate_current=-0.00046 is just below the 0.0005 threshold, the OI surge alone is sufficient to classify this as explained by derivatives. This episode occurs during the early stages of the LUNA crisis, and the spike in OI likely reflects new positions being opened in response to emerging price dislocation.",
+      "news_relevance": null,
+      "derivatives": {
+        "funding_rate_current": -0.00046004,
+        "funding_rate_avg_4h": -0.00046004,
+        "oi_current": 4473359.0,
+        "oi_change_4h": 0.2449201149921103
+      },
+      "retrieved_news": [],
+      "faithfulness": 0.25,
+      "answer_relevancy": 0.6665757642955001,
+      "retrieved_articles": 0,
+      "latest_news_age_at_onset_minutes": null,
+      "first_matching_news_after_onset": {
+        "date_pub": "2022-05-09T22:49:08+00:00",
+        "title": "Terra Stablecoin Peg Slips Below $0.70\u2014Despite Loan From Bitcoin Reserves",
+        "link": "https://cryptopanic.com/news/15157573/Terra-Stablecoin-Peg-Slips-Below-070Despite-Loan-From-Bitcoin-Reserves",
+        "delay_minutes": 59.1
+      }
+    },
+    {
+      "onset_ts": 1652136300000,
+      "verdict": "unexplained",
+      "confidence": 0.85,
+      "rationale": "Neither derivatives threshold is breached: |funding_rate_current|=0.00046 is below the 0.0005 threshold, and |oi_change_4h|=0.0118 (1.18%) is well below the 0.10 threshold. Both features are non-null and clearly quiet, so the move is not explained by derivatives. No news context is available in Run A, so the episode is classified as unexplained.",
+      "news_relevance": null,
+      "derivatives": {
+        "funding_rate_current": -0.00046004,
+        "funding_rate_avg_4h": -0.00046004,
+        "oi_current": 4687480.0,
+        "oi_change_4h": -0.011840467893163214
+      },
+      "retrieved_news": [],
+      "faithfulness": 0.6363636363636364,
+      "answer_relevancy": 0.432276281774031,
+      "retrieved_articles": 0,
+      "latest_news_age_at_onset_minutes": null,
+      "first_matching_news_after_onset": {
+        "date_pub": "2022-05-09T22:49:08+00:00",
+        "title": "Terra Stablecoin Peg Slips Below $0.70\u2014Despite Loan From Bitcoin Reserves",
+        "link": "https://cryptopanic.com/news/15157573/Terra-Stablecoin-Peg-Slips-Below-070Despite-Loan-From-Bitcoin-Reserves",
+        "delay_minutes": 4.1
+      }
+    },
+    {
+      "onset_ts": 1652217600000,
+      "verdict": "explained_derivatives",
+      "confidence": 0.95,
+      "rationale": "Both derivatives signals breach the configured thresholds. funding_rate_current=-0.00189747 has an absolute value of ~0.0019, well above the 0.0005 threshold, indicating significant negative funding (shorts paying longs). Additionally, oi_change_4h=0.1877 (18.77%) exceeds the 0.10 threshold, indicating a substantial open interest increase over the 4-hour lookback. The combination of highly negative funding and a large OI surge points to aggressive short positioning in derivatives, which explains the price anomaly.",
+      "news_relevance": null,
+      "derivatives": {
+        "funding_rate_current": -0.00189747,
+        "funding_rate_avg_4h": -0.00189747,
+        "oi_current": 10021731.0,
+        "oi_change_4h": 0.18772509695412984
+      },
+      "retrieved_news": [],
+      "faithfulness": 0.25,
+      "answer_relevancy": 0.5072727102209577,
+      "retrieved_articles": 0,
+      "latest_news_age_at_onset_minutes": null,
+      "first_matching_news_after_onset": {
+        "date_pub": "2022-05-10T21:28:58+00:00",
+        "title": "What Terra's Meltdown Means for Centralized Stablecoins Tether and USDC",
+        "link": "https://cryptopanic.com/news/15168494/What-Terras-Meltdown-Means-for-Centralized-Stablecoins-Tether-and-USDC",
+        "delay_minutes": 9.0
+      }
+    }
+  ]
+}
