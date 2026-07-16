@@ -4,7 +4,7 @@ The LLM applies the derivatives threshold rule itself. Orchestration passes raw
 funding and open-interest features plus configured thresholds; it does not
 precompute a verdict for the model to accept or override.
 
-The rubric comes from packaged `assets/settings.yaml`:
+The rubric comes from explicit constants passed into prompt construction:
 
 - `|funding_rate_current| >= 0.0005`, or
 - `|oi_change_4h| >= 0.10`

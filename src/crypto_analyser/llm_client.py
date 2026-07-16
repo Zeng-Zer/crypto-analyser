@@ -17,7 +17,7 @@ from typing import Any, Self
 import requests
 
 from crypto_analyser._paths import asset_path
-from crypto_analyser.config import Config, load_config
+from crypto_analyser.constants import LLM_MODEL
 
 PLACEHOLDER_PATTERNS: tuple[str, ...] = ("changeme_", "your_", "placeholder")
 
@@ -73,19 +73,11 @@ def _resolve_api_key() -> str:
     return val
 
 
-def _resolve_model(cfg: Config) -> str:
-    try:
-        return cfg.llm["model"]
-    except KeyError as exc:
-        raise RuntimeError(f"Config missing 'llm.model': {exc}") from exc
-
-
 class LLMClient:
     """OpenAI-compatible chat completions client with JSON-schema structured outputs.
 
-    Reads ``LLM_API_URL`` and ``LLM_API_KEY`` from the environment (loaded via
-    :func:`crypto_analyser.config.load_config` -> :func:`dotenv.load_dotenv`).
-    Model comes from packaged settings; request limits use constructor defaults.
+    Reads ``LLM_API_URL`` and ``LLM_API_KEY`` from the environment.
+    Request limits and model use constructor defaults.
     """
 
     def __init__(
@@ -96,11 +88,9 @@ class LLMClient:
         temperature: float = 0.1,
         max_tokens: int = 2000,
     ) -> None:
-        cfg = load_config()
-
         api_url = api_url or _resolve_api_url()
         api_key = api_key or _resolve_api_key()
-        model = model or _resolve_model(cfg)
+        model = model or LLM_MODEL
 
         _check_placeholder("LLM_API_URL", api_url)
         _check_placeholder("LLM_API_KEY", api_key)

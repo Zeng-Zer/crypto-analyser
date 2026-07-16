@@ -6,6 +6,8 @@ per-bar flag. Episodes flow through derivatives fetch + LLM classification.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 
@@ -150,7 +152,7 @@ def extract_episodes(
     return episodes
 
 
-def _load_parquet(symbol: str, start: str, end: str) -> pd.Series:
+def _load_parquet(symbol: str, start: str, end: str, data_dir: Path) -> pd.Series:
     """Load OHLCV close prices from Parquet for symbol within date range.
 
     Returns a Series indexed by open_time (epoch ms).
@@ -161,7 +163,7 @@ def _load_parquet(symbol: str, start: str, end: str) -> pd.Series:
     # Glob all monthly parquet files for symbol so windows crossing a
     # calendar-month boundary load both months. SQL date-range filter
     # restricts to the requested window.
-    parquet_glob = (repo_root() / "data" / "ohlcv" / f"{symbol}_*.parquet").as_posix()
+    parquet_glob = (data_dir / "ohlcv" / f"{symbol}_*.parquet").as_posix()
     import datetime
     import zoneinfo
 
@@ -184,6 +186,7 @@ def detect_episodes(
     start: str,
     end: str,
     *,
+    data_dir: Path | None = None,
     window_hours: float = 24,
     threshold: float = 2.5,
     max_gap: int = 2,
@@ -191,7 +194,7 @@ def detect_episodes(
 ) -> dict:
     """Detect episodes from stored OHLCV and return the serializable batch."""
     window_bars = int(window_hours * 12)  # 5-minute candles
-    prices = _load_parquet(symbol, start, end)
+    prices = _load_parquet(symbol, start, end, data_dir or repo_root() / "data")
     result = compute_anomalies(prices, window=window_bars, threshold=threshold)
     episodes = extract_episodes(result, prices, max_gap=max_gap, min_consecutive=min_consecutive)
     return {

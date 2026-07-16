@@ -9,12 +9,8 @@ from statistics import fmean
 from typing import Any
 
 import psycopg2
-from openai import AsyncOpenAI
-from ragas.embeddings.base import embedding_factory
-from ragas.llms import llm_factory
-from ragas.metrics.collections import AnswerRelevancy, Faithfulness
 
-from crypto_analyser._paths import repo_root
+from crypto_analyser._paths import data_root, repo_root
 
 MODES = ("derivatives_only", "derivatives_rag", "news_only")
 
@@ -23,8 +19,8 @@ def _load(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def _rag_context(symbol: str, onset_ts: int) -> tuple[list[str], dict[str, Any]]:
-    data = _load(repo_root() / "data" / "rag" / f"{symbol}_{onset_ts}_rag.json")
+def _rag_context(symbol: str, onset_ts: int, data_dir: Path) -> tuple[list[str], dict[str, Any]]:
+    data = _load(data_dir / "rag" / f"{symbol}_{onset_ts}_rag.json")
     contexts = [
         f"{article['date_pub']} {article['title']} {article.get('description') or ''}" for article in data["articles"]
     ]
@@ -123,7 +119,14 @@ def evaluate(
     api_url: str,
     api_key: str,
     embedding_model: str = "qwen3-embedding",
+    data_dir: Path | None = None,
 ) -> dict[str, Any]:
+    from openai import AsyncOpenAI
+    from ragas.embeddings.base import embedding_factory
+    from ragas.llms import llm_factory
+    from ragas.metrics.collections import AnswerRelevancy, Faithfulness
+
+    root = data_dir or data_root()
     client = AsyncOpenAI(api_key=api_key, base_url=api_url)
     llm = llm_factory(judge_model, client=client)
     embeddings = embedding_factory(
@@ -138,11 +141,11 @@ def evaluate(
     results: dict[str, dict[str, Any]] = {}
     try:
         for mode in MODES:
-            summary = _load(repo_root() / "data" / "reports" / mode / f"{symbol}_{start}_{end}_summary.json")
+            summary = _load(root / "reports" / mode / f"{symbol}_{start}_{end}_summary.json")
             episodes = []
             for episode in summary["episodes"]:
                 onset_ts = episode["onset_ts"]
-                news_contexts, rag = _rag_context(symbol, onset_ts)
+                news_contexts, rag = _rag_context(symbol, onset_ts, root)
                 contexts = news_contexts if mode == "news_only" else [_derivatives_context(episode)]
                 if mode == "derivatives_rag":
                     contexts += news_contexts
@@ -158,7 +161,7 @@ def evaluate(
                         "verdict": episode["classification"]["verdict"],
                         "confidence": episode["classification"]["confidence"],
                         "rationale": response,
-                        "news_relevance": episode["raw_classification"].get("news_relevance"),
+                        "news_relevance": episode["classification"].get("news_relevance"),
                         "derivatives": episode["derivatives"],
                         "retrieved_news": (
                             [
@@ -223,9 +226,12 @@ def write_evaluation(
     api_url: str,
     api_key: str,
     embedding_model: str = "qwen3-embedding",
+    data_dir: Path | None = None,
 ) -> Path:
     """Evaluate all modes, persist comparison artifacts, and return final summary path."""
-    comparison = evaluate(symbol, start, end, database_url, judge_model, api_url, api_key, embedding_model)
+    comparison = evaluate(
+        symbol, start, end, database_url, judge_model, api_url, api_key, embedding_model, data_dir
+    )
     results_dir = repo_root() / "results"
     reports_dir = repo_root() / "reports"
     results_dir.mkdir(exist_ok=True)

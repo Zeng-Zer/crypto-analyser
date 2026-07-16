@@ -10,6 +10,7 @@ Usage:
 from __future__ import annotations
 
 import io
+import logging
 import tempfile
 import zipfile
 from pathlib import Path
@@ -17,9 +18,7 @@ from pathlib import Path
 import duckdb
 import requests
 
-from crypto_analyser.logging_config import get_logger as _get_logger
-
-logger = _get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 # ── Binance Data Vision ──────────────────────────────────────────────
 

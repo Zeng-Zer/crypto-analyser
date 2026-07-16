@@ -46,7 +46,7 @@ Ablation Study:
 1. Data engineering (batch processing, API orchestration, historical data pipelines)
 2. LLM engineering (prompt design, structured output, evaluation)
 3. RAG engineering (pgvector, hybrid search, embedding, retrieval)
-4. MLOps/observability (Langfuse tracing, Ragas evaluation)
+4. LLM evaluation (Ragas faithfulness and answer relevancy)
 5. Statistical analysis (Z-scores, feature engineering)
 6. Scientific methodology (ablation study, hypothesis testing)
 

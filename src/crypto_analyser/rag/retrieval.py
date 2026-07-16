@@ -13,7 +13,7 @@ from pgvector import Vector
 from pgvector.psycopg2 import register_vector
 from psycopg2.extras import RealDictCursor
 
-from crypto_analyser._paths import repo_root
+from crypto_analyser._paths import data_root
 from crypto_analyser.rag.embeddings import DEFAULT_MODEL, get_embeddings
 
 _INDEX_DIMENSIONS = 2000
@@ -205,12 +205,13 @@ def write_episode_contexts(
     api_key: str,
     top_k: int = 5,
     window_hours: int = 24,
+    output_dir: Path | None = None,
 ) -> list[Path]:
     """Retrieve news published by each episode onset and write classifier inputs."""
     anomalies = json.loads(anomalies_path.read_text(encoding="utf-8"))
     symbol = anomalies["meta"]["symbol"]
     ticker = symbol.removesuffix("USDT")
-    output_dir = repo_root() / "data" / "rag"
+    output_dir = output_dir or data_root() / "rag"
     output_dir.mkdir(parents=True, exist_ok=True)
     paths: list[Path] = []
     for episode in anomalies["episodes"]:
