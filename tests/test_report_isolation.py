@@ -39,13 +39,20 @@ def test_ablation_modes_write_separate_reports(tmp_path, monkeypatch):
         "rationale": "No corroborating signal.",
         "news_relevance": None,
     }
-    for mode in ("derivatives_only", "derivatives_rag"):
+    for mode in ("derivatives_only", "derivatives_rag", "news_only"):
         _write(tmp_path / "data" / "classifications" / mode / f"{symbol}_{onset}.json", classification)
 
     run_a, _ = report_json.generate(symbol, start, end, "derivatives_only")
     run_b, _ = report_json.generate(symbol, start, end, "derivatives_rag")
+    run_c, _ = report_json.generate(symbol, start, end, "news_only")
 
-    assert run_a.parent.name == "derivatives_only"
-    assert run_b.parent.name == "derivatives_rag"
-    assert run_a != run_b
-    assert run_a.exists() and run_b.exists()
+    assert {run_a.parent.name, run_b.parent.name, run_c.parent.name} == {
+        "derivatives_only",
+        "derivatives_rag",
+        "news_only",
+    }
+    assert len({run_a, run_b, run_c}) == 3
+    assert run_a.exists() and run_b.exists() and run_c.exists()
+    news_summary = json.loads(run_c.read_text())
+    assert news_summary["sources"]["context"] is None
+    assert news_summary["episodes"][0]["derivatives"] is None

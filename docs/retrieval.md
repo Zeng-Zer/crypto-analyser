@@ -6,9 +6,11 @@
 
 Candidates must:
 
-- contain the requested ticker in `tickers`;
-- fall within the configured window (12 hours before and after by default);
+- match ticker aliases or full text (`LUNA`, `UST`, or `Terra` for LUNAUSDT);
+- fall between the configured lookback start and episode onset;
 - have an embedding for vector ranking or match the full-text query.
+
+The end timestamp is the episode onset. Future articles are excluded to prevent look-ahead leakage.
 
 PostgreSQL ranks vector and full-text candidates separately, then combines them with reciprocal rank fusion:
 
@@ -36,4 +38,4 @@ uv run python scripts/test_retrieval.py \
 
 `--date 2022-05-09` searches around noon UTC. The script exits nonzero when any result violates the ticker/time filters or LUNA results lack LUNA/Terra/UST/depeg text.
 
-Task 16's LUNA acceptance still requires a database populated with May 2022 LUNA articles and embeddings.
+`python -m crypto_analyser.rag.retrieval --anomalies <file>` writes one `data/rag/*_rag.json` file per episode. The LUNA experiment embeds only May 6–11 text matches; embedding all 172K archive rows is unnecessary for Milestone 1.

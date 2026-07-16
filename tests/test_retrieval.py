@@ -50,9 +50,9 @@ def test_hybrid_retrieval_uses_canonical_indexed_expression(monkeypatch):
     assert result == rows
     assert "subvector(text_embedding, 1, 2000)::VECTOR(2000)" in connection.query
     assert "ai_emb" not in connection.query
-    assert connection.params["ticker"] == "LUNA"
+    assert connection.params["aliases"] == ["LUNA", "UST", "TERRA"]
     assert connection.params["start_time"] == datetime(2022, 5, 9, 2, tzinfo=timezone.utc)
-    assert connection.params["end_time"] == datetime(2022, 5, 10, 2, tzinfo=timezone.utc)
+    assert connection.params["end_time"] == datetime(2022, 5, 9, 14, tzinfo=timezone.utc)
     assert connection.params["query_vector"].dimensions() == 2000
 
 
