@@ -7,9 +7,18 @@ import os
 from datetime import date
 from pathlib import Path
 
-from crypto_analyser._paths import repo_root
+from crypto_analyser._paths import data_root
 from crypto_analyser.classification.episodes import classify_batch
-from crypto_analyser.config import Config, load_config
+from crypto_analyser.constants import (
+    BINANCE_BASE_URL,
+    FUNDING_RATE_THRESHOLD,
+    LLM_MODEL,
+    MIN_CONSECUTIVE,
+    OHLCV_INTERVAL,
+    OI_CHANGE_THRESHOLD,
+    WINDOW_HOURS,
+    ZSCORE_THRESHOLD,
+)
 from crypto_analyser.detection.zscore import detect_episodes
 from crypto_analyser.downloaders.funding import download_funding
 from crypto_analyser.downloaders.ohlcv import download_ohlcv
@@ -17,7 +26,6 @@ from crypto_analyser.downloaders.open_interest import download_oi_range
 from crypto_analyser.features.derivatives import write_context
 from crypto_analyser.rag.retrieval import write_episode_contexts
 from crypto_analyser.reporting.json_reports import VALID_MODES, generate
-from crypto_analyser.tracing import trace_step
 
 
 def months_in_range(start: str, end: str) -> list[str]:
@@ -34,11 +42,6 @@ def months_in_range(start: str, end: str) -> list[str]:
     return months
 
 
-def _path(cfg: Config, key: str, fallback: str) -> Path:
-    path = Path(cfg.get(key, fallback))
-    return path if path.is_absolute() else repo_root() / path
-
-
 def _require_environment(*names: str) -> dict[str, str]:
     values = {name: os.getenv(name) for name in names}
     missing = [name for name, value in values.items() if not value]
@@ -47,41 +50,44 @@ def _require_environment(*names: str) -> dict[str, str]:
     return {name: value for name, value in values.items() if value is not None}
 
 
-@trace_step(name="pipeline.run")
 def run_pipeline(
     symbol: str,
     start: str,
     end: str,
     mode: str = "derivatives_only",
     *,
+    data_dir: str | Path = "data",
     skip_download: bool = False,
     force_download: bool = False,
-    config: Config | None = None,
+    window_hours: float = WINDOW_HOURS,
+    threshold: float = ZSCORE_THRESHOLD,
+    min_consecutive: int = MIN_CONSECUTIVE,
+    funding_rate_threshold: float = FUNDING_RATE_THRESHOLD,
+    oi_change_threshold: float = OI_CHANGE_THRESHOLD,
+    llm_model: str = LLM_MODEL,
 ) -> Path:
     """Run one historical analysis and return its summary report path."""
     if mode not in VALID_MODES:
         raise ValueError(f"invalid mode {mode!r}; expected one of {VALID_MODES}")
-    cfg = config or load_config()
+    root = data_root(data_dir)
     months = months_in_range(start, end)
 
     if not skip_download:
-        base_url = cfg.get("sources.binance.base_url", "https://data.binance.vision")
-        interval = cfg.get("sources.binance.intervals.ohlcv", "5m")
         for month in months:
             if not download_ohlcv(
                 symbol,
                 month,
-                _path(cfg, "paths.ohlcv_dir", "data/ohlcv"),
-                interval=interval,
-                base_url=base_url,
+                root / "ohlcv",
+                interval=OHLCV_INTERVAL,
+                base_url=BINANCE_BASE_URL,
                 force=force_download,
             ):
                 raise RuntimeError(f"OHLCV download failed for {month}")
             if not download_funding(
                 symbol,
                 month,
-                _path(cfg, "paths.funding_dir", "data/funding"),
-                base_url=base_url,
+                root / "funding",
+                base_url=BINANCE_BASE_URL,
                 force=force_download,
             ):
                 raise RuntimeError(f"funding download failed for {month}")
@@ -89,27 +95,27 @@ def run_pipeline(
             symbol,
             date.fromisoformat(start),
             date.fromisoformat(end),
-            _path(cfg, "paths.oi_dir", "data/oi"),
-            base_url=base_url,
+            root / "oi",
+            base_url=BINANCE_BASE_URL,
             force=force_download,
         ):
             raise RuntimeError("open-interest download failed")
 
-    anomaly_cfg = cfg["anomaly_detection"]
     anomalies = detect_episodes(
         symbol,
         start,
         end,
-        window_hours=float(anomaly_cfg.get("window_hours", 24)),
-        threshold=float(anomaly_cfg.get("threshold", 2.5)),
-        min_consecutive=int(anomaly_cfg.get("min_consecutive", 2)),
+        data_dir=root,
+        window_hours=window_hours,
+        threshold=threshold,
+        min_consecutive=min_consecutive,
     )
-    anomalies_path = _path(cfg, "paths.anomalies_dir", "data/anomalies") / f"{symbol}_{start}_{end}.json"
+    anomalies_path = root / "anomalies" / f"{symbol}_{start}_{end}.json"
     anomalies_path.parent.mkdir(parents=True, exist_ok=True)
     anomalies_path.write_text(json.dumps(anomalies, indent=2), encoding="utf-8")
 
     if mode != "news_only":
-        write_context(anomalies_path)
+        write_context(anomalies_path, data_dir=root)
     if mode in {"derivatives_rag", "news_only"}:
         env = _require_environment("DATABASE_URL", "LLM_API_URL", "LLM_API_KEY")
         write_episode_contexts(
@@ -117,8 +123,16 @@ def run_pipeline(
             env["DATABASE_URL"],
             env["LLM_API_URL"],
             env["LLM_API_KEY"],
+            output_dir=root / "rag",
         )
 
-    classify_batch(anomalies_path, mode)
-    summary_path, _ = generate(symbol, start, end, mode)
+    classify_batch(
+        anomalies_path,
+        mode,
+        data_dir=root,
+        funding_rate_threshold=funding_rate_threshold,
+        oi_change_threshold=oi_change_threshold,
+        model=llm_model,
+    )
+    summary_path, _ = generate(symbol, start, end, mode, data_dir=root)
     return summary_path

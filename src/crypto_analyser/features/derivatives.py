@@ -14,9 +14,7 @@ import duckdb
 import numpy as np
 import pandas as pd
 
-from crypto_analyser._paths import repo_root
-
-REPO = repo_root()
+from crypto_analyser._paths import data_root
 
 # ponytail: lookback matches the spec field suffixes (_avg_4h, _change_4h).
 # 8h funding snapshots mean a 4h window captures at most one funding point,
@@ -25,13 +23,13 @@ REPO = repo_root()
 LOOKBACK_HOURS = 4
 
 
-def _load_funding(symbol: str) -> pd.DataFrame:
+def _load_funding(symbol: str, data_dir: Path) -> pd.DataFrame:
     """Funding-rate parquet sorted by ``calc_time`` (epoch ms).
 
     Globs all monthly parquet files for ``symbol`` so windows crossing a
     calendar-month boundary load both months.
     """
-    parquet_glob = (REPO / "data" / "funding" / f"{symbol}_*.parquet").as_posix()
+    parquet_glob = (data_dir / "funding" / f"{symbol}_*.parquet").as_posix()
     con = duckdb.connect()
     df = con.execute(f"""
         SELECT calc_time, last_funding_rate AS funding_rate
@@ -42,12 +40,12 @@ def _load_funding(symbol: str) -> pd.DataFrame:
     return df
 
 
-def _load_oi(symbol: str) -> pd.DataFrame:
+def _load_oi(symbol: str, data_dir: Path) -> pd.DataFrame:
     """Open-interest parquet sorted by ``create_time`` (epoch ms).
 
     Globs all monthly parquet files for ``symbol`` (see _load_funding).
     """
-    parquet_glob = (REPO / "data" / "oi" / f"{symbol}_*.parquet").as_posix()
+    parquet_glob = (data_dir / "oi" / f"{symbol}_*.parquet").as_posix()
     con = duckdb.connect()
     df = con.execute(f"""
         SELECT epoch_ms(create_time) AS create_time_ms, sum_open_interest
@@ -126,19 +124,24 @@ def extract_features(
     return features
 
 
-def write_context(anomalies_path: Path, lookback_hours: float = LOOKBACK_HOURS) -> Path:
+def write_context(
+    anomalies_path: Path,
+    lookback_hours: float = LOOKBACK_HOURS,
+    data_dir: Path | None = None,
+) -> Path:
     """Extract and persist derivatives features for an anomaly batch."""
-    anomalies_path = anomalies_path if anomalies_path.is_absolute() else REPO / anomalies_path
+    root = data_dir or data_root()
+    anomalies_path = anomalies_path if anomalies_path.is_absolute() else root.parent / anomalies_path
     anomalies = json.loads(anomalies_path.read_text(encoding="utf-8"))
     meta = anomalies["meta"]
     symbol, start, end = meta["symbol"], meta["start"], meta["end"]
     features = extract_features(
         anomalies["episodes"],
-        _load_funding(symbol),
-        _load_oi(symbol),
+        _load_funding(symbol, root),
+        _load_oi(symbol, root),
         lookback_hours=lookback_hours,
     )
-    output_path = REPO / "data" / "context" / f"{symbol}_{start}_{end}_context.json"
+    output_path = root / "context" / f"{symbol}_{start}_{end}_context.json"
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(
         json.dumps(

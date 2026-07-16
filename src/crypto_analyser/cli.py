@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import logging
 import os
 import sys
 from pathlib import Path
@@ -10,10 +11,16 @@ from typing import Any
 
 import psycopg2
 from dotenv import load_dotenv
-from openai import APIError
 
 from crypto_analyser._paths import repo_root
-from crypto_analyser.evaluation import write_evaluation
+from crypto_analyser.constants import (
+    FUNDING_RATE_THRESHOLD,
+    LLM_MODEL,
+    MIN_CONSECUTIVE,
+    OI_CHANGE_THRESHOLD,
+    WINDOW_HOURS,
+    ZSCORE_THRESHOLD,
+)
 from crypto_analyser.pipeline import VALID_MODES, run_pipeline
 from crypto_analyser.rag.archive_loader import load_archive
 from crypto_analyser.rag.database import initialize_database
@@ -34,8 +41,15 @@ def _run(args: argparse.Namespace) -> None:
         args.start,
         args.end,
         args.mode,
+        data_dir=args.data_dir,
         skip_download=args.skip_download,
         force_download=args.force_download,
+        window_hours=args.window_hours,
+        threshold=args.threshold,
+        min_consecutive=args.min_consecutive,
+        funding_rate_threshold=args.funding_rate_threshold,
+        oi_change_threshold=args.oi_change_threshold,
+        llm_model=args.model,
     )
     print(path)
 
@@ -88,16 +102,24 @@ def _embed_news(args: argparse.Namespace) -> None:
 
 
 def _evaluate(args: argparse.Namespace) -> None:
-    path = write_evaluation(
-        args.symbol,
-        args.start,
-        args.end,
-        _env("DATABASE_URL"),
-        args.judge_model,
-        _env("LLM_API_URL"),
-        _env("LLM_API_KEY"),
-        args.embedding_model,
-    )
+    from crypto_analyser.evaluation import write_evaluation
+
+    try:
+        path = write_evaluation(
+            args.symbol,
+            args.start,
+            args.end,
+            _env("DATABASE_URL"),
+            args.judge_model,
+            _env("LLM_API_URL"),
+            _env("LLM_API_KEY"),
+            args.embedding_model,
+            args.data_dir,
+        )
+    except ImportError as exc:
+        raise RuntimeError("evaluation dependencies missing; install crypto-analyser[evaluation]") from exc
+    except Exception as exc:
+        raise RuntimeError(f"evaluation failed: {exc}") from exc
     print(path)
 
 
@@ -110,6 +132,13 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--start", required=True)
     run.add_argument("--end", required=True)
     run.add_argument("--mode", choices=sorted(VALID_MODES), default="derivatives_only")
+    run.add_argument("--data-dir", type=Path, default=Path("data"))
+    run.add_argument("--window-hours", type=float, default=WINDOW_HOURS)
+    run.add_argument("--threshold", type=float, default=ZSCORE_THRESHOLD)
+    run.add_argument("--min-consecutive", type=int, default=MIN_CONSECUTIVE)
+    run.add_argument("--funding-rate-threshold", type=float, default=FUNDING_RATE_THRESHOLD)
+    run.add_argument("--oi-change-threshold", type=float, default=OI_CHANGE_THRESHOLD)
+    run.add_argument("--model", default=os.getenv("LLM_MODEL", LLM_MODEL))
     run.add_argument("--skip-download", action="store_true")
     run.add_argument("--force-download", action="store_true")
     run.set_defaults(handler=_run)
@@ -145,17 +174,21 @@ def build_parser() -> argparse.ArgumentParser:
     evaluate.add_argument("--end", default="2022-05-11")
     evaluate.add_argument("--judge-model", default=os.getenv("RAGAS_JUDGE_MODEL", "glm-5.2-short"))
     evaluate.add_argument("--embedding-model", default=os.getenv("EMBEDDING_MODEL", DEFAULT_MODEL))
+    evaluate.add_argument("--data-dir", type=Path, default=Path("data"))
     evaluate.set_defaults(handler=_evaluate)
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     load_dotenv(repo_root() / ".env")
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("openai").setLevel(logging.WARNING)
     try:
         args = build_parser().parse_args(argv)
         handler: Any = args.handler
         handler(args)
-    except (APIError, OSError, psycopg2.Error, RuntimeError, ValueError) as exc:
+    except (OSError, psycopg2.Error, RuntimeError, ValueError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
     return 0

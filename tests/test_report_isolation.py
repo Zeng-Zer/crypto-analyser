@@ -1,6 +1,6 @@
 import json
 
-from crypto_analyser.reporting import json_reports as report_json
+from crypto_analyser.reporting import json_reports
 
 
 def _write(path, value):
@@ -8,18 +8,16 @@ def _write(path, value):
     path.write_text(json.dumps(value), encoding="utf-8")
 
 
-def test_ablation_modes_write_separate_reports(tmp_path, monkeypatch):
-    monkeypatch.setattr(report_json, "REPO", tmp_path)
+def test_ablation_modes_write_separate_reports(tmp_path):
     symbol, start, end, onset = "LUNAUSDT", "2022-05-07", "2022-05-11", 123
     stem = f"{symbol}_{start}_{end}"
-    episode = {"onset_ts": onset, "peak_z": -4.2, "severity": "high", "direction": "down"}
-
+    episode = {"onset_ts": onset, "peak_z": -4.2, "severity": "high", "direction": "crash"}
     _write(
-        tmp_path / "data" / "anomalies" / f"{stem}.json",
+        tmp_path / "anomalies" / f"{stem}.json",
         {"meta": {"symbol": symbol, "start": start, "end": end}, "episodes": [episode]},
     )
     _write(
-        tmp_path / "data" / "context" / f"{stem}_context.json",
+        tmp_path / "context" / f"{stem}_context.json",
         {
             "features": [
                 {
@@ -40,19 +38,11 @@ def test_ablation_modes_write_separate_reports(tmp_path, monkeypatch):
         "news_relevance": None,
     }
     for mode in ("derivatives_only", "derivatives_rag", "news_only"):
-        _write(tmp_path / "data" / "classifications" / mode / f"{symbol}_{onset}.json", classification)
+        _write(tmp_path / "classifications" / mode / f"{symbol}_{onset}.json", classification)
 
-    run_a, _ = report_json.generate(symbol, start, end, "derivatives_only")
-    run_b, _ = report_json.generate(symbol, start, end, "derivatives_rag")
-    run_c, _ = report_json.generate(symbol, start, end, "news_only")
+    paths = [json_reports.generate(symbol, start, end, mode, data_dir=tmp_path)[0] for mode in json_reports.VALID_MODES]
 
-    assert {run_a.parent.name, run_b.parent.name, run_c.parent.name} == {
-        "derivatives_only",
-        "derivatives_rag",
-        "news_only",
-    }
-    assert len({run_a, run_b, run_c}) == 3
-    assert run_a.exists() and run_b.exists() and run_c.exists()
-    news_summary = json.loads(run_c.read_text())
-    assert news_summary["sources"]["context"] is None
+    assert {path.parent.name for path in paths} == json_reports.VALID_MODES
+    news_summary = json.loads((tmp_path / "reports" / "news_only" / f"{stem}_summary.json").read_text())
     assert news_summary["episodes"][0]["derivatives"] is None
+    assert "raw_episode" not in news_summary["episodes"][0]

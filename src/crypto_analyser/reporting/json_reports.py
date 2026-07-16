@@ -1,8 +1,4 @@
-"""Build mode-isolated JSON reports from pipeline outputs.
-
-Reports are written under ``data/reports/{mode}/`` so ablation runs cannot
-overwrite one another.
-"""
+"""Build mode-isolated JSON reports from pipeline outputs."""
 
 from __future__ import annotations
 
@@ -10,15 +6,14 @@ import json
 from pathlib import Path
 from typing import Any
 
-from crypto_analyser._paths import repo_root
+from crypto_analyser._paths import data_root
 
-REPO = repo_root()
 VALID_MODES = {"derivatives_only", "derivatives_rag", "news_only"}
+_DERIVATIVE_FIELDS = ("funding_rate_current", "funding_rate_avg_4h", "oi_current", "oi_change_4h")
 
 
-def _load_json(path: Path) -> dict[str, Any]:
-    with path.open("r", encoding="utf-8") as f:
-        return json.load(f)
+def _load(path: Path) -> dict[str, Any]:
+    return json.loads(path.read_text(encoding="utf-8"))
 
 
 def _episode_report(
@@ -28,41 +23,24 @@ def _episode_report(
     classification: dict[str, Any] | None,
     mode: str,
 ) -> dict[str, Any]:
-    """Merge one episode with its derivatives features and classification."""
-    onset = episode["onset_ts"]
-    deriv = (
-        {k: features[k] for k in ("funding_rate_current", "funding_rate_avg_4h", "oi_current", "oi_change_4h")}
-        if features and mode != "news_only"
-        else None
+    derivatives = (
+        {key: features[key] for key in _DERIVATIVE_FIELDS} if features and mode != "news_only" else None
     )
-    rag_context = None
-    news_relevance = classification.get("news_relevance") if classification else None
-    if classification and news_relevance is not None:
-        rag_context = {"news_relevance": news_relevance}
-    verdict = classification.get("classification") if classification else None
     return {
         "symbol": symbol,
-        "onset_ts": onset,  # spec: timestamp
-        "peak_z": episode.get("peak_z"),  # spec: Z-score
-        "severity": episode.get("severity"),
-        "direction": episode.get("direction"),
-        "derivatives": deriv,  # spec: derivatives features
-        "rag_context": rag_context,  # spec: RAG context (optional)
-        "classification": {
-            "verdict": verdict,
-            "confidence": classification.get("confidence") if classification else None,
-            "rationale": classification.get("rationale") if classification else None,
-            "mode": mode,
-        }
-        if classification
-        else None,
-        # ponytail: passthrough of intermediate-file fields for traceability;
-        # the headline fields above are the report's user-facing read. Keys are
-        # named after their semantic source (episode / features / classification),
-        # NOT after internal plan task numbers — schema must outlive renumbering.
-        "raw_episode": episode,
-        "raw_features": features,
-        "raw_classification": classification,
+        **episode,
+        "derivatives": derivatives,
+        "classification": (
+            {
+                "verdict": classification["classification"],
+                "confidence": classification["confidence"],
+                "rationale": classification["rationale"],
+                "news_relevance": classification.get("news_relevance"),
+                "mode": mode,
+            }
+            if classification
+            else None
+        ),
     }
 
 
@@ -71,49 +49,43 @@ def generate(
     start: str,
     end: str,
     mode: str,
+    *,
+    data_dir: Path | None = None,
 ) -> tuple[Path, list[Path]]:
-    """Build reports. Returns ``summary_path`` + per-episode report paths (for this run only)."""
+    """Build summary and per-episode reports for one run."""
     if mode not in VALID_MODES:
         raise ValueError(f"invalid mode {mode!r}; expected one of {VALID_MODES}")
+    root = data_dir or data_root()
+    anomalies_path = root / "anomalies" / f"{symbol}_{start}_{end}.json"
+    context_path = root / "context" / f"{symbol}_{start}_{end}_context.json"
+    classifications_dir = root / "classifications" / mode
 
-    anomalies_path = REPO / "data" / "anomalies" / f"{symbol}_{start}_{end}.json"
-    context_path = REPO / "data" / "context" / f"{symbol}_{start}_{end}_context.json"
-    cls_dir = REPO / "data" / "classifications" / mode
+    episodes = _load(anomalies_path)["episodes"]
+    features = _load(context_path)["features"] if context_path.exists() and mode != "news_only" else []
+    feature_by_onset = {feature["onset_ts"]: feature for feature in features}
+    classifications = [_load(path) for path in sorted(classifications_dir.glob(f"{symbol}_*.json"))]
+    classification_by_onset = {item["onset_ts"]: item for item in classifications}
 
-    anom = _load_json(anomalies_path)
-    episodes = anom["episodes"]
-
-    if context_path.exists():
-        ctx = _load_json(context_path)
-        feat_by_onset = {f["onset_ts"]: f for f in ctx["features"]}
-    else:
-        feat_by_onset = {}
-
-    cls_by_onset: dict[int, dict[str, Any]] = {}
-    if cls_dir.exists():
-        for cf in sorted(cls_dir.glob(f"{symbol}_*.json")):
-            cd = _load_json(cf)
-            cls_by_onset[cd["onset_ts"]] = cd
-
-    reports_dir = REPO / "data" / "reports" / mode
+    reports_dir = root / "reports" / mode
     reports_dir.mkdir(parents=True, exist_ok=True)
-
-    summary_episodes: list[dict[str, Any]] = []
-    per_paths: list[Path] = []
+    reports = []
+    paths = []
     breakdown: dict[str, int] = {}
-    for ep in episodes:
-        onset = ep["onset_ts"]
-        features = feat_by_onset.get(onset) if mode != "news_only" else None
-        classification = cls_by_onset.get(onset)
-
-        per = _episode_report(symbol, ep, features, classification, mode)
-        per_path = reports_dir / f"{symbol}_{onset}_report.json"
-        with per_path.open("w", encoding="utf-8") as f:
-            json.dump(per, f, indent=2, ensure_ascii=False)
-        per_paths.append(per_path)
-        summary_episodes.append(per)
-
-        if classification and (verdict := classification.get("classification")):
+    for episode in episodes:
+        onset = episode["onset_ts"]
+        report = _episode_report(
+            symbol,
+            episode,
+            feature_by_onset.get(onset),
+            classification_by_onset.get(onset),
+            mode,
+        )
+        path = reports_dir / f"{symbol}_{onset}_report.json"
+        path.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
+        reports.append(report)
+        paths.append(path)
+        if report["classification"]:
+            verdict = report["classification"]["verdict"]
             breakdown[verdict] = breakdown.get(verdict, 0) + 1
 
     summary = {
@@ -121,17 +93,10 @@ def generate(
         "start": start,
         "end": end,
         "mode": mode,
-        "sources": {
-            "anomalies": str(anomalies_path.relative_to(REPO)),
-            "context": str(context_path.relative_to(REPO)) if context_path.exists() and mode != "news_only" else None,
-            "classifications_dir": str(cls_dir.relative_to(REPO)),
-        },
-        "episode_count": len(summary_episodes),
+        "episode_count": len(reports),
         "classification_breakdown": breakdown or None,
-        "episodes": summary_episodes,
+        "episodes": reports,
     }
     summary_path = reports_dir / f"{symbol}_{start}_{end}_summary.json"
-    with summary_path.open("w", encoding="utf-8") as f:
-        json.dump(summary, f, indent=2, ensure_ascii=False)
-
-    return summary_path, per_paths
+    summary_path.write_text(json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8")
+    return summary_path, paths

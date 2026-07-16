@@ -15,7 +15,17 @@ def test_run_command_routes_to_pipeline(monkeypatch, capsys):
     assert calls == [
         (
             ("LUNAUSDT", "2022-05-07", "2022-05-11", "derivatives_only"),
-            {"skip_download": True, "force_download": False},
+            {
+                "data_dir": Path("data"),
+                "skip_download": True,
+                "force_download": False,
+                "window_hours": 24.0,
+                "threshold": 2.5,
+                "min_consecutive": 2,
+                "funding_rate_threshold": 0.0005,
+                "oi_change_threshold": 0.1,
+                "llm_model": "glm-5.2-short-flex",
+            },
         )
     ]
     assert capsys.readouterr().out.strip() == "summary.json"
@@ -43,6 +53,21 @@ def test_news_search_formats_results(monkeypatch, capsys):
 
     assert cli.main(["news", "search", "--query", "Terra"]) == 0
     assert "[90.0%] UST depeg" in capsys.readouterr().out
+
+
+def test_evaluate_reports_missing_optional_dependencies(monkeypatch, capsys):
+    from crypto_analyser import evaluation
+
+    monkeypatch.setenv("DATABASE_URL", "db")
+    monkeypatch.setenv("LLM_API_URL", "api")
+    monkeypatch.setenv("LLM_API_KEY", "key")
+
+    def missing(*_args):
+        raise ImportError("ragas")
+
+    monkeypatch.setattr(evaluation, "write_evaluation", missing)
+    assert cli.main(["evaluate"]) == 1
+    assert "install crypto-analyser[evaluation]" in capsys.readouterr().err
 
 
 def test_missing_environment_returns_nonzero(monkeypatch, capsys):

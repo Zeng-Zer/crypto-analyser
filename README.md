@@ -44,7 +44,7 @@ uv run crypto-analyser run \
   --mode derivatives_only
 ```
 
-`derivatives_rag` and `news_only` retrieve articles published at or before each episode onset. Missing retrieval files fail closed rather than silently producing an empty RAG run.
+`derivatives_rag` and `news_only` retrieve articles published at or before each episode onset. Missing retrieval files fail closed rather than silently producing an empty RAG run. Use `--data-dir` to place every pipeline artifact under one alternative root.
 
 ### Historical news database
 
@@ -61,6 +61,7 @@ uv run crypto-analyser news search --query 'Terra UST depeg'
 uv run crypto-analyser run --symbol LUNAUSDT --start 2022-05-07 --end 2022-05-11 --mode derivatives_only
 uv run crypto-analyser run --symbol LUNAUSDT --start 2022-05-07 --end 2022-05-11 --mode derivatives_rag --skip-download
 uv run crypto-analyser run --symbol LUNAUSDT --start 2022-05-07 --end 2022-05-11 --mode news_only --skip-download
+uv sync --locked --extra evaluation
 uv run crypto-analyser evaluate
 ```
 
@@ -79,11 +80,9 @@ src/crypto_analyser/
 ├── cli.py             # Single installed command surface
 ├── pipeline.py        # In-process orchestration
 ├── evaluation.py      # Direct + Ragas comparison
-├── assets/            # Packaged config, prompts, schema, and SQL
-├── llm_client.py
-├── config.py
-├── logging_config.py
-└── tracing.py
+├── assets/            # Packaged prompts and database/JSON schemas
+├── constants.py       # Project defaults
+└── llm_client.py
 
 data/                  # Gitignored parquet and generated JSON
 ```

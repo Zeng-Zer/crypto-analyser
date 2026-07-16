@@ -3,7 +3,6 @@ from pathlib import Path
 import pytest
 
 from crypto_analyser import pipeline
-from crypto_analyser.config import Config
 
 
 def test_months_in_range_crosses_year_boundary():
@@ -17,12 +16,6 @@ def test_months_in_range_rejects_reversed_dates():
 
 def test_pipeline_composes_library_functions_without_subprocess(monkeypatch, tmp_path):
     calls = []
-    cfg = Config(
-        {
-            "anomaly_detection": {"window_hours": 24, "threshold": 2.5, "min_consecutive": 2},
-            "paths": {"anomalies_dir": str(tmp_path / "anomalies")},
-        }
-    )
     monkeypatch.setattr(
         pipeline,
         "detect_episodes",
@@ -31,17 +24,21 @@ def test_pipeline_composes_library_functions_without_subprocess(monkeypatch, tmp
             "episodes": [],
         },
     )
-    monkeypatch.setattr(pipeline, "write_context", lambda path: calls.append(("context", path)))
-    monkeypatch.setattr(pipeline, "classify_batch", lambda path, mode: calls.append(("classify", path, mode)))
+    monkeypatch.setattr(pipeline, "write_context", lambda path, **kwargs: calls.append(("context", path)))
+    monkeypatch.setattr(
+        pipeline,
+        "classify_batch",
+        lambda path, mode, **kwargs: calls.append(("classify", path, mode)),
+    )
     expected = tmp_path / "summary.json"
-    monkeypatch.setattr(pipeline, "generate", lambda *args: (expected, []))
+    monkeypatch.setattr(pipeline, "generate", lambda *args, **kwargs: (expected, []))
 
     result = pipeline.run_pipeline(
         "LUNAUSDT",
         "2022-05-07",
         "2022-05-11",
+        data_dir=tmp_path,
         skip_download=True,
-        config=cfg,
     )
 
     anomaly_path = tmp_path / "anomalies" / "LUNAUSDT_2022-05-07_2022-05-11.json"
@@ -51,12 +48,6 @@ def test_pipeline_composes_library_functions_without_subprocess(monkeypatch, tmp
 
 
 def test_news_only_skips_derivatives(monkeypatch, tmp_path):
-    cfg = Config(
-        {
-            "anomaly_detection": {"window_hours": 24, "threshold": 2.5, "min_consecutive": 2},
-            "paths": {"anomalies_dir": str(tmp_path)},
-        }
-    )
     monkeypatch.setattr(
         pipeline,
         "detect_episodes",
@@ -71,10 +62,15 @@ def test_news_only_skips_derivatives(monkeypatch, tmp_path):
         "_require_environment",
         lambda *_: {"DATABASE_URL": "db", "LLM_API_URL": "api", "LLM_API_KEY": "key"},
     )
-    monkeypatch.setattr(pipeline, "write_episode_contexts", lambda *args: [])
-    monkeypatch.setattr(pipeline, "classify_batch", lambda *args: [])
-    monkeypatch.setattr(pipeline, "generate", lambda *args: (Path("summary.json"), []))
+    monkeypatch.setattr(pipeline, "write_episode_contexts", lambda *args, **kwargs: [])
+    monkeypatch.setattr(pipeline, "classify_batch", lambda *args, **kwargs: [])
+    monkeypatch.setattr(pipeline, "generate", lambda *args, **kwargs: (Path("summary.json"), []))
 
     assert pipeline.run_pipeline(
-        "LUNAUSDT", "2022-05-07", "2022-05-11", "news_only", skip_download=True, config=cfg
+        "LUNAUSDT",
+        "2022-05-07",
+        "2022-05-11",
+        "news_only",
+        data_dir=tmp_path,
+        skip_download=True,
     ) == Path("summary.json")

@@ -13,6 +13,12 @@ def repo_root() -> Path:
     return Path.cwd().resolve()
 
 
+def data_root(path: str | Path = "data") -> Path:
+    """Resolve runtime data directory against current workspace."""
+    path = Path(path)
+    return path if path.is_absolute() else repo_root() / path
+
+
 def asset_path(name: str) -> Path:
     """Return a packaged immutable asset path."""
     return Path(__file__).with_name("assets") / name
