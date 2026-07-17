@@ -4,7 +4,7 @@
 `chat_template_kwargs: {"enable_thinking": False}` in the request payload. Both
 flags are non-optional for the current model (`glm-5.2-short-flex`, served
 through a proxy) and were added after the synchronous non-streaming path failed
-during Task 18 QA.
+during classifier integration testing.
 
 Streaming is required because the proxy-served flex model rejects the
 non-streaming request path: a plain `POST /chat/completions` without
@@ -26,7 +26,7 @@ answer. With thinking on, ep6 during QA blew the 120s read-timeout budget on
 reasoning tokens before the JSON was emitted, surfacing as the same hang as
 above for a different reason. The classifier's job is to produce a single
 structured JSON object (`response_format` strict-mode
-`schemas/classification.json`); chain-of-thought is never read, never stored,
+the packaged classification schema); chain-of-thought is never read, never stored,
 never scored — it is pure budget burn. Disabling it makes the model emit the
 JSON directly, which is what the pipeline consumes.
 

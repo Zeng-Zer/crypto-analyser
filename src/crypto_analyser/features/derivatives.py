@@ -14,9 +14,7 @@ import duckdb
 import numpy as np
 import pandas as pd
 
-from crypto_analyser._paths import repo_root
-
-REPO = repo_root()
+from crypto_analyser._paths import data_root
 
 # ponytail: lookback matches the spec field suffixes (_avg_4h, _change_4h).
 # 8h funding snapshots mean a 4h window captures at most one funding point,
@@ -25,13 +23,13 @@ REPO = repo_root()
 LOOKBACK_HOURS = 4
 
 
-def _load_funding(symbol: str) -> pd.DataFrame:
+def _load_funding(symbol: str, data_dir: Path) -> pd.DataFrame:
     """Funding-rate parquet sorted by ``calc_time`` (epoch ms).
 
     Globs all monthly parquet files for ``symbol`` so windows crossing a
     calendar-month boundary load both months.
     """
-    parquet_glob = (REPO / "data" / "funding" / f"{symbol}_*.parquet").as_posix()
+    parquet_glob = (data_dir / "funding" / f"{symbol}_*.parquet").as_posix()
     con = duckdb.connect()
     df = con.execute(f"""
         SELECT calc_time, last_funding_rate AS funding_rate
@@ -42,12 +40,12 @@ def _load_funding(symbol: str) -> pd.DataFrame:
     return df
 
 
-def _load_oi(symbol: str) -> pd.DataFrame:
+def _load_oi(symbol: str, data_dir: Path) -> pd.DataFrame:
     """Open-interest parquet sorted by ``create_time`` (epoch ms).
 
     Globs all monthly parquet files for ``symbol`` (see _load_funding).
     """
-    parquet_glob = (REPO / "data" / "oi" / f"{symbol}_*.parquet").as_posix()
+    parquet_glob = (data_dir / "oi" / f"{symbol}_*.parquet").as_posix()
     con = duckdb.connect()
     df = con.execute(f"""
         SELECT epoch_ms(create_time) AS create_time_ms, sum_open_interest
@@ -126,63 +124,40 @@ def extract_features(
     return features
 
 
-def main() -> None:
-    """CLI: extract derivatives context for the episodes in an anomalies file."""
-    import argparse
-
-    parser = argparse.ArgumentParser(
-        description="Extract derivatives context (funding + OI) for anomaly episodes",
-    )
-    parser.add_argument(
-        "--anomalies",
-        required=True,
-        help="Path to bulk anomalies JSON",
-    )
-    parser.add_argument(
-        "--lookback-hours",
-        type=float,
-        default=None,
-        help=f"Lookback window in hours (default {LOOKBACK_HOURS})",
-    )
-    args = parser.parse_args()
-
-    anomalies_path = Path(args.anomalies)
-    if not anomalies_path.is_absolute():
-        anomalies_path = REPO / anomalies_path
-    with open(anomalies_path, encoding="utf-8") as f:
-        anomalies = json.load(f)
+def write_context(
+    anomalies_path: Path,
+    lookback_hours: float = LOOKBACK_HOURS,
+    data_dir: Path | None = None,
+) -> Path:
+    """Extract and persist derivatives features for an anomaly batch."""
+    root = data_dir or data_root()
+    anomalies_path = anomalies_path if anomalies_path.is_absolute() else root.parent / anomalies_path
+    anomalies = json.loads(anomalies_path.read_text(encoding="utf-8"))
     meta = anomalies["meta"]
-    episodes = anomalies["episodes"]
     symbol, start, end = meta["symbol"], meta["start"], meta["end"]
-    lookback = args.lookback_hours if args.lookback_hours is not None else LOOKBACK_HOURS
-
-    funding = _load_funding(symbol)
-    oi = _load_oi(symbol)
-    features = extract_features(episodes, funding, oi, lookback_hours=lookback)
-
-    output_path = REPO / "data" / "context" / f"{symbol}_{start}_{end}_context.json"
+    features = extract_features(
+        anomalies["episodes"],
+        _load_funding(symbol, root),
+        _load_oi(symbol, root),
+        lookback_hours=lookback_hours,
+    )
+    output_path = root / "context" / f"{symbol}_{start}_{end}_context.json"
     output_path.parent.mkdir(parents=True, exist_ok=True)
-
-    output = {
-        "meta": {
-            "symbol": symbol,
-            "start": start,
-            "end": end,
-            "source_anomalies": str(anomalies_path),
-            "lookback_hours": lookback,
-            "total_features": len(features),
-        },
-        "features": features,
-    }
-    with open(output_path, "w", encoding="utf-8") as f:
-        json.dump(output, f, indent=2)
-
-    print(f"Wrote {len(features)} feature vectors to {output_path}")
-    for feat in features:
-        print(
-            f"  onset {feat['onset_ts']}: funding={feat['funding_rate_current']}, oi_change_4h={feat['oi_change_4h']}"
-        )
-
-
-if __name__ == "__main__":
-    main()
+    output_path.write_text(
+        json.dumps(
+            {
+                "meta": {
+                    "symbol": symbol,
+                    "start": start,
+                    "end": end,
+                    "source_anomalies": str(anomalies_path),
+                    "lookback_hours": lookback_hours,
+                    "total_features": len(features),
+                },
+                "features": features,
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    return output_path

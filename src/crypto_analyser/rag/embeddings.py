@@ -2,18 +2,12 @@
 
 from __future__ import annotations
 
-import argparse
-import os
-import sys
 import time
 from typing import Any
 
 import psycopg2
 import requests
-from dotenv import load_dotenv
 from pgvector.psycopg2 import register_vector
-
-from crypto_analyser._paths import repo_root
 
 DEFAULT_MODEL = "qwen3-embedding"
 
@@ -125,44 +119,3 @@ def generate_pending_embeddings(
             print(f"Embedded {processed} articles.")
     finally:
         connection.close()
-
-
-def main(argv: list[str] | None = None) -> int:
-    load_dotenv(repo_root() / ".env")
-    parser = argparse.ArgumentParser(description="Generate embeddings for pending crypto-news rows")
-    parser.add_argument("--batch-size", type=int, default=20)
-    parser.add_argument("--model", default=os.getenv("EMBEDDING_MODEL", DEFAULT_MODEL))
-    parser.add_argument("--max-attempts", type=int, default=3)
-    parser.add_argument("--start", help="Only articles at or after this ISO timestamp")
-    parser.add_argument("--end", help="Only articles before this ISO timestamp")
-    parser.add_argument("--query", help="PostgreSQL websearch query, e.g. 'LUNA OR UST OR Terra'")
-    args = parser.parse_args(argv)
-
-    required = {name: os.getenv(name) for name in ("DATABASE_URL", "LLM_API_URL", "LLM_API_KEY")}
-    missing = [name for name, value in required.items() if not value]
-    if missing:
-        parser.error(f"required environment variables missing: {', '.join(missing)}")
-    if args.batch_size < 1 or args.max_attempts < 1:
-        parser.error("--batch-size and --max-attempts must be positive")
-
-    try:
-        count = generate_pending_embeddings(
-            required["DATABASE_URL"],
-            required["LLM_API_URL"],
-            required["LLM_API_KEY"],
-            args.model,
-            args.batch_size,
-            args.max_attempts,
-            args.start,
-            args.end,
-            args.query,
-        )
-    except RuntimeError as exc:
-        print(exc, file=sys.stderr)
-        return 1
-    print(f"Embedding generation complete: {count} rows updated.")
-    return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())

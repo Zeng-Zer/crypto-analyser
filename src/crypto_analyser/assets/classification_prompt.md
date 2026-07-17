@@ -1,14 +1,13 @@
 # Crypto Anomaly Classification Prompt
 
-System + user prompt templates for the LLM classifier (Task 17). Two variants
-for the Wave-4 ablation study:
+System and user prompt templates for three evidence modes:
 
 - **Run A — derivatives-only** (no news, `explained_news` is unreachable)
 - **Run B — derivatives + RAG** (news context available, `explained_news` reachable)
 - **Run C — news-only** (retrieved pre-onset news, no derivatives)
 
-The classifier applies the derivatives rule **itself** as a rubric; Task 18 does
-**not** precompute a default for the LLM to accept or override. See ADR-0003.
+The classifier applies the derivatives rule **itself** as a rubric; orchestration
+does **not** precompute a default for the LLM to accept or override. See ADR-0003.
 
 ---
 
@@ -29,7 +28,7 @@ Apply this rule to decide whether derivatives explain the move:
     `insufficient_data` if any feature value is null or missing.
 
 The thresholds above are reproduced verbatim from
-config/settings.yaml (anomaly_detection.derivatives_thresholds).
+packaged settings (anomaly_detection.derivatives_thresholds).
 
 Rules:
 1. `confidence` is your confidence that the chosen classification is
@@ -66,7 +65,7 @@ Categories:
 Episode reference: {event_reference}
 Symbol: {symbol}    Window: {start} to {end}
 Episode onset (epoch ms): {onset_ts}
-Severity (derived, Task 14): {severity}
+Severity (derived by detection): {severity}
 Peak |Z|: {peak_z_abs}
 
 Derivatives context (anchored at onset_ts, 4h lookback):
@@ -91,7 +90,7 @@ Extends Run A with a retrieved-news block after the derivatives context.
 Episode reference: {event_reference}
 Symbol: {symbol}    Window: {start} to {end}
 Episode onset (epoch ms): {onset_ts}
-Severity (derived, Task 14): {severity}
+Severity (derived by detection): {severity}
 Peak |Z|: {peak_z_abs}
 
 Derivatives context (anchored at onset_ts, 4h lookback):

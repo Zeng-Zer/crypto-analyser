@@ -4,8 +4,8 @@ A "Z-score anomaly" in this pipeline is a **contiguous episode**: a maximal run 
 consecutive 5-min OHLCV bars whose rolling z-score on raw close price exceeds
 |Z|>threshold, with up to 2 non-flagged bars tolerated inside a run before it
 splits. The per-bar flag is an internal primitive; the episode is the unit that
-flows through Task 15 (derivatives fetch at onset_ts), Task 18 (LLM
-classification), Task 19 (report), and the Wave-4 ablation.
+flows through derivatives extraction at `onset_ts`, LLM classification,
+reporting, and the evidence ablation.
 
 We did **not** go per-bar. On a violent crash, raw-price z-score with a 24h
 rolling window flags sustained deviation: the first several "anomalies" are
@@ -16,12 +16,9 @@ unexplained moves that precede news"). Grouping into episodes makes each
 classification a distinct market moment.
 
 This stays on-spec for the z-score target itself: raw close price, per
-PROJECT.md and the Task 14 plan (`(x - mean) / std` on price close). The
-deviation from the plan is only the **output unit** — episodes instead of
-per-bar records. The plan additionally contradicted itself on output shape
-(Task 14/15 imply one bulk file; Task 18's QA sketch implies per-timestamp
-files); this ADR settles the contract on one bulk file (`episodes[]` array),
-and Task 18's QA scenario is to read that bulk and iterate.
+PROJECT.md (`(x - mean) / std` on price close). The output unit is an episode
+rather than a per-bar record. This ADR settles the contract on one bulk file
+with an `episodes[]` array; classification reads that batch and iterates.
 
 Hard to reverse: changing the unit back to per-bar re-breaks the
 downstream contract for Tasks 15/18/19 and the ablation. Surprising without

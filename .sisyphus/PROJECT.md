@@ -4,7 +4,7 @@
 
 Historical crypto anomaly detection system that processes past market data to validate a hypothesis: derivatives market structure (funding rates, open interest) can classify price crashes better than lagging news feeds.
 
-**Milestone 1 scope:** Entirely historical/backtesting-based. No Kafka, no WebSocket, no real-time infrastructure. Batch scripts process historical data, compute Z-scores, fetch derivatives context, and classify with LLM.
+**Milestone 1 scope:** Entirely historical/backtesting-based. No Kafka, no WebSocket, no real-time infrastructure. One CLI drives an in-process library pipeline that computes Z-scores, fetches derivatives context, and classifies with an LLM.
 
 The core insight: **unexplained price moves** (where derivatives data show nothing unusual) often precede news by 30min-24h. This system validates that hypothesis on real historical events.
 
@@ -33,10 +33,10 @@ Ablation Study:
 ```
 
 **Deliverables:**
-- Download scripts for historical data (OHLCV, funding rate, open interest) — **FREE via Binance Data Vision**
+- Historical data acquisition library using **FREE Binance Data Vision** archives
 - Z-score computation on historical candles
 - Feature extraction (derivatives context at anomaly timestamps)
-- RAG pipeline for ablation comparison (Wayback Machine RSS → pgvector)
+- RAG pipeline for ablation comparison (local news archive → pgvector)
 - LLM classifier with structured output
 - Ablation study: derivatives-only vs derivatives+RAG with Ragas evaluation
 - Validation on LUNA crash event (May 7-11, 2022 — pre-crash focus)
@@ -46,7 +46,7 @@ Ablation Study:
 1. Data engineering (batch processing, API orchestration, historical data pipelines)
 2. LLM engineering (prompt design, structured output, evaluation)
 3. RAG engineering (pgvector, hybrid search, embedding, retrieval)
-4. MLOps/observability (Langfuse tracing, Ragas evaluation)
+4. LLM evaluation (Ragas faithfulness and answer relevancy)
 5. Statistical analysis (Z-scores, feature engineering)
 6. Scientific methodology (ablation study, hypothesis testing)
 
@@ -110,7 +110,7 @@ Add streaming capabilities after Milestone 1 validates the approach.
 | RAG as production signal                       | Milestone 1 uses it only as ablation evidence.                                  |
 | Exchange inflows / on-chain data               | Start simple. Funding rate + OI only.                                           |
 | Whale Alert / Options IV / Put-Call ratio      | Start simple. Add later if needed.                                              |
-| Automated testing                              | Manual scripts for fast iteration. Agent-executed QA instead.                   |
+| Real-time/load testing                         | Deferred until Milestone 2. Unit and integration tests cover Milestone 1.       |
 | Discord alerts (real-time)                     | Milestone 2. JSON reports for Milestone 1.                                      |
 | Fear & Greed Index                             | Daily granularity. May not correlate with 5-min price moves. Keep for later.    |
 | More derivatives signals (basis, taker volume) | Start simple. Funding rate + OI only per "start simple" constraint.             |
@@ -135,7 +135,7 @@ Add streaming capabilities after Milestone 1 validates the approach.
 ## Constraints
 
 - **Intern blocking:** Intern tasks must be enrichment only, never on critical path. If intern is slow, main developer proceeds without waiting.
-- **Simple first:** Fast iteration, manual scripts, no premature automation. One event (LUNA) validates hypothesis.
+- **Simple first:** One CLI, direct function composition, and focused tests. One event (LUNA) validates the workflow.
 - **No real-time yet:** Milestone 1 is entirely batch/historical. No Kafka, no WebSocket, no streaming.
 - **Start with two derivatives signals:** Funding rate and open interest only. Add more later.
 
@@ -149,7 +149,7 @@ Add streaming capabilities after Milestone 1 validates the approach.
 | RAG included for ablation comparison        | Three-way ablation separates derivatives, combined context, and news-only evidence.                                                     | — Verified |
 | Single classifier before debate             | Debate is polish. Single LLM proves pipeline first.                                                                                    | — Pending  |
 | Funding rate + OI only                      | Start simple. Two derivatives signals, add more if needed.                                                                             | — Pending  |
-| Agent-executed QA (not automated tests)     | Faster iteration. Manual scripts for exploration phase. No test suite overhead.                                                        | — Pending  |
+| Unit + integration tests                    | Library functions are tested directly; CLI routing and PostgreSQL retrieval have integration coverage.                                | — Verified |
 | LUNA first (May 7-11), FTX/Bybit enrichment | One event validates hypothesis. Intern validates others in parallel. Pre-crash focus (LUNA delisted May 12).                           | — Pending  |
 | Binance Data Vision (FREE data)             | No API key, no rate limits. Historical OHLCV, funding, OI all free. Reduces complexity and cost.                                       | — Verified |
 

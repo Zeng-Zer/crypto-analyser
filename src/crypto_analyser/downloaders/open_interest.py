@@ -1,31 +1,18 @@
-#!/usr/bin/env python
-"""Download OI metrics from Binance Data Vision as Parquet.
-
-Usage:
-    uv run python scripts/download_oi.py --symbol LUNAUSDT --start 2022-05-01 --end 2022-05-12
-    uv run python scripts/download_oi.py --symbol LUNAUSDT --start 2022-05-01 --end 2022-05-12 --force
-
-URL: {base}/data/futures/um/daily/metrics/{SYMBOL}/{SYMBOL}-metrics-{YYYY-MM-DD}.zip
-5-min intervals (~288/day). Output: data/oi/{symbol}_{start_month}.parquet
-"""
+"""Download Binance open-interest metrics and convert them to Parquet."""
 
 from __future__ import annotations
 
-import argparse
-import sys
 from datetime import date, timedelta
 from pathlib import Path
 
 import duckdb
 import requests
 
-from crypto_analyser._paths import repo_root
 from crypto_analyser.downloaders.common import (
     BASE_URL,
     build_projection,
     download_zip,
     extract_csv,
-    load_config_or_defaults,
     logger,
 )
 
@@ -113,39 +100,3 @@ def download_oi_range(
     finally:
         for p in csv_paths:
             Path(p).unlink(missing_ok=True)
-
-
-def main() -> None:
-    parser = argparse.ArgumentParser(description="Download OI metrics from Binance Data Vision")
-    parser.add_argument("--symbol", default="LUNAUSDT")
-    parser.add_argument("--start", required=True)
-    parser.add_argument("--end", required=True)
-    parser.add_argument("--force", action="store_true")
-    parser.add_argument("--output-dir", default=None)
-    args = parser.parse_args()
-
-    base_url = BASE_URL
-    output_dir = repo_root() / "data" / "oi"
-    cfg, fallback = load_config_or_defaults()
-    if cfg and not fallback:
-        base_url = cfg.get("sources.binance.base_url", base_url)
-        if args.output_dir is None:
-            configured = Path(cfg.get("paths.oi_dir", "data/oi"))
-            output_dir = configured if configured.is_absolute() else repo_root() / configured
-    if args.output_dir:
-        output_dir = Path(args.output_dir).expanduser().resolve()
-
-    success = download_oi_range(
-        symbol=args.symbol,
-        start_date=date.fromisoformat(args.start),
-        end_date=date.fromisoformat(args.end),
-        output_dir=output_dir,
-        base_url=base_url,
-        force=args.force,
-    )
-    if not success:
-        sys.exit(1)
-
-
-if __name__ == "__main__":
-    main()

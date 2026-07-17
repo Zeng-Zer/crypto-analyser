@@ -1,24 +1,16 @@
-#!/usr/bin/env python3
-"""Evaluate LUNA evidence modes and write tracked Milestone 1 results."""
+"""Evaluate evidence modes with Ragas and direct comparison metrics."""
 
 from __future__ import annotations
 
-import argparse
 import json
-import os
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from statistics import fmean
 from typing import Any
 
 import psycopg2
-from dotenv import load_dotenv
-from openai import AsyncOpenAI
-from ragas.embeddings.base import embedding_factory
-from ragas.llms import llm_factory
-from ragas.metrics.collections import AnswerRelevancy, Faithfulness
 
-from crypto_analyser._paths import repo_root
+from crypto_analyser._paths import data_root, repo_root
 
 MODES = ("derivatives_only", "derivatives_rag", "news_only")
 
@@ -27,8 +19,8 @@ def _load(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def _rag_context(symbol: str, onset_ts: int) -> tuple[list[str], dict[str, Any]]:
-    data = _load(repo_root() / "data" / "rag" / f"{symbol}_{onset_ts}_rag.json")
+def _rag_context(symbol: str, onset_ts: int, data_dir: Path) -> tuple[list[str], dict[str, Any]]:
+    data = _load(data_dir / "rag" / f"{symbol}_{onset_ts}_rag.json")
     contexts = [
         f"{article['date_pub']} {article['title']} {article.get('description') or ''}" for article in data["articles"]
     ]
@@ -118,12 +110,28 @@ def compare_modes(mode_results: dict[str, dict[str, Any]]) -> dict[str, Any]:
     }
 
 
-def evaluate(symbol: str, start: str, end: str, database_url: str, judge_model: str) -> dict[str, Any]:
-    client = AsyncOpenAI(api_key=os.environ["LLM_API_KEY"], base_url=os.environ["LLM_API_URL"])
+def evaluate(
+    symbol: str,
+    start: str,
+    end: str,
+    database_url: str,
+    judge_model: str,
+    api_url: str,
+    api_key: str,
+    embedding_model: str = "qwen3-embedding",
+    data_dir: Path | None = None,
+) -> dict[str, Any]:
+    from openai import AsyncOpenAI
+    from ragas.embeddings.base import embedding_factory
+    from ragas.llms import llm_factory
+    from ragas.metrics.collections import AnswerRelevancy, Faithfulness
+
+    root = data_dir or data_root()
+    client = AsyncOpenAI(api_key=api_key, base_url=api_url)
     llm = llm_factory(judge_model, client=client)
     embeddings = embedding_factory(
         "openai",
-        model=os.getenv("EMBEDDING_MODEL", "qwen3-embedding"),
+        model=embedding_model,
         client=client,
         interface="modern",
     )
@@ -133,11 +141,11 @@ def evaluate(symbol: str, start: str, end: str, database_url: str, judge_model: 
     results: dict[str, dict[str, Any]] = {}
     try:
         for mode in MODES:
-            summary = _load(repo_root() / "data" / "reports" / mode / f"{symbol}_{start}_{end}_summary.json")
+            summary = _load(root / "reports" / mode / f"{symbol}_{start}_{end}_summary.json")
             episodes = []
             for episode in summary["episodes"]:
                 onset_ts = episode["onset_ts"]
-                news_contexts, rag = _rag_context(symbol, onset_ts)
+                news_contexts, rag = _rag_context(symbol, onset_ts, root)
                 contexts = news_contexts if mode == "news_only" else [_derivatives_context(episode)]
                 if mode == "derivatives_rag":
                     contexts += news_contexts
@@ -153,7 +161,7 @@ def evaluate(symbol: str, start: str, end: str, database_url: str, judge_model: 
                         "verdict": episode["classification"]["verdict"],
                         "confidence": episode["classification"]["confidence"],
                         "rationale": response,
-                        "news_relevance": episode["raw_classification"].get("news_relevance"),
+                        "news_relevance": episode["classification"].get("news_relevance"),
                         "derivatives": episode["derivatives"],
                         "retrieved_news": (
                             [
@@ -209,19 +217,21 @@ def evaluate(symbol: str, start: str, end: str, database_url: str, judge_model: 
     return comparison
 
 
-def main() -> int:
-    load_dotenv(repo_root() / ".env")
-    parser = argparse.ArgumentParser(description="Evaluate LUNA ablation modes with Ragas and direct metrics")
-    parser.add_argument("--symbol", default="LUNAUSDT")
-    parser.add_argument("--start", default="2022-05-07")
-    parser.add_argument("--end", default="2022-05-11")
-    parser.add_argument("--judge-model", default=os.getenv("RAGAS_JUDGE_MODEL", "glm-5.2-short"))
-    args = parser.parse_args()
-    required = [name for name in ("DATABASE_URL", "LLM_API_URL", "LLM_API_KEY") if not os.getenv(name)]
-    if required:
-        parser.error(f"required environment variables missing: {', '.join(required)}")
-
-    comparison = evaluate(args.symbol, args.start, args.end, os.environ["DATABASE_URL"], args.judge_model)
+def write_evaluation(
+    symbol: str,
+    start: str,
+    end: str,
+    database_url: str,
+    judge_model: str,
+    api_url: str,
+    api_key: str,
+    embedding_model: str = "qwen3-embedding",
+    data_dir: Path | None = None,
+) -> Path:
+    """Evaluate all modes, persist comparison artifacts, and return final summary path."""
+    comparison = evaluate(
+        symbol, start, end, database_url, judge_model, api_url, api_key, embedding_model, data_dir
+    )
     results_dir = repo_root() / "results"
     reports_dir = repo_root() / "reports"
     results_dir.mkdir(exist_ok=True)
@@ -233,7 +243,7 @@ def main() -> int:
     (results_dir / "ablation_comparison.json").write_text(json.dumps(comparison, indent=2), encoding="utf-8")
     final = {
         "milestone": "Historical LUNA anomaly evidence ablation",
-        "symbol": args.symbol,
+        "symbol": symbol,
         "window": comparison["window"],
         "episodes_total": comparison["derivatives_only"]["episode_count"],
         "classifications_total": sum(comparison[mode]["episode_count"] for mode in MODES),
@@ -251,10 +261,6 @@ def main() -> int:
         "limitations": comparison["limitations"],
         "generated_at": comparison["evaluated_at"],
     }
-    (reports_dir / "FINAL_PHASE1_SUMMARY.json").write_text(json.dumps(final, indent=2), encoding="utf-8")
-    print(comparison["comparison"]["finding"])
-    return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())
+    summary_path = reports_dir / "FINAL_PHASE1_SUMMARY.json"
+    summary_path.write_text(json.dumps(final, indent=2), encoding="utf-8")
+    return summary_path
