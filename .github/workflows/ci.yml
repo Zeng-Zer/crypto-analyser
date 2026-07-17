@@ -14,13 +14,15 @@ jobs:
         with:
           enable-cache: true
       - run: uv sync --locked
-      - run: uv run ruff check src scripts tests
-      - run: uv run python -m compileall -q src scripts tests
-      - run: bash -n scripts/init_db.sh
+      - run: uv run ruff check src tests
+      - run: uv run python -m compileall -q src tests
+      - run: uv build
       - run: docker compose up -d --wait pgvector
       - run: |
-          docker compose exec -T pgvector psql -v ON_ERROR_STOP=1 -U postgres -d crypto < sql/schema.sql
-          docker compose exec -T pgvector psql -v ON_ERROR_STOP=1 -U postgres -d crypto < sql/schema.sql
+          uv run crypto-analyser news init
+          uv run crypto-analyser news init
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/crypto
       - run: uv run pytest -q
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/crypto

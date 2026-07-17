@@ -15,16 +15,16 @@ Synonym for *Anomaly*. The unit that flows through derivatives fetch → LLM cla
 _Avoid_: alert, event cluster
 
 **Episode onset**:
-The first flagged bar of an episode. The timestamp downstream tasks (Task 15 derivatives fetch, Task 18 classifier) key on.
+The first flagged bar of an episode. Derivatives extraction and classification key on this timestamp.
 _Avoid_: trigger time, anomaly start, detection time (imply a single instant)
 
 **Severity**:
-Band of the episode's peak |Z|: low (>=2.5), medium (>=3.0), high (>=4.0), extreme (>=5.0). Computed by Task 14 (z-score engine) and stored on each episode; downstream tasks read it verbatim — never LLM-emitted. Observed LUNA peak |Z| is 5.07 (ep0, the crash onset), so the extreme band IS reached (1 of 7 LUNA episodes); the remaining 6 are medium (3.04–3.98).
+Band of the episode's peak |Z|: low (>=2.5), medium (>=3.0), high (>=4.0), extreme (>=5.0). Computed by detection and stored on each episode; downstream components read it verbatim — never LLM-emitted. The current LUNA run contains 5 episodes with peak |Z| 4.31.
 _Avoid_: priority, confidence
 
 ### Classification outcome
 
-The four verdicts a classifier (LLM, Task 17/18) can return for an episode. The
+The four verdicts the LLM classifier can return for an episode. The
 LLM applies the "derivatives explain" rule as a rubric in the system prompt, not
 as a deterministic default — see ADR-0003. `severity` is *not* in this list
 because it is derived (see "Detection" above).

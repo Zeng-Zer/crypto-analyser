@@ -6,6 +6,8 @@ per-bar flag. Episodes flow through derivatives fetch + LLM classification.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 
@@ -71,12 +73,7 @@ def _severity(peak_z_abs: float) -> str:
     return "low"
 
 
-def _parse_window_hours(raw: str | int | float) -> float:
-    """Parse a --window value as hours: '12', '12h', '24H' -> 12.0 / 24.0."""
-    s = str(raw).strip()
-    if s and s[-1] in ("h", "H"):
-        s = s[:-1]
-    return float(s)
+
 
 
 def extract_episodes(
@@ -155,7 +152,7 @@ def extract_episodes(
     return episodes
 
 
-def _load_parquet(symbol: str, start: str, end: str) -> pd.Series:
+def _load_parquet(symbol: str, start: str, end: str, data_dir: Path) -> pd.Series:
     """Load OHLCV close prices from Parquet for symbol within date range.
 
     Returns a Series indexed by open_time (epoch ms).
@@ -166,7 +163,7 @@ def _load_parquet(symbol: str, start: str, end: str) -> pd.Series:
     # Glob all monthly parquet files for symbol so windows crossing a
     # calendar-month boundary load both months. SQL date-range filter
     # restricts to the requested window.
-    parquet_glob = (repo_root() / "data" / "ohlcv" / f"{symbol}_*.parquet").as_posix()
+    parquet_glob = (data_dir / "ohlcv" / f"{symbol}_*.parquet").as_posix()
     import datetime
     import zoneinfo
 
@@ -184,92 +181,33 @@ def _load_parquet(symbol: str, start: str, end: str) -> pd.Series:
     return df.set_index("open_time")["close"]
 
 
-def main():
-    """CLI entry point: detect price anomalies as contiguous episodes."""
-    import argparse
-    import json
-
-    import yaml as _yaml
-
-    # ponytail: read anomaly_detection directly, bypassing load_config()'s
-    # placeholder gate which would crash on unfilled LLM API keys. Z-score CLI
-    # has nothing to do with LLM keys.
-    cfg_path = repo_root() / "config" / "settings.yaml"
-    with open(cfg_path, encoding="utf-8") as _f:
-        _raw = _yaml.safe_load(_f) or {}
-    ad = _raw.get("anomaly_detection", {}) or {}
-    cfg_window_hours = float(ad.get("window_hours", 24))
-    cfg_threshold = float(ad.get("threshold", 2.5))
-    cfg_min_consecutive = int(ad.get("min_consecutive", 2))
-
-    # ponytail: 5m klines per plan. If other intervals land, derive from data.
-    bars_per_hour = 12
-
-    parser = argparse.ArgumentParser(description="Detect price anomalies via rolling z-score, grouped into episodes")
-    parser.add_argument("--symbol", default="LUNAUSDT")
-    parser.add_argument("--start", required=True, help="Start date YYYY-MM-DD")
-    parser.add_argument("--end", required=True, help="End date YYYY-MM-DD")
-    parser.add_argument(
-        "--window",
-        default=None,
-        help="Rolling window in hours, optional 'h' suffix (default: config window_hours). '12', '12h', '24h'",
-    )
-    parser.add_argument(
-        "--threshold", type=float, default=None, help=f"|Z| threshold (default: config threshold = {cfg_threshold})"
-    )
-    parser.add_argument(
-        "--max-gap",
-        type=int,
-        default=2,
-        help="Tolerated consecutive non-flagged bars inside a run before splitting (default: 2)",
-    )
-    parser.add_argument(
-        "--min-consecutive",
-        type=int,
-        default=None,
-        help=f"Minimum flagged bars to form an episode (default: config min_consecutive = {cfg_min_consecutive})",
-    )
-    args = parser.parse_args()
-
-    window_hours = _parse_window_hours(args.window) if args.window is not None else cfg_window_hours
-    window_bars = int(window_hours * bars_per_hour)
-    threshold = args.threshold if args.threshold is not None else cfg_threshold
-    min_consecutive = args.min_consecutive if args.min_consecutive is not None else cfg_min_consecutive
-
-    prices = _load_parquet(args.symbol, args.start, args.end)
+def detect_episodes(
+    symbol: str,
+    start: str,
+    end: str,
+    *,
+    data_dir: Path | None = None,
+    window_hours: float = 24,
+    threshold: float = 2.5,
+    max_gap: int = 2,
+    min_consecutive: int = 2,
+) -> dict:
+    """Detect episodes from stored OHLCV and return the serializable batch."""
+    window_bars = int(window_hours * 12)  # 5-minute candles
+    prices = _load_parquet(symbol, start, end, data_dir or repo_root() / "data")
     result = compute_anomalies(prices, window=window_bars, threshold=threshold)
-    episodes = extract_episodes(result, prices, max_gap=args.max_gap, min_consecutive=min_consecutive)
-
-    output_path = repo_root() / "data" / "anomalies" / f"{args.symbol}_{args.start}_{args.end}.json"
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-
-    output = {
+    episodes = extract_episodes(result, prices, max_gap=max_gap, min_consecutive=min_consecutive)
+    return {
         "meta": {
-            "symbol": args.symbol,
-            "start": args.start,
-            "end": args.end,
+            "symbol": symbol,
+            "start": start,
+            "end": end,
             "window_hours": window_hours,
             "window_bars": window_bars,
             "threshold": threshold,
-            "max_gap": args.max_gap,
+            "max_gap": max_gap,
             "min_consecutive": min_consecutive,
             "total_episodes": len(episodes),
         },
         "episodes": episodes,
     }
-
-    with open(output_path, "w") as f:
-        json.dump(output, f, indent=2)
-
-    print(f"Wrote {len(episodes)} episodes to {output_path}")
-    if episodes:
-        from collections import Counter
-
-        sev = Counter(e["severity"] for e in episodes)
-        peak = max(episodes, key=lambda e: abs(e["peak_z"]))
-        print(f"Severity distribution: {dict(sev)}")
-        print(f"Peak |Z|: {abs(peak['peak_z']):.2f} at onset {peak['onset_ts']} (severity={peak['severity']})")
-
-
-if __name__ == "__main__":
-    main()

@@ -1,6 +1,6 @@
 # `crypto_news` indexes
 
-`sql/schema.sql` creates indexes matched to each query shape:
+Packaged `crypto_analyser/assets/schema.sql` creates indexes matched to each query shape:
 
 - **GIN on `tickers`** for array membership filters.
 - **GIN on `research`** for PostgreSQL full-text search.

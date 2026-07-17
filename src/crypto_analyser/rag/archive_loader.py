@@ -2,16 +2,11 @@
 
 from __future__ import annotations
 
-import argparse
 import json
-import os
 from pathlib import Path
 from typing import Any
 
 import psycopg2
-from dotenv import load_dotenv
-
-from crypto_analyser._paths import repo_root
 
 INSERT_SQL = """
 INSERT INTO crypto_news
@@ -100,33 +95,3 @@ def load_archive(archive_dir: Path, database_url: str) -> tuple[int, int]:
     finally:
         connection.close()
     return attempted, inserted
-
-
-def main(argv: list[str] | None = None) -> int:
-    load_dotenv(repo_root() / ".env")
-    parser = argparse.ArgumentParser(description="Load historical crypto-news JSON into PostgreSQL")
-    parser.add_argument(
-        "--archive-dir",
-        type=Path,
-        default=os.getenv("NEWS_ARCHIVE_DIR"),
-        help="Archive root or month directory (default: NEWS_ARCHIVE_DIR)",
-    )
-    args = parser.parse_args(argv)
-
-    if args.archive_dir is None:
-        parser.error("--archive-dir or NEWS_ARCHIVE_DIR is required")
-    archive_dir = args.archive_dir.expanduser().resolve()
-    if not archive_dir.is_dir():
-        parser.error(f"archive directory not found: {archive_dir}")
-
-    database_url = os.getenv("DATABASE_URL")
-    if not database_url:
-        parser.error("DATABASE_URL is required")
-
-    attempted, inserted = load_archive(archive_dir, database_url)
-    print(f"Read {attempted} articles; inserted {inserted} new rows.")
-    return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())
