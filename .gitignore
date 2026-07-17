@@ -12,6 +12,7 @@ dist
 htmlcov
 .venv/
 .env
+graphify-out/
 
 *.csv
 *.zip
