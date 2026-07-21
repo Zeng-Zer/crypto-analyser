@@ -1,133 +1,142 @@
 {
   "mode": "derivatives_only",
-  "episode_count": 5,
+  "episode_count": 8,
   "classification_breakdown": {
-    "explained_derivatives": 4,
+    "explained_derivatives": 7,
     "unexplained": 1
   },
-  "average_confidence": 0.89,
-  "faithfulness": 0.34393939393939393,
-  "answer_relevancy": 0.5940808035933175,
+  "faithfulness": null,
   "episodes": [
     {
       "onset_ts": 1651971000000,
       "verdict": "explained_derivatives",
-      "confidence": 0.85,
-      "rationale": "funding_rate_current=-0.00060605 breaches the |0.0005| threshold, indicating unusual derivatives pressure (negative funding suggests heavy short positioning). oi_change_4h=0.055 is below the 0.10 threshold, so OI alone would not trigger, but the funding rate signal is sufficient to classify this as derivatives-explained. The negative funding is consistent with bearish positioning that could drive a price anomaly.",
-      "news_relevance": null,
-      "derivatives": {
-        "funding_rate_current": -0.00060605,
-        "funding_rate_avg_4h": -0.00033475374999999996,
-        "oi_current": 3365562.0,
-        "oi_change_4h": 0.05498252594933356
+      "synthesis": {
+        "reasons": [
+          "Funding rate of -0.00060605 breaches the |0.0005| threshold, indicating significant short pressure.",
+          "OI change of 0.055 is below the 0.1 threshold and does not independently explain the anomaly."
+        ],
+        "supporting_refs": [
+          "funding_rate_current"
+        ]
       },
-      "retrieved_news": [],
-      "faithfulness": 0.25,
-      "answer_relevancy": 0.6537391550065677,
-      "retrieved_articles": 0,
-      "latest_news_age_at_onset_minutes": null,
-      "first_matching_news_after_onset": {
-        "date_pub": "2022-05-08T09:30:18+00:00",
-        "title": "\u2018Extreme Fear\u2019 Crypto Crash Suddenly Wipes $200 Billion From The Price Of Bitcoin, Ethereum, BNB, XRP, Luna, Solana, Cardano And Avalanche",
-        "link": "https://cryptopanic.com/news/cardano/15147649/Extreme-Fear-Crypto-Crash-Suddenly-Wipes-200-Billion-From-The-Price-Of-Bitcoin-Ethereum-BNB-XRP-Luna-Solana-Cardano-And-Avalanche",
-        "delay_minutes": 520.3
-      }
+      "rationale": "The derivatives rubric classifies an episode as explained_derivatives when |funding_rate_current| >= 0.0005 OR |oi_change_4h| >= 0.1. Here, funding_rate_current is -0.00060605, whose absolute value 0.00060605 exceeds the 0.0005 threshold, satisfying the funding leg of the rule. The oi_change_4h is 0.05498252594933356, which is below the 0.1 threshold and therefore normal, but the funding breach alone is sufficient to classify the episode as explained_derivatives. The funding_avg_4h of -0.00033475374999999996 is below threshold and is not the deciding metric; the rubric keys on funding_rate_current. No news context was supplied or evaluated, and per instructions no news refs are included. The price anomaly (peak |Z| = 3.32, 4h drawdown of -6.58%) is consistent with the negative funding rate signaling elevated short positioning in LUNAUSDT during the early stages of the Terra collapse period.",
+      "faithfulness": null,
+      "retrieved_news": []
     },
     {
       "onset_ts": 1652114100000,
       "verdict": "explained_derivatives",
-      "confidence": 0.85,
-      "rationale": "oi_change_4h=0.1158 (approximately 11.6%) exceeds the 0.10 threshold, indicating unusual derivatives activity. While funding_rate_current=-0.00046 is below the 0.0005 threshold, the OI surge alone breaches the rubric criterion. The combination of rising open interest alongside negative funding suggests significant new short positions entering the market, consistent with the derivatives-driven anomaly classification.",
-      "news_relevance": null,
-      "derivatives": {
-        "funding_rate_current": -0.00046004,
-        "funding_rate_avg_4h": -7.55375e-06,
-        "oi_current": 3431398.0,
-        "oi_change_4h": 0.11575157035768192
+      "synthesis": {
+        "reasons": [
+          "OI rose 11.58% over 4h, breaching the 0.10 threshold and signaling large positioning changes.",
+          "Funding rate of -0.00046 is below the 0.0005 threshold and does not independently explain the move."
+        ],
+        "supporting_refs": [
+          "oi_change_4h"
+        ]
       },
-      "retrieved_news": [],
-      "faithfulness": 0.3333333333333333,
-      "answer_relevancy": 0.7105401066695309,
-      "retrieved_articles": 0,
-      "latest_news_age_at_onset_minutes": null,
-      "first_matching_news_after_onset": {
-        "date_pub": "2022-05-09T16:50:00+00:00",
-        "title": "Luna Foundation Guard \u2018Is Not Trying to Exit Its Bitcoin Position\u2019, Says Terra\u2019s Do Kwon",
-        "link": "https://cryptopanic.com/news/15156430/Luna-Foundation-Guard-Is-Not-Trying-to-Exit-Its-Bitcoin-Position-Says-Terras-Do-Kwon",
-        "delay_minutes": 15.0
-      }
+      "rationale": "The oi_change_4h is 0.11575157035768192, which breaches the strict binary threshold of |oi_change_4h| >= 0.10. This alone qualifies the episode as explained_derivatives. The funding_rate_current is -0.00046004, whose absolute value (0.00046) is below the 0.0005 threshold, so funding does not independently breach the rubric. However, the OI change is decisive: an 11.58% increase in open interest over a 4-hour window indicates a substantial influx or shift in positioning that credibly aligns with the detected price anomaly (4h drawdown of -10.2%, 2h return of -6.8%). No news context was supplied or evaluated, and per instructions no news refs are included. The OI breach is the sole but sufficient driver for the explained_derivatives verdict.",
+      "faithfulness": null,
+      "retrieved_news": []
     },
     {
       "onset_ts": 1652133000000,
       "verdict": "explained_derivatives",
-      "confidence": 0.95,
-      "rationale": "oi_change_4h=0.2449 (a ~24.5% increase in open interest over 4h) clearly breaches the 0.10 threshold from the rubric, indicating significant derivatives activity accompanying this price anomaly. While funding_rate_current=-0.00046 is just below the 0.0005 threshold, the OI surge alone is sufficient to classify this as explained by derivatives. This episode occurs during the early stages of the LUNA crisis, and the spike in OI likely reflects new positions being opened in response to emerging price dislocation.",
-      "news_relevance": null,
-      "derivatives": {
-        "funding_rate_current": -0.00046004,
-        "funding_rate_avg_4h": -0.00046004,
-        "oi_current": 4473359.0,
-        "oi_change_4h": 0.2449201149921103
+      "synthesis": {
+        "reasons": [
+          "OI surged 24.49% over 4h, far exceeding the 0.10 threshold and signaling large new position inflows.",
+          "Funding rate at -0.00046 is elevated but below the 0.0005 threshold, so OI is the sole derivative breach."
+        ],
+        "supporting_refs": [
+          "oi_change_4h"
+        ]
       },
-      "retrieved_news": [],
-      "faithfulness": 0.25,
-      "answer_relevancy": 0.6665757642955001,
-      "retrieved_articles": 0,
-      "latest_news_age_at_onset_minutes": null,
-      "first_matching_news_after_onset": {
-        "date_pub": "2022-05-09T22:49:08+00:00",
-        "title": "Terra Stablecoin Peg Slips Below $0.70\u2014Despite Loan From Bitcoin Reserves",
-        "link": "https://cryptopanic.com/news/15157573/Terra-Stablecoin-Peg-Slips-Below-070Despite-Loan-From-Bitcoin-Reserves",
-        "delay_minutes": 59.1
-      }
+      "rationale": "The derivatives rubric requires |funding_rate_current| >= 0.0005 OR |oi_change_4h| >= 0.1 for an explained_derivatives classification. The funding rate is -0.00046004, whose absolute value (0.00046) falls just below the 0.0005 threshold and is therefore treated as normal per the strict binary rule. However, the 4h open interest change is 0.2449201149921103, which substantially exceeds the 0.1 threshold. This 24.49% OI surge represents a significant derivatives event\u2014large new position inflows during a period of price weakness (4h drawdown of -15.76%, 2h return of -3.72%)\u2014consistent with traders opening new short or hedging positions. The OI breach alone is sufficient to classify this episode as explained_derivatives. No news context was supplied or evaluated.",
+      "faithfulness": null,
+      "retrieved_news": []
     },
     {
       "onset_ts": 1652136300000,
       "verdict": "unexplained",
-      "confidence": 0.85,
-      "rationale": "Neither derivatives threshold is breached: |funding_rate_current|=0.00046 is below the 0.0005 threshold, and |oi_change_4h|=0.0118 (1.18%) is well below the 0.10 threshold. Both features are non-null and clearly quiet, so the move is not explained by derivatives. No news context is available in Run A, so the episode is classified as unexplained.",
-      "news_relevance": null,
-      "derivatives": {
-        "funding_rate_current": -0.00046004,
-        "funding_rate_avg_4h": -0.00046004,
-        "oi_current": 4687480.0,
-        "oi_change_4h": -0.011840467893163214
+      "synthesis": {
+        "reasons": [
+          "Funding rate of -0.00046 is below the 0.0005 threshold, so it does not qualify as a derivatives breach.",
+          "OI change of -1.18% over 4h is well below the 0.10 (10%) threshold, indicating normal positioning activity.",
+          "With both derivatives metrics normal and no news context supplied, the price anomaly lacks an identifiable mechanism."
+        ],
+        "supporting_refs": []
       },
-      "retrieved_news": [],
-      "faithfulness": 0.6363636363636364,
-      "answer_relevancy": 0.432276281774031,
-      "retrieved_articles": 0,
-      "latest_news_age_at_onset_minutes": null,
-      "first_matching_news_after_onset": {
-        "date_pub": "2022-05-09T22:49:08+00:00",
-        "title": "Terra Stablecoin Peg Slips Below $0.70\u2014Despite Loan From Bitcoin Reserves",
-        "link": "https://cryptopanic.com/news/15157573/Terra-Stablecoin-Peg-Slips-Below-070Despite-Loan-From-Bitcoin-Reserves",
-        "delay_minutes": 4.1
-      }
+      "rationale": "The episode exhibits a medium-severity price anomaly with a peak Z-score of 3.52 and a 2h return of -14.25% at onset. However, neither derivatives metric breaches the required rubric thresholds. The funding rate current is -0.00046004, whose absolute value (0.00046) falls below the 0.0005 threshold. The 4h open interest change is -0.01184 (approximately -1.18%), well below the 0.10 (10%) threshold. Per the strict binary rubric, both values are normal and cannot be classified as extreme or near-breach. No news context was supplied, so there is no credible event-specific mechanism to explain the move. The instructions explicitly state that explained_news is unavailable for this episode and that no news refs are valid. Therefore, with normal derivatives and no news explanation, the episode is classified as unexplained.",
+      "faithfulness": null,
+      "retrieved_news": []
+    },
+    {
+      "onset_ts": 1652154600000,
+      "verdict": "explained_derivatives",
+      "synthesis": {
+        "reasons": [
+          "Funding rate of -0.00147167 breaches the 0.0005 absolute threshold, indicating significant short pressure.",
+          "OI change of +25.97% over 4h breaches the 0.10 threshold, showing large new positioning into the move."
+        ],
+        "supporting_refs": [
+          "funding_rate_current",
+          "oi_change_4h"
+        ]
+      },
+      "rationale": "Both derivatives metrics breach the rubric thresholds at onset. The funding rate current is -0.00147167, whose absolute value (0.00147167) exceeds the 0.0005 threshold, signaling significant bearish funding pressure consistent with the -25.3% 2h return. Additionally, the 4h open interest change is +0.2597, well above the 0.10 threshold, indicating a substantial influx of new positions accompanying the price drawdown. Either breach alone would suffice for explained_derivatives; both breaching simultaneously provides strong corroboration. No news evaluation is required per instructions.",
+      "faithfulness": null,
+      "retrieved_news": []
     },
     {
       "onset_ts": 1652217600000,
       "verdict": "explained_derivatives",
-      "confidence": 0.95,
-      "rationale": "Both derivatives signals breach the configured thresholds. funding_rate_current=-0.00189747 has an absolute value of ~0.0019, well above the 0.0005 threshold, indicating significant negative funding (shorts paying longs). Additionally, oi_change_4h=0.1877 (18.77%) exceeds the 0.10 threshold, indicating a substantial open interest increase over the 4-hour lookback. The combination of highly negative funding and a large OI surge points to aggressive short positioning in derivatives, which explains the price anomaly.",
-      "news_relevance": null,
-      "derivatives": {
-        "funding_rate_current": -0.00189747,
-        "funding_rate_avg_4h": -0.00189747,
-        "oi_current": 10021731.0,
-        "oi_change_4h": 0.18772509695412984
+      "synthesis": {
+        "reasons": [
+          "Funding rate of -0.00189747 exceeds the 0.0005 absolute threshold, indicating significant short pressure.",
+          "OI change of +0.1878 over 4h breaches the 0.1 threshold, confirming large positioning shifts into the move."
+        ],
+        "supporting_refs": [
+          "funding_rate_current",
+          "oi_change_4h"
+        ]
       },
-      "retrieved_news": [],
-      "faithfulness": 0.25,
-      "answer_relevancy": 0.5072727102209577,
-      "retrieved_articles": 0,
-      "latest_news_age_at_onset_minutes": null,
-      "first_matching_news_after_onset": {
-        "date_pub": "2022-05-10T21:28:58+00:00",
-        "title": "What Terra's Meltdown Means for Centralized Stablecoins Tether and USDC",
-        "link": "https://cryptopanic.com/news/15168494/What-Terras-Meltdown-Means-for-Centralized-Stablecoins-Tether-and-USDC",
-        "delay_minutes": 9.0
-      }
+      "rationale": "Both derivatives metrics breach the rubric thresholds at the episode onset. The funding rate is -0.00189747, whose absolute value (0.00189747) is well above the 0.0005 threshold, signaling extreme short-side funding pressure consistent with the -23.87% 2h return and -39.87% 4h drawdown. Additionally, the 4h open interest change is +0.18773, exceeding the 0.1 threshold, indicating a substantial 18.8% increase in OI over the lookback window. Either breach alone would suffice for explained_derivatives; both breaching simultaneously provides strong corroboration. No news context was supplied or required, and per instructions no news refs are valid. The derivatives data is complete and non-null, so insufficient_data does not apply.",
+      "faithfulness": null,
+      "retrieved_news": []
+    },
+    {
+      "onset_ts": 1652242800000,
+      "verdict": "explained_derivatives",
+      "synthesis": {
+        "reasons": [
+          "Funding rate of -0.0071 far exceeds the 0.0005 threshold, indicating extreme short-side pressure.",
+          "OI surged 26.2% over 4h, well above the 0.1 threshold, signaling massive new position influx during the price drop."
+        ],
+        "supporting_refs": [
+          "funding_rate_current",
+          "oi_change_4h"
+        ]
+      },
+      "rationale": "Both derivatives metrics breach their respective thresholds by wide margins. The funding rate current is -0.00710039, which is over 14x the absolute threshold of 0.0005, indicating extreme negative funding consistent with heavy short pressure or forced long unwinding. The 4h open interest change is 0.2625 (26.25%), far exceeding the 0.1 (10%) threshold, showing a massive influx of new positions accompanying the -25.6% 2h return. The combination of deeply negative funding and surging OI alongside a sharp price decline is consistent with a derivatives-driven sell-off where short sellers pile in and longs are liquidated. No news context was supplied, but none is needed since both derivative signals independently satisfy the rubric for explained_derivatives.",
+      "faithfulness": null,
+      "retrieved_news": []
+    },
+    {
+      "onset_ts": 1652281800000,
+      "verdict": "explained_derivatives",
+      "synthesis": {
+        "reasons": [
+          "Funding rate of -0.009 far exceeds the 0.0005 threshold, signaling extreme short-side pressure.",
+          "OI dropped 27.7% over 4h, breaching the 0.1 threshold and confirming massive position unwinding."
+        ],
+        "supporting_refs": [
+          "funding_rate_current",
+          "oi_change_4h"
+        ]
+      },
+      "rationale": "Both derivatives metrics decisively breach the classification rubric. The funding rate current is -0.009, which is 18x the absolute threshold of 0.0005, indicating extreme bearish sentiment with shorts paying longs at an extraordinarily high rate. Simultaneously, the 4h open interest change is -0.2773, far exceeding the 0.1 threshold, confirming a massive 27.7% reduction in open positions over the lookback window. This combination\u2014deeply negative funding coupled with a sharp OI collapse\u2014is consistent with forced deleveraging and panic-driven position unwinding, which fully explains the extreme drawdown of -55.9% detected at onset. No news context is required to classify this episode, as the derivative signals alone are conclusive.",
+      "faithfulness": null,
+      "retrieved_news": []
     }
   ]
 }

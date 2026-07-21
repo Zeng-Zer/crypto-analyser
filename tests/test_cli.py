@@ -21,10 +21,15 @@ def test_run_command_routes_to_pipeline(monkeypatch, capsys):
                 "force_download": False,
                 "window_hours": 24.0,
                 "threshold": 2.5,
+                "drawdown_hours": 4.0,
+                "drawdown_threshold": 0.5,
+                "return_hours": 2.0,
+                "return_threshold": 0.25,
+                "max_gap": 6,
                 "min_consecutive": 2,
                 "funding_rate_threshold": 0.0005,
                 "oi_change_threshold": 0.1,
-                "llm_model": "glm-5.2-short-flex",
+                "llm_model": "glm-5.2-short",
             },
         )
     ]

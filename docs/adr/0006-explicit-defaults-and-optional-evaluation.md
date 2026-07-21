@@ -8,6 +8,6 @@ Ragas/OpenAI are optional evaluation dependencies. Core download, detection,
 retrieval, classification, and reporting installs do not pull the evaluation
 stack.
 
-Dormant Langfuse tracing and its Docker services were removed. Ragas metrics
-and tracked JSON outputs provide the observability needed for this historical
+Dormant Langfuse tracing and its Docker services were removed. Ragas Faithfulness
+and tracked JSON outputs provide the rationale check needed for this historical
 showcase.

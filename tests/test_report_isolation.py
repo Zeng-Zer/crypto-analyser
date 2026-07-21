@@ -34,8 +34,8 @@ def test_ablation_modes_write_separate_reports(tmp_path):
         "onset_ts": onset,
         "classification": "unexplained",
         "confidence": 0.8,
+        "synthesis": {"reasons": ["No supplied context explains the move."], "supporting_refs": []},
         "rationale": "No corroborating signal.",
-        "news_relevance": None,
     }
     for mode in ("derivatives_only", "derivatives_rag", "news_only"):
         _write(tmp_path / "classifications" / mode / f"{symbol}_{onset}.json", classification)
@@ -45,4 +45,6 @@ def test_ablation_modes_write_separate_reports(tmp_path):
     assert {path.parent.name for path in paths} == json_reports.VALID_MODES
     news_summary = json.loads((tmp_path / "reports" / "news_only" / f"{stem}_summary.json").read_text())
     assert news_summary["episodes"][0]["derivatives"] is None
+    assert news_summary["episodes"][0]["classification"]["synthesis"]["reasons"]
+    assert "news_relevance" not in news_summary["episodes"][0]["classification"]
     assert "raw_episode" not in news_summary["episodes"][0]

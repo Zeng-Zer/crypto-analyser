@@ -11,11 +11,16 @@ from crypto_analyser._paths import data_root
 from crypto_analyser.classification.episodes import classify_batch
 from crypto_analyser.constants import (
     BINANCE_BASE_URL,
+    DRAWDOWN_HOURS,
+    DRAWDOWN_THRESHOLD,
     FUNDING_RATE_THRESHOLD,
     LLM_MODEL,
+    MAX_GAP,
     MIN_CONSECUTIVE,
     OHLCV_INTERVAL,
     OI_CHANGE_THRESHOLD,
+    RETURN_HOURS,
+    RETURN_THRESHOLD,
     WINDOW_HOURS,
     ZSCORE_THRESHOLD,
 )
@@ -61,6 +66,11 @@ def run_pipeline(
     force_download: bool = False,
     window_hours: float = WINDOW_HOURS,
     threshold: float = ZSCORE_THRESHOLD,
+    drawdown_hours: float = DRAWDOWN_HOURS,
+    drawdown_threshold: float = DRAWDOWN_THRESHOLD,
+    return_hours: float = RETURN_HOURS,
+    return_threshold: float = RETURN_THRESHOLD,
+    max_gap: int = MAX_GAP,
     min_consecutive: int = MIN_CONSECUTIVE,
     funding_rate_threshold: float = FUNDING_RATE_THRESHOLD,
     oi_change_threshold: float = OI_CHANGE_THRESHOLD,
@@ -108,6 +118,11 @@ def run_pipeline(
         data_dir=root,
         window_hours=window_hours,
         threshold=threshold,
+        drawdown_hours=drawdown_hours,
+        drawdown_threshold=drawdown_threshold,
+        return_hours=return_hours,
+        return_threshold=return_threshold,
+        max_gap=max_gap,
         min_consecutive=min_consecutive,
     )
     anomalies_path = root / "anomalies" / f"{symbol}_{start}_{end}.json"
