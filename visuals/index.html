@@ -128,6 +128,8 @@
     .check-row strong.unexplained { color:var(--color-anomaly); }
     .faithfulness { display:flex; align-items:baseline; justify-content:space-between; gap:12px; }
     .faithfulness .label { font-size:12px; }
+    .faithfulness .label a { color:inherit; text-decoration:none; text-underline-offset:2px; }
+    .faithfulness .label a:hover { text-decoration:underline; }
     .faithfulness strong { font:500 36px/1 var(--font-display); }
     .meter { height:4px; margin-top:10px; background:var(--color-rule-light); }
     .meter i { display:block; height:100%; background:var(--color-ink); }
@@ -183,7 +185,7 @@
     <div class="explanation-grid">
       <article class="explanation-cell"><h3>Did news change the result?</h3><strong class="check-answer" id="check-answer"></strong><p class="check-detail" id="check-detail"></p></article>
       <article class="explanation-cell"><h3>Did each input support an explanation?</h3><div id="context-results"></div><p class="check-detail" id="context-rule"></p></article>
-      <article class="explanation-cell"><h3>How much is backed by the inputs?</h3><div class="faithfulness"><span class="label">Ragas · Faithfulness</span><strong id="faithfulness-score"></strong></div><div class="meter" id="faithfulness-meter" role="progressbar" aria-label="Ragas Faithfulness"><i id="faithfulness-bar"></i></div><p class="quality-note" id="faithfulness-meaning"></p><p class="quality-unbacked" id="faithfulness-unbacked"></p><p class="quality-method">How calculated: Ragas splits the detailed explanation into claims, checks each against supplied inputs, then divides backed claims by all claims.</p><p class="quality-caveat">Not directly backed does not mean false. This score does not verify result or prove cause.</p></article>
+      <article class="explanation-cell"><h3>How much is backed by the inputs?</h3><div class="faithfulness"><span class="label"><a href="https://www.ragas.io/" target="_blank" rel="noopener noreferrer">Ragas</a> · Faithfulness</span><strong id="faithfulness-score"></strong></div><div class="meter" id="faithfulness-meter" role="progressbar" aria-label="Ragas Faithfulness"><i id="faithfulness-bar"></i></div><p class="quality-note" id="faithfulness-meaning"></p><p class="quality-unbacked" id="faithfulness-unbacked"></p><p class="quality-method">How calculated: Ragas splits the detailed explanation into claims, checks each against supplied inputs, then divides backed claims by all claims.</p><p class="quality-caveat">Not directly backed does not mean false. This score does not verify result or prove cause.</p></article>
     </div>
   </section>
 </main>

@@ -208,6 +208,13 @@ def test_reader_typography_uses_shared_scale(page: Page):
     expect(page.locator("#check-detail")).to_have_css("font-size", "14px")
     expect(page.locator(".check-row span").first).to_have_css("font-size", "14px")
     expect(page.locator(".faithfulness .label")).to_have_css("font-size", "12px")
+    ragas_link = page.locator(".faithfulness .label a")
+    expect(ragas_link).to_have_text("Ragas")
+    expect(ragas_link).to_have_attribute("href", "https://www.ragas.io/")
+    expect(ragas_link).to_have_attribute("rel", "noopener noreferrer")
+    expect(ragas_link).to_have_css("text-decoration-line", "none")
+    ragas_link.hover()
+    expect(ragas_link).to_have_css("text-decoration-line", "underline")
     expect(page.locator("#faithfulness-score")).to_have_css("font-size", "36px")
     expect(page.locator("#faithfulness-meaning")).to_have_css("font-size", "14px")
 
