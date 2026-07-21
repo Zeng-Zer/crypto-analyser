@@ -2,6 +2,8 @@
 
 Historical batch pipeline testing whether derivatives market structure—funding rates and open interest—classifies crypto price crashes more faithfully than lagging news.
 
+**[Open the LUNA crash evidence workbench](https://zeng-zer.github.io/crypto-analyser/)**
+
 An **unexplained** price episode has neither unusual derivatives activity nor credible retrieved news. Those episodes are the hypothesis signal: price can move before a public explanation appears.
 
 ## Pipeline
