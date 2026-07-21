@@ -27,8 +27,6 @@ def test_run_command_routes_to_pipeline(monkeypatch, capsys):
                 "return_threshold": 0.25,
                 "max_gap": 6,
                 "min_consecutive": 2,
-                "funding_rate_threshold": 0.0005,
-                "oi_change_threshold": 0.1,
                 "llm_model": "glm-5.2-short",
             },
         )

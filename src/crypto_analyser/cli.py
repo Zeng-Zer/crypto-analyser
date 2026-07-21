@@ -16,11 +16,9 @@ from crypto_analyser._paths import repo_root
 from crypto_analyser.constants import (
     DRAWDOWN_HOURS,
     DRAWDOWN_THRESHOLD,
-    FUNDING_RATE_THRESHOLD,
     LLM_MODEL,
     MAX_GAP,
     MIN_CONSECUTIVE,
-    OI_CHANGE_THRESHOLD,
     RETURN_HOURS,
     RETURN_THRESHOLD,
     WINDOW_HOURS,
@@ -57,8 +55,6 @@ def _run(args: argparse.Namespace) -> None:
         return_threshold=args.return_threshold,
         max_gap=args.max_gap,
         min_consecutive=args.min_consecutive,
-        funding_rate_threshold=args.funding_rate_threshold,
-        oi_change_threshold=args.oi_change_threshold,
         llm_model=args.model,
     )
     print(path)
@@ -149,8 +145,6 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--return-threshold", type=float, default=RETURN_THRESHOLD)
     run.add_argument("--max-gap", type=int, default=MAX_GAP)
     run.add_argument("--min-consecutive", type=int, default=MIN_CONSECUTIVE)
-    run.add_argument("--funding-rate-threshold", type=float, default=FUNDING_RATE_THRESHOLD)
-    run.add_argument("--oi-change-threshold", type=float, default=OI_CHANGE_THRESHOLD)
     run.add_argument("--model", default=os.getenv("LLM_MODEL", LLM_MODEL))
     run.add_argument("--skip-download", action="store_true")
     run.add_argument("--force-download", action="store_true")

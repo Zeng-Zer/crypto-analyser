@@ -122,7 +122,7 @@ components:
 
 ## Overview
 
-A scientific editorial showcase rather than a marketing page or crypto trading terminal. It should feel like a guided research story: archival paper, rigorous annotation, measured conclusions, and visible uncertainty. Historical replay is the only active runtime; the shell keeps a later live runtime legible without pretending a connection exists. Page walks through one selected episode at a time: anomaly, time-safe market activity, hybrid retrieval, structured LLM output, then a compact explanation check. Favor a clear narrative over operational density; market observation values remain visible, while LLM schema detail uses progressive disclosure. Audience is hiring teams and data/LLM practitioners with three to ten minutes. Emotional target is credible curiosity, not market hype.
+A scientific editorial showcase rather than a marketing page or crypto trading terminal. It should feel like a guided research story: archival paper, rigorous annotation, measured conclusions, and visible uncertainty. Historical replay is the only runtime. Page walks through one selected episode at a time: anomaly, time-safe market activity, hybrid retrieval, structured LLM output, then a compact explanation check. Favor a clear narrative over operational density; market observation values remain visible, while LLM schema detail uses progressive disclosure. Audience is hiring teams and data/LLM practitioners with three to ten minutes. Emotional target is credible curiosity, not market hype.
 
 ## Colors
 
@@ -134,7 +134,7 @@ Newsreader carries investigation headings and key findings. Source Sans 3 carrie
 
 ## Layout
 
-Use one continuous page presenting one episode at a time with Previous/Next navigation. A focused anomaly chart leads into three numbered columns: market activity, pre-onset RAG retrieval, and combined structured LLM analysis. Episode 04 is historical default because it demonstrates RAG changing an otherwise unexplained result; future live mode may select newest anomaly in same layout. A compact explanation check follows cards, compares three context runs, and checks combined rationale with Ragas Faithfulness. On small screens, stack all steps in reading order.
+Use one continuous page presenting one episode at a time with Previous/Next navigation. A focused anomaly chart leads into three numbered columns: market activity, pre-onset RAG retrieval, and combined structured LLM analysis. Episode 04 is historical default because it demonstrates RAG changing an otherwise unexplained result. A compact explanation check follows cards, compares three context runs, and checks combined rationale with Ragas Faithfulness. On small screens, stack all steps in reading order.
 
 ## Elevation & Depth
 
@@ -146,7 +146,7 @@ Corners are square or two pixels. Episode markers are circles because they repre
 
 ## Components
 
-- **Runtime bar:** Replay is active and Live is visibly unavailable until a real connection exists. Keep status compact.
+- **Runtime label:** Show Replay as compact static status.
 - **Episode navigator:** Previous/Next buttons browse all episodes while one episode remains the narrative focus.
 - **Price plate:** Focused native SVG with close-price line, anomaly duration band, onset marker, crosshair, and local-time axes. No analyst controls on the showcase view.
 - **Market activity step:** Show funding rates, open-interest changes, and thresholds as percentages with plain-language normal/breach states. Technical details may add precision but still use percentages; raw fractions stay in machine artifacts.

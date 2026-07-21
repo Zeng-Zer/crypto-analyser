@@ -2,6 +2,7 @@
 .idea
 *.log
 tmp/
+.pi-subagents/
 
 *.py[cod]
 __pycache__/

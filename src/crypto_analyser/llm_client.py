@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import functools
 import json
+import math
 import os
 from dataclasses import dataclass
 from typing import Any, Self
@@ -20,6 +21,12 @@ from crypto_analyser._paths import asset_path
 from crypto_analyser.constants import LLM_MODEL
 
 PLACEHOLDER_PATTERNS: tuple[str, ...] = ("changeme_", "your_", "placeholder")
+CLASSIFICATIONS = {
+    "explained_derivatives",
+    "explained_news",
+    "unexplained",
+    "insufficient_data",
+}
 
 
 class PlaceholderValueError(ValueError):
@@ -35,6 +42,11 @@ class ClassificationSynthesis:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> Self:
+        expected = {"reasons", "supporting_refs"}
+        if missing := expected - set(data):
+            raise ValueError(f"synthesis missing fields: {sorted(missing)}")
+        if unexpected := set(data) - expected:
+            raise ValueError(f"synthesis contains unexpected fields: {sorted(unexpected)}")
         if not isinstance(data["reasons"], list) or not isinstance(data["supporting_refs"], list):
             raise ValueError("synthesis reasons and supporting_refs must be arrays")
         reasons = tuple(data["reasons"])
@@ -67,13 +79,38 @@ class ClassificationResult:
     rationale: str
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> Self:
+    def from_dict(cls, data: dict[str, Any], expected_event_reference: str | None = None) -> Self:
+        if not isinstance(data, dict):
+            raise ValueError("classification must be an object")
+        expected = {"event_reference", "classification", "confidence", "synthesis", "rationale"}
+        if missing := expected - set(data):
+            raise ValueError(f"classification missing fields: {sorted(missing)}")
+        if unexpected := set(data) - expected:
+            raise ValueError(f"classification contains unexpected fields: {sorted(unexpected)}")
+        event_reference = data["event_reference"]
+        classification = data["classification"]
+        confidence = data["confidence"]
+        rationale = data["rationale"]
+        if not isinstance(event_reference, str) or not event_reference:
+            raise ValueError("event_reference must be a non-empty string")
+        if expected_event_reference is not None and event_reference != expected_event_reference:
+            raise ValueError("event_reference does not match requested episode")
+        if not isinstance(classification, str) or classification not in CLASSIFICATIONS:
+            raise ValueError(f"classification must be one of {sorted(CLASSIFICATIONS)}")
+        if isinstance(confidence, bool) or not isinstance(confidence, (int, float)):
+            raise ValueError("confidence must be a number")
+        if not math.isfinite(confidence) or not 0 <= confidence <= 1:
+            raise ValueError("confidence must be finite and between 0 and 1")
+        if not isinstance(data["synthesis"], dict):
+            raise ValueError("synthesis must be an object")
+        if not isinstance(rationale, str) or not rationale:
+            raise ValueError("rationale must be a non-empty string")
         return cls(
-            event_reference=data["event_reference"],
-            classification=data["classification"],
-            confidence=float(data["confidence"]),
+            event_reference=event_reference,
+            classification=classification,
+            confidence=float(confidence),
             synthesis=ClassificationSynthesis.from_dict(data["synthesis"]),
-            rationale=data["rationale"],
+            rationale=rationale,
         )
 
 
@@ -240,8 +277,4 @@ class LLMClient:
         content = "".join(chunks)
         parsed = json.loads(content)
 
-        # Ensure event_reference is set even if the LLM missed it
-        if not parsed.get("event_reference"):
-            parsed["event_reference"] = event_reference or "unknown"
-
-        return ClassificationResult.from_dict(parsed)
+        return ClassificationResult.from_dict(parsed, event_reference or None)

@@ -13,12 +13,10 @@ from crypto_analyser.constants import (
     BINANCE_BASE_URL,
     DRAWDOWN_HOURS,
     DRAWDOWN_THRESHOLD,
-    FUNDING_RATE_THRESHOLD,
     LLM_MODEL,
     MAX_GAP,
     MIN_CONSECUTIVE,
     OHLCV_INTERVAL,
-    OI_CHANGE_THRESHOLD,
     RETURN_HOURS,
     RETURN_THRESHOLD,
     WINDOW_HOURS,
@@ -72,8 +70,6 @@ def run_pipeline(
     return_threshold: float = RETURN_THRESHOLD,
     max_gap: int = MAX_GAP,
     min_consecutive: int = MIN_CONSECUTIVE,
-    funding_rate_threshold: float = FUNDING_RATE_THRESHOLD,
-    oi_change_threshold: float = OI_CHANGE_THRESHOLD,
     llm_model: str = LLM_MODEL,
 ) -> Path:
     """Run one historical analysis and return its summary report path."""
@@ -145,8 +141,6 @@ def run_pipeline(
         anomalies_path,
         mode,
         data_dir=root,
-        funding_rate_threshold=funding_rate_threshold,
-        oi_change_threshold=oi_change_threshold,
         model=llm_model,
     )
     summary_path, _ = generate(symbol, start, end, mode, data_dir=root)

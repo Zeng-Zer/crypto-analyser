@@ -1,8 +1,10 @@
 # Explicit defaults and optional evaluation
 
 Pipeline defaults live in `constants.py` and meaningful detection controls are
-CLI arguments. Runtime files share one `--data-dir`; components do not maintain
-independent path configuration.
+CLI arguments. Funding and open-interest classification thresholds are fixed
+experiment constants so classification, evaluation, and workbench rendering
+cannot disagree. Runtime files share one `--data-dir`; components do not
+maintain independent path configuration.
 
 Ragas/OpenAI are optional evaluation dependencies. Core download, detection,
 retrieval, classification, and reporting installs do not pull the evaluation

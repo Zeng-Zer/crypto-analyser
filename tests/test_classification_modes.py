@@ -77,8 +77,75 @@ def test_invalid_or_verdict_inconsistent_supporting_refs_fail(tmp_path):
             {"funding_rate_current": 0, "oi_change_4h": 0},
             {"symbol": "LUNAUSDT"},
             tmp_path,
-            0.0005,
-            0.1,
+        )
+
+
+def test_derivative_breach_rejects_news_verdict(tmp_path):
+    rag_dir = tmp_path / "rag"
+    rag_dir.mkdir()
+    (rag_dir / "LUNAUSDT_123_rag.json").write_text(json.dumps({"articles": [{"id": 42}]}))
+    result = ClassificationResult.from_dict(
+        {
+            "event_reference": "LUNAUSDT_123",
+            "classification": "explained_news",
+            "confidence": 0.9,
+            "synthesis": {"reasons": ["News explains the move."], "supporting_refs": ["news_42"]},
+            "rationale": "Detailed rationale.",
+        }
+    )
+
+    with pytest.raises(ValueError, match="breached derivatives require explained_derivatives"):
+        episodes._validate_supporting_refs(
+            result,
+            "derivatives_rag",
+            {"onset_ts": 123},
+            {"funding_rate_current": 0.001, "oi_change_4h": 0},
+            {"symbol": "LUNAUSDT"},
+            tmp_path,
+        )
+
+
+def test_missing_derivative_rejects_explanatory_verdict(tmp_path):
+    result = ClassificationResult.from_dict(
+        {
+            "event_reference": "LUNAUSDT_123",
+            "classification": "unexplained",
+            "confidence": 0.9,
+            "synthesis": {"reasons": ["No explanation."], "supporting_refs": []},
+            "rationale": "Detailed rationale.",
+        }
+    )
+
+    with pytest.raises(ValueError, match="missing derivatives require insufficient_data"):
+        episodes._validate_supporting_refs(
+            result,
+            "derivatives_only",
+            {"onset_ts": 123},
+            {"funding_rate_current": None, "oi_change_4h": 0},
+            {"symbol": "LUNAUSDT"},
+            tmp_path,
+        )
+
+
+def test_complete_derivatives_reject_insufficient_data(tmp_path):
+    result = ClassificationResult.from_dict(
+        {
+            "event_reference": "LUNAUSDT_123",
+            "classification": "insufficient_data",
+            "confidence": 0.9,
+            "synthesis": {"reasons": ["Data missing."], "supporting_refs": []},
+            "rationale": "Detailed rationale.",
+        }
+    )
+
+    with pytest.raises(ValueError, match="insufficient_data requires missing derivatives"):
+        episodes._validate_supporting_refs(
+            result,
+            "derivatives_only",
+            {"onset_ts": 123},
+            {"funding_rate_current": 0, "oi_change_4h": 0},
+            {"symbol": "LUNAUSDT"},
+            tmp_path,
         )
 
 
@@ -95,25 +162,15 @@ def test_synthesis_rejects_verbose_reasons():
         )
 
 
-def test_derivatives_thresholds_are_explicit_prompt_inputs():
+def test_derivatives_thresholds_are_fixed_prompt_inputs():
     prompt = episodes.PromptTemplate.load()
     episode = {"onset_ts": 123, "severity": "high", "peak_z": -4.0}
     meta = {"symbol": "LUNAUSDT", "start": "2022-05-07", "end": "2022-05-11"}
 
-    system, _, _ = episodes._build_prompts(
-        prompt,
-        episode,
-        {},
-        meta,
-        "derivatives_only",
-        funding_rate_threshold=0.123,
-        oi_change_threshold=0.456,
-    )
+    system, _, _ = episodes._build_prompts(prompt, episode, {}, meta, "derivatives_only")
 
-    assert "12.3000%" in system
-    assert "45.6%" in system
-    assert "0.123" not in system
-    assert "0.456" not in system
+    assert "0.0500%" in system
+    assert "10%" in system
 
 
 def test_derivatives_prompt_formats_rates_as_percentages():

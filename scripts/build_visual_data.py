@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import argparse
 import json
 from bisect import bisect_right
 from datetime import datetime, timezone
@@ -12,6 +11,7 @@ from typing import Any
 import duckdb
 import pandas as pd
 
+from crypto_analyser.constants import FUNDING_RATE_THRESHOLD, OI_CHANGE_THRESHOLD
 from crypto_analyser.detection.zscore import compute_anomalies
 
 MODES = ("derivatives_only", "derivatives_rag", "news_only")
@@ -169,19 +169,16 @@ def build_snapshot(root: Path) -> dict[str, Any]:
             "start": start,
             "end": end,
             "generated_at": comparison["evaluated_at"],
-            "runtime": "replay",
             "bar_interval_minutes": 5,
             "snapshot_end_ts": bars[-1]["ts"],
-            "received_ts": None,
-            "classification_completed_ts": None,
             "episode_count": len(episodes),
             "classification_count": len(episodes) * len(MODES),
             "thresholds": {
                 "z_score": anomalies["meta"]["threshold"],
                 "drawdown_4h": anomalies["meta"]["drawdown_threshold"],
                 "return_2h": anomalies["meta"]["return_threshold"],
-                "funding_rate": 0.0005,
-                "oi_change_4h": 0.10,
+                "funding_rate": FUNDING_RATE_THRESHOLD,
+                "oi_change_4h": OI_CHANGE_THRESHOLD,
             },
             "start_close": start_close,
             "end_close": end_close,
@@ -225,23 +222,13 @@ def validate_snapshot(snapshot: dict[str, Any]) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parents[1])
-    parser.add_argument("--output", type=Path, default=Path("visuals/data/luna.json"))
-    parser.add_argument("--template", type=Path, default=Path("visuals/template.html"))
-    parser.add_argument("--html", type=Path, default=Path("visuals/index.html"))
-    args = parser.parse_args()
-    root = args.root.resolve()
-    output = args.output if args.output.is_absolute() else root / args.output
-    template = args.template if args.template.is_absolute() else root / args.template
-    html = args.html if args.html.is_absolute() else root / args.html
-
+    root = Path(__file__).resolve().parents[1]
     snapshot = build_snapshot(root)
     serialized = json.dumps(snapshot, ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/")
-    output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(json.dumps(snapshot, indent=2, ensure_ascii=False), encoding="utf-8")
-    html.write_text(template.read_text(encoding="utf-8").replace("__ATLAS_DATA__", serialized), encoding="utf-8")
-    print(f"Wrote {output} and {html}")
+    template = root / "visuals" / "template.html"
+    output = root / "visuals" / "index.html"
+    output.write_text(template.read_text(encoding="utf-8").replace("__ATLAS_DATA__", serialized), encoding="utf-8")
+    print(f"Wrote {output}")
 
 
 if __name__ == "__main__":
