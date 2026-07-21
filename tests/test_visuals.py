@@ -236,6 +236,10 @@ def test_chart_is_tall_with_modest_bottom_spacing(page: Page):
 
 
 def test_chart_hover_shows_and_hides_tooltip(page: Page):
+    expect(page.locator("#price-chart text", has_text="SIGNAL DETECTED")).to_have_count(1)
+    expect(page.locator("#chart-desc")).to_have_text(
+        "Price around selected signal detection time, with episode duration highlighted."
+    )
     chart = page.locator(".chart-hit")
     box = chart.bounding_box()
     assert box

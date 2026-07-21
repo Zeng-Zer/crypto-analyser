@@ -148,7 +148,7 @@ Corners are square or two pixels. Episode markers are circles because they repre
 
 - **Runtime label:** Show Replay as compact static status.
 - **Episode navigator:** Previous/Next buttons browse all episodes while one episode remains the narrative focus.
-- **Price plate:** Focused native SVG with close-price line, anomaly duration band, onset marker, crosshair, and local-time axes. No analyst controls on the showcase view.
+- **Price plate:** Focused native SVG with close-price line, anomaly duration band, signal-detection marker, crosshair, and local-time axes. No analyst controls on the showcase view.
 - **Market activity step:** Show funding rates, open-interest changes, and thresholds as percentages with plain-language normal/breach states. Technical details may add precision but still use percentages; raw fractions stay in machine artifacts.
 - **RAG retrieval step:** Show every retrieved headline in relevance order with ordinal position, four-decimal reciprocal rank fusion (RRF) score, and age before onset. Explain that RRF combines semantic and keyword ranking; do not encode relevance with color.
 - **LLM analysis step:** Show verdict plus one to three concise reason bullets from schema-validated synthesis. Do not show detailed rationale or self-confidence on Analysis.
