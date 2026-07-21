@@ -200,6 +200,7 @@ def test_reader_typography_uses_shared_scale(page: Page):
     expect(page.locator(".always-details h3")).to_have_css("font-size", "12px")
     expect(page.locator(".detail-row span").first).to_have_css("font-size", "14px")
     expect(page.locator("#rag-summary span")).to_have_css("font-size", "16px")
+    expect(page.locator(".news-meta").first).to_have_css("font-size", "11px")
     expect(page.locator(".news-title").first).to_have_css("font-size", "16px")
     expect(page.locator(".reason-title")).to_have_css("font-size", "12px")
     expect(page.locator("#reason-list li").first).to_have_css("font-size", "16px")
