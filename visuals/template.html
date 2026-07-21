@@ -211,7 +211,7 @@ const combinedOutcomes={explained_derivatives:{label:'Market activity remains pr
 const make=(name,attributes={})=>{const element=document.createElementNS(NS,name);Object.entries(attributes).forEach(([key,value])=>element.setAttribute(key,value));return element;};
 const requestedOnset=Number(new URLSearchParams(location.search).get('onset'));
 let selected=atlas.episodes.findIndex(episode=>episode.onset_ts===requestedOnset);
-if(selected<0)selected=Math.min(3,atlas.episodes.length-1);
+if(selected<0)selected=0;
 
 function signalState(value,threshold){return Math.abs(value)>=threshold?'Breach':'Normal';}
 function renderStory(){

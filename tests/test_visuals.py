@@ -46,14 +46,24 @@ def page(browser: Browser, workbench_url: str):
     errors: list[str] = []
     page.on("console", lambda message: errors.append(message.text) if message.type == "error" else None)
     page.on("pageerror", lambda error: errors.append(str(error)))
-    page.goto(f"{workbench_url}/index.html")
+    page.goto(f"{workbench_url}/index.html?onset=1652136300000")
     expect(page.locator("#episode-title")).to_have_text("Episode 04")
     yield page
     page.close()
     assert not errors, f"Browser errors: {errors}"
 
 
-def test_analysis_starts_with_rag_changed_episode(page: Page):
+def test_analysis_starts_with_first_episode(browser: Browser, workbench_url: str):
+    page = browser.new_page()
+    page.goto(f"{workbench_url}/index.html")
+
+    expect(page.locator("#episode-title")).to_have_text("Episode 01")
+    expect(page.locator("#episode-position")).to_have_text("1 of 8")
+    expect(page.get_by_role("button", name="Previous")).to_be_disabled()
+    page.close()
+
+
+def test_rag_changed_episode_can_be_opened_directly(page: Page):
     expect(page.get_by_text("Replay", exact=True)).to_be_visible()
     expect(page.locator("header button")).to_have_count(0)
     expect(page.locator("#episode-position")).to_have_text("4 of 8")
@@ -203,7 +213,7 @@ def test_previous_and_next_browse_all_episodes(page: Page):
 def test_timestamps_use_browser_timezone(browser: Browser, workbench_url: str):
     context = browser.new_context(timezone_id="America/Los_Angeles")
     page = context.new_page()
-    page.goto(f"{workbench_url}/index.html")
+    page.goto(f"{workbench_url}/index.html?onset=1652136300000")
 
     expect(page.locator("#onset")).to_contain_text("09 May 2022, 15:45")
     expect(page.locator("#onset")).to_contain_text("America/Los_Angeles")
