@@ -27,6 +27,32 @@ class PlaceholderValueError(ValueError):
 
 
 @dataclass(frozen=True, slots=True)
+class ClassificationSynthesis:
+    """Concise reader-facing verdict reasons and supporting context refs."""
+
+    reasons: tuple[str, ...]
+    supporting_refs: tuple[str, ...]
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> Self:
+        if not isinstance(data["reasons"], list) or not isinstance(data["supporting_refs"], list):
+            raise ValueError("synthesis reasons and supporting_refs must be arrays")
+        reasons = tuple(data["reasons"])
+        supporting_refs = tuple(data["supporting_refs"])
+        if not 1 <= len(reasons) <= 3:
+            raise ValueError("synthesis.reasons must contain 1-3 items")
+        if any(not isinstance(reason, str) or not reason or len(reason) > 160 for reason in reasons):
+            raise ValueError("each synthesis reason must be a non-empty string of at most 160 characters")
+        if len(supporting_refs) > 7:
+            raise ValueError("synthesis.supporting_refs must contain at most 7 items")
+        if any(not isinstance(ref, str) or not ref for ref in supporting_refs):
+            raise ValueError("synthesis.supporting_refs must contain non-empty strings")
+        if len(set(supporting_refs)) != len(supporting_refs):
+            raise ValueError("synthesis.supporting_refs must be unique")
+        return cls(reasons, supporting_refs)
+
+
+@dataclass(frozen=True, slots=True)
 class ClassificationResult:
     """Typed wrapper for LLM classification output.
 
@@ -37,8 +63,8 @@ class ClassificationResult:
     event_reference: str
     classification: str
     confidence: float
+    synthesis: ClassificationSynthesis
     rationale: str
-    news_relevance: str | None = None
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> Self:
@@ -46,8 +72,8 @@ class ClassificationResult:
             event_reference=data["event_reference"],
             classification=data["classification"],
             confidence=float(data["confidence"]),
+            synthesis=ClassificationSynthesis.from_dict(data["synthesis"]),
             rationale=data["rationale"],
-            news_relevance=data.get("news_relevance"),
         )
 
 

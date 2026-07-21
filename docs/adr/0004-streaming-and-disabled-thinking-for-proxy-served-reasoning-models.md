@@ -2,11 +2,11 @@
 
 `LLMClient.classify()` calls the LLM with `stream: True` and
 `chat_template_kwargs: {"enable_thinking": False}` in the request payload. Both
-flags are non-optional for the current model (`glm-5.2-short-flex`, served
-through a proxy) and were added after the synchronous non-streaming path failed
+flags are retained for the current model (`glm-5.2-short`, served through a
+proxy) and were added after the synchronous non-streaming path failed
 during classifier integration testing.
 
-Streaming is required because the proxy-served flex model rejects the
+Streaming remains required because this proxy serving path rejects the
 non-streaming request path: a plain `POST /chat/completions` without
 `stream: True` returns HTTP 500, and even when it returns 200 it tends to hold
 the connection open longer than the client read-timeout (`requests` `timeout=120`

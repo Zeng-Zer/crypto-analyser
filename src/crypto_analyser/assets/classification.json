@@ -1,20 +1,20 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "CryptoAnomalyClassification",
-  "description": "LLM classification verdict for a single anomaly episode. Loaded by crypto_analyser.llm_client.LLMClient._load_schema and enforced via OpenAI-compatible structured output with strict=true. See ADR-0002 (severity derived) and ADR-0003 (classification rule as prompt rubric).",
+  "description": "LLM classification verdict for a single anomaly episode. Loaded by crypto_analyser.llm_client.LLMClient._load_schema and enforced via OpenAI-compatible structured output with strict=true.",
   "type": "object",
   "additionalProperties": false,
   "required": [
     "event_reference",
     "classification",
     "confidence",
-    "rationale",
-    "news_relevance"
+    "synthesis",
+    "rationale"
   ],
   "properties": {
     "event_reference": {
       "type": "string",
-      "description": "Correlation key set by the classifier caller — typically the episode onset_ts. Echoed back by the LLM; back-filled by llm_client.ClassificationResult.from_dict if the LLM omits it."
+      "description": "Correlation key supplied by classifier caller and echoed by LLM."
     },
     "classification": {
       "type": "string",
@@ -24,21 +24,46 @@
         "unexplained",
         "insufficient_data"
       ],
-      "description": "explained_derivatives: funding magnitude or OI change breaches the rubric thresholds (config anomaly_detection.derivatives_thresholds). explained_news: retrieved news context (Run B only) provides a credible explanation that derivatives did not. unexplained: derivatives quiet AND no credible news available. insufficient_data: one or more derivatives feature values are null."
+      "description": "Primary explanation for anomaly under supplied context."
     },
     "confidence": {
       "type": "number",
       "minimum": 0,
       "maximum": 1,
-      "description": "LLM-reported confidence that the chosen classification is well-supported by the cited feature values. Anchored to evidence (see system prompt), not a free-floating self-rating. Used downstream by the Milestone-2 Bull/Bear/Judge debate layer."
+      "description": "LLM-reported confidence that classification is supported by supplied context; not predictive probability."
+    },
+    "synthesis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reasons",
+        "supporting_refs"
+      ],
+      "properties": {
+        "reasons": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 3,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          },
+          "description": "One to three concise reader-facing verdict reasons. Funding rates, OI changes, and thresholds use percentage notation."
+        },
+        "supporting_refs": {
+          "type": "array",
+          "maxItems": 7,
+          "items": {
+            "type": "string"
+          },
+          "description": "Prompt-provided source refs that affirmatively support verdict. Rejected or merely relevant context is omitted."
+        }
+      }
     },
     "rationale": {
       "type": "string",
-      "description": "Substantive prose defending the classification against the cited feature values. References specific funding rate / OI numbers from the input. Run B variants additionally reference why retrieved news does or does not explain the move. Ragas (faithfulness, answer_relevancy) evaluates this field."
-    },
-    "news_relevance": {
-      "type": ["string", "null"],
-      "description": "Run B only. Free-form assessment of whether the retrieved news context explains the price move. Null in Run A (no news in scope)."
+      "description": "Detailed audit justification citing supplied feature values and retrieved context. Ragas Faithfulness evaluates combined-context output."
     }
   }
 }

@@ -6,8 +6,8 @@ precompute a verdict for the model to accept or override.
 
 The rubric comes from explicit constants passed into prompt construction:
 
-- `|funding_rate_current| >= 0.0005`, or
-- `|oi_change_4h| >= 0.10`
+- `|funding rate| >= 0.0500%`, or
+- `|4h open-interest change| >= 10%`
 
 A deterministic default made rationales post-hoc explanations of an answer the
 model was already given. Letting the model apply the visible rubric keeps the
@@ -15,5 +15,5 @@ rationale substantive and lets it handle missing data and news relevance.
 
 Trade-off: model upgrades can change a verdict for identical inputs. That is
 acceptable for this qualitative LLM evaluation, and tracked outputs preserve
-exact observed runs. Direct verdict overlap remains the primary ablation metric;
-Ragas measures rationale quality.
+exact observed runs. Direct verdict change remains the primary controlled-comparison result;
+Ragas Faithfulness checks combined-output rationale support.

@@ -34,8 +34,8 @@ def _episode_report(
             {
                 "verdict": classification["classification"],
                 "confidence": classification["confidence"],
+                "synthesis": classification["synthesis"],
                 "rationale": classification["rationale"],
-                "news_relevance": classification.get("news_relevance"),
                 "mode": mode,
             }
             if classification

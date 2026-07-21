@@ -1,0 +1,3 @@
+# Separate reader synthesis from evaluation rationale
+
+The classifier emits two outputs for different jobs: a concise classification synthesis for Analysis and a detailed rationale for Ragas evaluation and audit. Synthesis contains one to three short verdict reasons plus validated references to context that affirmatively supports the verdict; Analysis highlights those sources in orange but does not show raw rationale or self-confidence. The former free-form `news_relevance` field is removed because it duplicated rationale without an independent downstream metric. All three ablation modes share this contract so Evaluation can compare like-for-like outputs.

@@ -7,19 +7,23 @@ Historical batch pipeline that validates whether derivatives market structure (f
 ### Detection
 
 **Anomaly**:
-A contiguous run of consecutive 5-min OHLCV bars whose rolling z-score on raw close price exceeds |Z|>threshold, with up to 2 non-flagged bars tolerated inside a run. One anomaly = one classifiable market moment.
+A contiguous run of 5-min OHLCV bars where raw close price exceeds `|Z|>2.5`, price is at least 50% below its rolling 4-hour peak, or its 2-hour close-to-close return is at most −25%, with up to 6 non-flagged bars (30 minutes) tolerated inside a run. One anomaly = one classifiable market moment.
 _Avoid_: per-bar flag, single alert, Z-score reading
 
 **Episode**:
 Synonym for *Anomaly*. The unit that flows through derivatives fetch → LLM classification → report. Never a single bar.
 _Avoid_: alert, event cluster
 
+**Detection trigger**:
+Signal that admitted bars into an episode: `price_zscore`, `drawdown_4h`, `return_2h`, or a combination. Stored on every episode so low raw Z-scores during sustained collapses remain interpretable.
+_Avoid_: cause, explanation
+
 **Episode onset**:
 The first flagged bar of an episode. Derivatives extraction and classification key on this timestamp.
 _Avoid_: trigger time, anomaly start, detection time (imply a single instant)
 
 **Severity**:
-Band of the episode's peak |Z|: low (>=2.5), medium (>=3.0), high (>=4.0), extreme (>=5.0). Computed by detection and stored on each episode; downstream components read it verbatim — never LLM-emitted. The current LUNA run contains 5 episodes with peak |Z| 4.31.
+Band of strongest normalized detection signal: low (>=1.0× threshold), medium (>=1.2×), high (>=1.6×), extreme (>=2.0×). Computed by detection and stored on each episode; downstream components read it verbatim — never LLM-emitted.
 _Avoid_: priority, confidence
 
 ### Classification outcome
@@ -29,16 +33,28 @@ LLM applies the "derivatives explain" rule as a rubric in the system prompt, not
 as a deterministic default — see ADR-0003. `severity` is *not* in this list
 because it is derived (see "Detection" above).
 
+**Classification synthesis**:
+Concise reader-facing list of verdict reasons. Each reason names decisive mechanism or values and cites supporting context.
+_Avoid_: summary, key findings, rationale
+
+**Classification rationale**:
+Detailed justification for a verdict against supplied feature values and retrieved context. It supports rationale-quality checks and audit, not primary display.
+_Avoid_: summary, chain of thought, analysis trace
+
+**Supporting context**:
+Supplied derivatives metric or retrieved news article that affirmatively supports the classification synthesis. News rejected as tangential remains context but is not supporting context.
+_Avoid_: decisive evidence, causal evidence, all context
+
 **Explained by derivatives**:
 Funding rate magnitude or open-interest move breaches the rubric thresholds
-(`funding_rate_mag >= 0.0005` OR `|oi_change_4h| >= 0.10`). The derivatives market
+(`|funding rate| >= 0.0500%` OR `|4h open-interest change| >= 10%`). The derivatives market
 structure shows something unusual that coincides with the price anomaly.
 _Avoid_: funded, attributable, market-driven
 
 **Explained by news**:
-News context (retrieved via RAG, Run B only) provides a credible explanation for
-the price move that derivatives data did not. Reachable only when the LLM has
-news text in scope; never in Run A.
+News context (retrieved via RAG, Runs B and C) provides a credible explanation
+for the price move. Reachable only when the LLM has news text in scope; never
+in Run A.
 _Avoid_: headline-driven, news-caused, reported
 
 **Unexplained**:

@@ -1,16 +1,15 @@
-"""Evaluate evidence modes with Ragas and direct comparison metrics."""
+"""Compare context modes and check combined rationales with Ragas."""
 
 from __future__ import annotations
 
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from pathlib import Path
 from statistics import fmean
 from typing import Any
 
-import psycopg2
-
 from crypto_analyser._paths import data_root, repo_root
+from crypto_analyser.constants import FUNDING_RATE_THRESHOLD, OI_CHANGE_THRESHOLD
 
 MODES = ("derivatives_only", "derivatives_rag", "news_only")
 
@@ -22,50 +21,43 @@ def _load(path: Path) -> dict[str, Any]:
 def _rag_context(symbol: str, onset_ts: int, data_dir: Path) -> tuple[list[str], dict[str, Any]]:
     data = _load(data_dir / "rag" / f"{symbol}_{onset_ts}_rag.json")
     contexts = [
-        f"{article['date_pub']} {article['title']} {article.get('description') or ''}" for article in data["articles"]
+        (
+            f"[source_ref: news_{article['id']}] "
+            f"{article['date_pub']} {article['title']} {article.get('description') or ''}"
+        )
+        for article in data["articles"]
     ]
     return contexts, data
 
 
-def _derivatives_context(episode: dict[str, Any]) -> str:
-    values = episode["derivatives"]
-    return "; ".join(f"{key}={value}" for key, value in values.items())
+def _percent(value: float | None, places: int) -> str | None:
+    return None if value is None else f"{value * 100:.{places}f}%"
 
 
-def _question(mode: str, symbol: str) -> str:
-    evidence = {
-        "derivatives_only": "funding rate and open interest",
-        "derivatives_rag": "funding rate, open interest, and news available by onset",
-        "news_only": "news available by onset",
-    }[mode]
-    return f"Classify this {symbol} price anomaly using {evidence}."
-
-
-def _first_matching_news_after(connection: Any, onset_ts: int) -> dict[str, Any] | None:
-    onset = datetime.fromtimestamp(onset_ts / 1000, tz=timezone.utc)
-    with connection.cursor() as cursor:
-        cursor.execute(
-            """
-            SELECT date_pub, title, link
-            FROM crypto_news
-            WHERE date_pub > %s
-              AND date_pub <= %s
-              AND (tickers && ARRAY['LUNA','UST','TERRA']::TEXT[]
-                   OR research @@ websearch_to_tsquery('english', 'LUNA OR UST OR Terra'))
-            ORDER BY date_pub
-            LIMIT 1
-            """,
-            (onset, onset + timedelta(hours=24)),
-        )
-        row = cursor.fetchone()
-    if not row:
-        return None
-    return {
-        "date_pub": row[0].isoformat(),
-        "title": row[1],
-        "link": row[2],
-        "delay_minutes": round((row[0] - onset).total_seconds() / 60, 1),
+def _episode_context(episode: dict[str, Any]) -> str:
+    """Return every episode fact supplied to the combined classifier."""
+    derivatives = episode["derivatives"]
+    facts = {
+        "event_reference": f"{episode['symbol']}_{episode['onset_ts']}",
+        "symbol": episode["symbol"],
+        "onset_ts": episode["onset_ts"],
+        "severity": episode["severity"],
+        "detection_triggers": episode.get("onset_triggers", episode.get("triggers")),
+        "peak_z_abs": abs(episode["peak_z"]) if episode.get("peak_z") is not None else None,
+        "drawdown_onset_4h": episode.get("drawdown_onset_4h"),
+        "return_onset_2h": episode.get("return_onset_2h"),
+        "funding_rate_current": _percent(derivatives["funding_rate_current"], 4),
+        "funding_rate_avg_4h": _percent(derivatives["funding_rate_avg_4h"], 4),
+        "oi_current": derivatives["oi_current"],
+        "oi_change_4h": _percent(derivatives["oi_change_4h"], 2),
+        "funding_rate_threshold": _percent(FUNDING_RATE_THRESHOLD, 4),
+        "oi_change_4h_threshold": _percent(OI_CHANGE_THRESHOLD, 0),
     }
+    return "; ".join(f"{key}={value}" for key, value in facts.items())
+
+
+def _question(symbol: str) -> str:
+    return f"Classify this {symbol} price anomaly using market data and news available by onset."
 
 
 def compare_modes(mode_results: dict[str, dict[str, Any]]) -> dict[str, Any]:
@@ -96,16 +88,19 @@ def compare_modes(mode_results: dict[str, dict[str, Any]]) -> dict[str, Any]:
         else:
             key = "neither"
         overlap[key] += 1
+    total = len(onsets)
+    derivatives_explained = overlap["derivatives_only"] + overlap["both"]
+    news_explained = overlap["news_only"] + overlap["both"]
     return {
-        "derivatives_vs_rag_verdict_agreement": 1 - len(changes) / len(onsets),
+        "derivatives_vs_rag_verdict_agreement": 1 - len(changes) / total,
         "derivatives_vs_rag_verdict_changes": changes,
-        "evidence_overlap": overlap,
+        "context_overlap": overlap,
         "finding": (
-            "Adding pre-onset news changed no derivatives-based verdicts. "
-            "Derivatives-only and news-only each explained four of five episodes: three overlapped, "
-            "one was derivatives-only, and one was news-only. This LUNA sample does not establish "
-            "that derivatives outperform news; it shows complementary evidence and one early move "
-            "that derivatives explained before news did."
+            f"Pre-onset news changed {len(changes)} of {total} combined verdicts. "
+            f"Derivatives-only explained {derivatives_explained}; news-only explained {news_explained}; "
+            f"{overlap['both']} overlapped, {overlap['derivatives_only']} was derivatives-only, "
+            f"{overlap['news_only']} was news-only, and {overlap['neither']} was unexplained by either. "
+            "This LUNA sample shows evidence overlap; it does not establish general source superiority."
         ),
     }
 
@@ -114,124 +109,85 @@ def evaluate(
     symbol: str,
     start: str,
     end: str,
-    database_url: str,
     judge_model: str,
     api_url: str,
     api_key: str,
-    embedding_model: str = "qwen3-embedding",
     data_dir: Path | None = None,
 ) -> dict[str, Any]:
     from openai import AsyncOpenAI
-    from ragas.embeddings.base import embedding_factory
     from ragas.llms import llm_factory
-    from ragas.metrics.collections import AnswerRelevancy, Faithfulness
+    from ragas.metrics.collections import Faithfulness
 
     root = data_dir or data_root()
     client = AsyncOpenAI(api_key=api_key, base_url=api_url)
-    llm = llm_factory(judge_model, client=client)
-    embeddings = embedding_factory(
-        "openai",
-        model=embedding_model,
-        client=client,
-        interface="modern",
-    )
-    faithfulness = Faithfulness(llm)
-    relevancy = AnswerRelevancy(llm, embeddings, strictness=1)
-    connection = psycopg2.connect(database_url)
+    faithfulness = Faithfulness(llm_factory(judge_model, client=client, max_tokens=4096))
     results: dict[str, dict[str, Any]] = {}
-    try:
-        for mode in MODES:
-            summary = _load(root / "reports" / mode / f"{symbol}_{start}_{end}_summary.json")
-            episodes = []
-            for episode in summary["episodes"]:
-                onset_ts = episode["onset_ts"]
-                news_contexts, rag = _rag_context(symbol, onset_ts, root)
-                contexts = news_contexts if mode == "news_only" else [_derivatives_context(episode)]
-                if mode == "derivatives_rag":
-                    contexts += news_contexts
-                response = episode["classification"]["rationale"]
-                question = _question(mode, symbol)
-                faith = faithfulness.score(user_input=question, response=response, retrieved_contexts=contexts).value
-                relevant = relevancy.score(user_input=question, response=response).value
-                dates = [datetime.fromisoformat(article["date_pub"]) for article in rag["articles"]]
-                onset = datetime.fromtimestamp(onset_ts / 1000, tz=timezone.utc)
-                episodes.append(
-                    {
-                        "onset_ts": onset_ts,
-                        "verdict": episode["classification"]["verdict"],
-                        "confidence": episode["classification"]["confidence"],
-                        "rationale": response,
-                        "news_relevance": episode["classification"].get("news_relevance"),
-                        "derivatives": episode["derivatives"],
-                        "retrieved_news": (
-                            [
-                                {
-                                    key: article.get(key)
-                                    for key in ("date_pub", "title", "source", "link")
-                                }
-                                for article in rag["articles"]
-                            ]
-                            if mode != "derivatives_only"
-                            else []
-                        ),
-                        "faithfulness": faith,
-                        "answer_relevancy": relevant,
-                        "retrieved_articles": len(dates) if mode != "derivatives_only" else 0,
-                        "latest_news_age_at_onset_minutes": (
-                            round((onset - max(dates)).total_seconds() / 60, 1)
-                            if dates and mode != "derivatives_only"
-                            else None
-                        ),
-                        "first_matching_news_after_onset": _first_matching_news_after(connection, onset_ts),
-                    }
-                )
-            results[mode] = {
-                "mode": mode,
-                "episode_count": len(episodes),
-                "classification_breakdown": summary["classification_breakdown"],
-                "average_confidence": fmean(item["confidence"] for item in episodes),
-                "faithfulness": fmean(item["faithfulness"] for item in episodes),
-                "answer_relevancy": fmean(item["answer_relevancy"] for item in episodes),
-                "episodes": episodes,
-            }
-    finally:
-        connection.close()
+    for mode in MODES:
+        summary = _load(root / "reports" / mode / f"{symbol}_{start}_{end}_summary.json")
+        episodes = []
+        for episode in summary["episodes"]:
+            classification = episode["classification"]
+            faith = None
+            retrieved_news = []
+            if mode != "derivatives_only":
+                news_contexts, rag = _rag_context(symbol, episode["onset_ts"], root)
+                retrieved_news = [
+                    {key: article.get(key) for key in ("date_pub", "title", "source", "link")}
+                    for article in rag["articles"]
+                ]
+            if mode == "derivatives_rag":
+                faith = faithfulness.score(
+                    user_input=_question(symbol),
+                    response=classification["rationale"],
+                    retrieved_contexts=[_episode_context(episode), *news_contexts],
+                ).value
+            episodes.append(
+                {
+                    "onset_ts": episode["onset_ts"],
+                    "verdict": classification["verdict"],
+                    "synthesis": classification["synthesis"],
+                    "rationale": classification["rationale"],
+                    "faithfulness": faith,
+                    "retrieved_news": retrieved_news,
+                }
+            )
+        scores = [episode["faithfulness"] for episode in episodes if episode["faithfulness"] is not None]
+        results[mode] = {
+            "mode": mode,
+            "episode_count": len(episodes),
+            "classification_breakdown": summary["classification_breakdown"],
+            "faithfulness": fmean(scores) if scores else None,
+            "episodes": episodes,
+        }
 
-    comparison = {
+    return {
         "symbol": symbol,
         "window": {"start": start, "end": end},
         "evaluated_at": datetime.now(timezone.utc).isoformat(),
         "metrics": {
-            "faithfulness": "Ragas grounding of rationale in supplied evidence",
-            "answer_relevancy": "Ragas relevance of rationale to classification question",
-            "verdict_overlap": "Direct source-ablation outcome; primary hypothesis evidence",
+            "faithfulness": "Ragas share of combined-rationale claims supported by supplied context",
+            "verdict_comparison": "Controlled outcome when classifier context changes",
         },
         **results,
         "comparison": compare_modes(results),
         "limitations": [
-            "Five episodes from one historical event are not enough for a general claim.",
-            "Ragas evaluates generated rationale quality, not predictive superiority.",
-            "Post-onset news delay uses first ticker/text match, not a manually verified causal article.",
+            "Ragas Faithfulness evaluates rationale support, not whether the verdict is correct.",
+            "One anomaly comparison does not prove causality or source superiority.",
         ],
     }
-    return comparison
 
 
 def write_evaluation(
     symbol: str,
     start: str,
     end: str,
-    database_url: str,
     judge_model: str,
     api_url: str,
     api_key: str,
-    embedding_model: str = "qwen3-embedding",
     data_dir: Path | None = None,
 ) -> Path:
-    """Evaluate all modes, persist comparison artifacts, and return final summary path."""
-    comparison = evaluate(
-        symbol, start, end, database_url, judge_model, api_url, api_key, embedding_model, data_dir
-    )
+    """Evaluate combined rationales, persist comparison artifacts, and return final summary path."""
+    comparison = evaluate(symbol, start, end, judge_model, api_url, api_key, data_dir)
     results_dir = repo_root() / "results"
     reports_dir = repo_root() / "reports"
     results_dir.mkdir(exist_ok=True)
@@ -242,7 +198,7 @@ def write_evaluation(
         )
     (results_dir / "ablation_comparison.json").write_text(json.dumps(comparison, indent=2), encoding="utf-8")
     final = {
-        "milestone": "Historical LUNA anomaly evidence ablation",
+        "milestone": "Historical LUNA anomaly context comparison",
         "symbol": symbol,
         "window": comparison["window"],
         "episodes_total": comparison["derivatives_only"]["episode_count"],
@@ -251,11 +207,7 @@ def write_evaluation(
             mode: comparison[mode]["classification_breakdown"] for mode in MODES
         },
         "ragas": {
-            mode: {
-                "faithfulness": comparison[mode]["faithfulness"],
-                "answer_relevancy": comparison[mode]["answer_relevancy"],
-            }
-            for mode in MODES
+            "derivatives_rag": {"faithfulness": comparison["derivatives_rag"]["faithfulness"]}
         },
         "finding": comparison["comparison"]["finding"],
         "limitations": comparison["limitations"],
