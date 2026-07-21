@@ -179,6 +179,7 @@ def test_rag_exposes_relevance_order_and_score(page: Page):
     archive_links = page.locator("#news-list .archive-link")
     expect(archive_links).to_have_count(5)
     expect(archive_links.first).to_have_attribute("href", re.compile(r"^https://cryptopanic\.com/news/"))
+    expect(archive_links.first).to_have_css("font-size", "11px")
     expect(page.locator("#news-list")).not_to_contain_text("Historical")
     expect(page.locator("#news-list")).not_to_contain_text("vector #")
 
