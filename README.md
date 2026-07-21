@@ -4,6 +4,8 @@ Historical batch pipeline comparing how derivatives market structure—funding r
 
 **[Open the LUNA crash evidence workbench](https://zeng-zer.github.io/crypto-analyser/)**
 
+[![Crypto Anomaly Analyser showing LUNA Episode 04](docs/images/evidence-workbench.png)](https://zeng-zer.github.io/crypto-analyser/?onset=1652136300000)
+
 An **unexplained** price episode has neither unusual derivatives activity nor credible retrieved news. Such episodes would support the hypothesis that price can move before a public explanation appears; this LUNA case produced no episode unexplained by both isolated sources.
 
 ## Pipeline
