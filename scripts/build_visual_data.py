@@ -7,6 +7,7 @@ from bisect import bisect_right
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 import duckdb
 import pandas as pd
@@ -22,7 +23,7 @@ MODE_LABELS = {
 }
 
 
-def _load(path: Path) -> dict[str, Any]:
+def _load(path: Path) -> Any:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
@@ -68,8 +69,15 @@ def _latest_at_or_before(timestamps: list[int], onset: int) -> int | None:
     return timestamps[index] if index >= 0 else None
 
 
+def _web_url(value: Any) -> str | None:
+    parsed = urlparse(value) if isinstance(value, str) else None
+    return value if parsed and parsed.scheme in {"http", "https"} and parsed.netloc else None
+
+
 def build_snapshot(root: Path) -> dict[str, Any]:
     data = root / "data"
+    source_rows = _load(root / "visuals" / "luna_news_sources.json")
+    publisher_by_archive = {row["archive_url"]: row["publisher_url"] for row in source_rows}
     symbol, start, end = "LUNAUSDT", "2022-05-07", "2022-05-11"
     stem = f"{symbol}_{start}_{end}"
     anomalies = _load(data / "anomalies" / f"{stem}.json")
@@ -110,10 +118,14 @@ def build_snapshot(root: Path) -> dict[str, Any]:
         for article in rag["articles"]:
             published = datetime.fromisoformat(article["date_pub"])
             onset_time = datetime.fromtimestamp(onset / 1000, tz=timezone.utc)
+            archive_url = _web_url(article.get("link"))
+            publisher_url = _web_url(publisher_by_archive.get(archive_url))
             news.append(
                 {
                     "title": article["title"],
                     "description": article.get("description"),
+                    "url": publisher_url or archive_url,
+                    "archive_url": archive_url if publisher_url else None,
                     "published": article["date_pub"],
                     "age_minutes": round((onset_time - published).total_seconds() / 60),
                     "id": article["id"],
@@ -219,12 +231,22 @@ def validate_snapshot(snapshot: dict[str, Any]) -> None:
     assert all(article["age_minutes"] >= 0 for episode in episodes for article in episode["news"]), (
         "post-onset article leaked into RAG snapshot"
     )
+    assert all(
+        article[url_key] is None or _web_url(article[url_key])
+        for episode in episodes
+        for article in episode["news"]
+        for url_key in ("url", "archive_url")
+    ), "unsafe news URL leaked into snapshot"
+
+
+def _script_json(value: Any) -> str:
+    return json.dumps(value, ensure_ascii=False, separators=(",", ":")).replace("<", "\\u003c")
 
 
 def main() -> None:
     root = Path(__file__).resolve().parents[1]
     snapshot = build_snapshot(root)
-    serialized = json.dumps(snapshot, ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/")
+    serialized = _script_json(snapshot)
     template = root / "visuals" / "template.html"
     output = root / "visuals" / "index.html"
     output.write_text(template.read_text(encoding="utf-8").replace("__ATLAS_DATA__", serialized), encoding="utf-8")

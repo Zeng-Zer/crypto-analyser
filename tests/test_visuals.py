@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import http.server
+import json
+import re
 import threading
 from functools import partial
 from pathlib import Path
@@ -8,7 +10,23 @@ from pathlib import Path
 import pytest
 from playwright.sync_api import Browser, Page, expect, sync_playwright
 
+from scripts.build_visual_data import _script_json, _web_url
+
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def test_news_url_filter_accepts_only_http_sources():
+    assert _web_url("https://example.com/news") == "https://example.com/news"
+    assert _web_url("javascript:alert(1)") is None
+    assert _web_url(None) is None
+
+
+def test_embedded_json_cannot_close_script_element():
+    value = {"title": "</SCRIPT><script>alert(1)</script>"}
+    serialized = _script_json(value)
+
+    assert "<" not in serialized
+    assert json.loads(serialized) == value
 
 
 class _QuietHandler(http.server.SimpleHTTPRequestHandler):
@@ -146,13 +164,21 @@ def test_rag_exposes_relevance_order_and_score(page: Page):
     expect(summary.locator("small")).to_have_css("font-size", "12px")
     articles = page.locator("#news-list .news-item")
     expect(articles).to_have_count(5)
-    expect(articles.first.locator(".news-meta")).to_have_text(
+    expect(articles.first.locator(".news-meta")).to_contain_text(
         "Relevance 1 of 5 · RRF 0.0325 · 6 h before onset"
     )
-    expect(articles.nth(3).locator(".news-meta")).to_have_text(
+    expect(articles.nth(3).locator(".news-meta")).to_contain_text(
         "Relevance 4 of 5 · RRF 0.0317 · 1.7 h before onset"
     )
     expect(page.locator("#news-list")).to_contain_text("TerraUSD Stablecoin Plunges Below $0.95")
+    source_links = page.locator("#news-list .news-title a")
+    expect(source_links).to_have_count(5)
+    expect(source_links.first).to_have_attribute("href", re.compile(r"^https://(?!cryptopanic\.com/)"))
+    expect(source_links.first).to_have_attribute("target", "_blank")
+    expect(source_links.first).to_have_attribute("rel", "noopener noreferrer")
+    archive_links = page.locator("#news-list .archive-link")
+    expect(archive_links).to_have_count(5)
+    expect(archive_links.first).to_have_attribute("href", re.compile(r"^https://cryptopanic\.com/news/"))
     expect(page.locator("#news-list")).not_to_contain_text("Historical")
     expect(page.locator("#news-list")).not_to_contain_text("vector #")
 

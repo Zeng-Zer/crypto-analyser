@@ -20,7 +20,7 @@ _INDEX_DIMENSIONS = 2000
 _MAX_RESULTS = 100
 
 _SEMANTIC_SEARCH_SQL = """
-SELECT id, title, description, date_pub, source, tickers,
+SELECT id, title, description, link, date_pub, source, tickers,
        subvector(text_embedding, 1, 2000)::VECTOR(2000)
            <=> %s::VECTOR(2000) AS distance
 FROM crypto_news
@@ -77,6 +77,7 @@ ranked AS (
 SELECT crypto_news.id,
        crypto_news.title,
        crypto_news.description,
+       crypto_news.link,
        crypto_news.date_pub,
        crypto_news.source,
        crypto_news.tickers,
