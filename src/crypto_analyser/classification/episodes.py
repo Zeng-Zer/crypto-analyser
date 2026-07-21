@@ -109,8 +109,6 @@ def _validate_supporting_refs(
     features: dict[str, Any] | None,
     meta: dict[str, Any],
     data_dir: Path,
-    funding_rate_threshold: float,
-    oi_change_threshold: float,
 ) -> None:
     refs = set(result.synthesis.supporting_refs)
     derivative_refs = {"funding_rate_current", "oi_change_4h"}
@@ -124,6 +122,21 @@ def _validate_supporting_refs(
     if invalid := refs - allowed:
         raise ValueError(f"synthesis contains unavailable supporting refs: {sorted(invalid)}")
 
+    breached = set()
+    if mode != "news_only":
+        if not features or any(features.get(ref) is None for ref in derivative_refs):
+            if result.classification != "insufficient_data":
+                raise ValueError("missing derivatives require insufficient_data")
+        else:
+            if abs(features["funding_rate_current"]) >= FUNDING_RATE_THRESHOLD:
+                breached.add("funding_rate_current")
+            if abs(features["oi_change_4h"]) >= OI_CHANGE_THRESHOLD:
+                breached.add("oi_change_4h")
+            if breached and result.classification != "explained_derivatives":
+                raise ValueError("breached derivatives require explained_derivatives")
+            if result.classification == "insufficient_data":
+                raise ValueError("insufficient_data requires missing derivatives")
+
     if mode == "derivatives_only" and result.classification == "explained_news":
         raise ValueError("derivatives_only cannot return explained_news")
     if mode == "news_only" and result.classification == "explained_derivatives":
@@ -134,11 +147,6 @@ def _validate_supporting_refs(
         if refs & derivative_refs or not refs & news_refs:
             raise ValueError("explained_news requires news refs and no derivative refs")
     if result.classification == "explained_derivatives":
-        breached = set()
-        if features and abs(features["funding_rate_current"]) >= funding_rate_threshold:
-            breached.add("funding_rate_current")
-        if features and abs(features["oi_change_4h"]) >= oi_change_threshold:
-            breached.add("oi_change_4h")
         if refs & (derivative_refs - breached):
             raise ValueError("normal derivative metrics cannot support explained_derivatives")
         if not refs & breached:
@@ -152,8 +160,6 @@ def _build_prompts(
     meta: dict,
     mode: str,
     *,
-    funding_rate_threshold: float = FUNDING_RATE_THRESHOLD,
-    oi_change_threshold: float = OI_CHANGE_THRESHOLD,
     rag_dir: Path | None = None,
 ) -> tuple[str, str, str]:
     event_reference = f"{meta['symbol']}_{episode['onset_ts']}"
@@ -165,8 +171,8 @@ def _build_prompts(
     system = _render(
         template.system,
         {
-            "funding_rate_mag_threshold_pct": _percent(funding_rate_threshold, 4),
-            "oi_change_4h_threshold_pct": _compact_percent(oi_change_threshold),
+            "funding_rate_mag_threshold_pct": _percent(FUNDING_RATE_THRESHOLD, 4),
+            "oi_change_4h_threshold_pct": _compact_percent(OI_CHANGE_THRESHOLD),
         },
     )
     if mode == "derivatives_rag":
@@ -217,8 +223,6 @@ def classify_episodes(
     mode: str,
     *,
     data_dir: Path | None = None,
-    funding_rate_threshold: float = FUNDING_RATE_THRESHOLD,
-    oi_change_threshold: float = OI_CHANGE_THRESHOLD,
 ) -> list[Path]:
     root = data_dir or data_root()
     paths = []
@@ -229,8 +233,6 @@ def classify_episodes(
             _episode_features(context, episode["onset_ts"]),
             meta,
             mode,
-            funding_rate_threshold=funding_rate_threshold,
-            oi_change_threshold=oi_change_threshold,
             rag_dir=root / "rag",
         )
         try:
@@ -242,8 +244,6 @@ def classify_episodes(
                 _episode_features(context, episode["onset_ts"]),
                 meta,
                 root,
-                funding_rate_threshold,
-                oi_change_threshold,
             )
         except (KeyError, ValueError, TypeError, json.JSONDecodeError) as exc:
             raise ClassificationValidationError(
@@ -263,8 +263,6 @@ def classify_batch(
     context_path: Path | None = None,
     client: LLMClient | None = None,
     model: str = LLM_MODEL,
-    funding_rate_threshold: float = FUNDING_RATE_THRESHOLD,
-    oi_change_threshold: float = OI_CHANGE_THRESHOLD,
 ) -> list[Path]:
     root = data_dir or data_root()
     anomalies = json.loads(anomalies_path.read_text(encoding="utf-8"))
@@ -281,6 +279,4 @@ def classify_batch(
         PromptTemplate.load(),
         mode,
         data_dir=root,
-        funding_rate_threshold=funding_rate_threshold,
-        oi_change_threshold=oi_change_threshold,
     )

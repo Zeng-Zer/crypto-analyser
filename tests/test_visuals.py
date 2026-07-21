@@ -55,7 +55,7 @@ def page(browser: Browser, workbench_url: str):
 
 def test_analysis_starts_with_rag_changed_episode(page: Page):
     expect(page.get_by_text("Replay", exact=True)).to_be_visible()
-    expect(page.get_by_role("button", name="Live unavailable")).to_be_disabled()
+    expect(page.locator("header button")).to_have_count(0)
     expect(page.locator("#episode-position")).to_have_text("4 of 8")
     expect(page.locator("#trigger-badge")).to_have_text("Price Z -3.52")
     expect(page.locator("#verdict")).to_have_text("Explained by news")

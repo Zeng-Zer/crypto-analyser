@@ -29,10 +29,7 @@
     .shell { min-height:58px; display:flex; align-items:stretch; border-bottom:1px solid var(--color-ink); background:var(--color-surface); }
     .brand { width:230px; display:flex; align-items:center; gap:10px; padding:0 18px; border-right:1px solid var(--color-rule); font:600 12px/1 var(--font-data); letter-spacing:.08em; text-transform:uppercase; }
     .brand-mark { width:10px; height:10px; background:var(--color-anomaly); transform:rotate(45deg); }
-    .runtime { display:flex; align-items:center; padding:8px 12px; border-right:1px solid var(--color-rule); }
-    .runtime span, .runtime button { min-height:34px; border:1px solid var(--color-rule); background:transparent; padding:0 11px; font:500 12px/1 var(--font-data); letter-spacing:.07em; text-transform:uppercase; }
-    .runtime span { display:flex; align-items:center; border-color:var(--color-ink); background:var(--color-ink); color:var(--color-on-dark); }
-    .runtime button { border-left:0; }
+    .runtime { display:flex; align-items:center; margin:8px 12px; border:1px solid var(--color-ink); background:var(--color-ink); padding:0 11px; color:var(--color-on-dark); font:500 12px/1 var(--font-data); letter-spacing:.07em; text-transform:uppercase; }
     .shell-meta { display:flex; align-items:center; gap:24px; padding:0 18px; }
     .shell-meta strong { margin-left:6px; font:500 12px/1 var(--font-data); }
     main { max-width:1480px; margin:0 auto; padding:22px 18px 24px; }
@@ -135,7 +132,6 @@
     @media (max-width:620px) {
       .shell { flex-wrap:wrap; }
       .brand { width:auto; flex:1; border-right:0; }
-      .runtime { border-right:0; }
       main { padding:16px 12px 18px; }
       .episode-nav { align-items:start; flex-direction:column; }
       .episode-nav h1 { font-size:36px; }
@@ -154,7 +150,7 @@
 <a class="skip" href="#story">Skip to episode story</a>
 <header class="shell">
   <div class="brand"><i class="brand-mark" aria-hidden="true"></i>LUNA Context Atlas</div>
-  <div class="runtime" aria-label="Runtime mode"><span>Replay</span><button type="button" disabled title="Live runtime is not connected">Live unavailable</button></div>
+  <div class="runtime" aria-label="Runtime mode">Replay</div>
   <div class="shell-meta"><span><span class="label">Symbol</span><strong>LUNAUSDT</strong></span><span><span class="label">Sample</span><strong>May 7–11, 2022</strong></span></div>
 </header>
 <main id="story" tabindex="-1">
