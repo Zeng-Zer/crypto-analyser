@@ -14,6 +14,7 @@ jobs:
         with:
           enable-cache: true
       - run: uv sync --locked
+      - run: uv run playwright install --with-deps chromium
       - run: uv run ruff check src tests
       - run: uv run python -m compileall -q src tests
       - run: uv build

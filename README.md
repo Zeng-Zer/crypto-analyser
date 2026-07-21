@@ -13,11 +13,11 @@ Binance historical data
   → structured LLM classification
   → mode-isolated JSON reports
 
-Ablation:
+Controlled context comparison:
   Run A: derivatives only
   Run B: derivatives + pre-onset historical news
   Run C: pre-onset historical news only
-  Compare verdict overlap, news timing, faithfulness, and answer relevancy
+  Compare verdicts; check Run B rationale with Ragas Faithfulness
 ```
 
 ## Current storage
@@ -57,7 +57,7 @@ uv run crypto-analyser news embed \
   --query 'LUNA OR UST OR Terra'
 uv run crypto-analyser news search --query 'Terra UST depeg'
 
-# Run all three evidence modes, then evaluate
+# Run all three context modes, then evaluate
 uv run crypto-analyser run --symbol LUNAUSDT --start 2022-05-07 --end 2022-05-11 --mode derivatives_only
 uv run crypto-analyser run --symbol LUNAUSDT --start 2022-05-07 --end 2022-05-11 --mode derivatives_rag --skip-download
 uv run crypto-analyser run --symbol LUNAUSDT --start 2022-05-07 --end 2022-05-11 --mode news_only --skip-download
@@ -66,6 +66,21 @@ uv run crypto-analyser evaluate
 ```
 
 Required environment variables: `DATABASE_URL`, `LLM_API_URL`, and `LLM_API_KEY`. `NEWS_ARCHIVE_DIR` can replace `--archive-dir`.
+
+### Interactive analyst workbench
+
+```bash
+uv run python -m http.server 8000 --directory visuals
+```
+
+Open `http://localhost:8000`. The page guides reviewers through one episode at a time: focused anomaly chart, onset-safe context, hybrid RAG results, combined LLM output, then a compact explanation check. Episode 04 leads because pre-onset news changes its otherwise unexplained verdict; Previous/Next browses all eight episodes. The explanation check shows whether market activity and news can explain the move alone, then names combined primary outcome; Ragas Faithfulness checks combined rationale only. Page embeds committed historical snapshot, so it can be hosted on GitHub Pages without a backend. After generating new local pipeline artifacts, refresh them with `uv run python scripts/build_visual_data.py`.
+
+Run browser tests after installing Chromium once:
+
+```bash
+uv run playwright install chromium
+uv run pytest -q tests/test_visuals.py
+```
 
 ## Layout
 
@@ -100,4 +115,4 @@ Milestone 1 validates the LUNAUSDT crash window from May 7–11, 2022 using Bina
 
 ## Status
 
-Milestone 1 LUNA run is complete. Five episodes produced 15 classifications across three modes. Derivatives-only and news-only each explained four episodes; three overlapped, one was derivatives-only, and one was news-only. This single event shows complementary evidence, not general derivatives superiority. See `reports/FINAL_PHASE1_SUMMARY.json`.
+Milestone 1 LUNA run is complete. Eight episodes produced 24 classifications across three modes. Derivatives-only and news-only each explained seven episodes; six overlapped, one was derivatives-only, and one was news-only. This single event shows evidence overlap, not general source superiority. See `reports/FINAL_PHASE1_SUMMARY.json`.
