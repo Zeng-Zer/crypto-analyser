@@ -32,6 +32,9 @@
     .runtime { display:flex; align-items:center; margin:8px 12px; border:1px solid var(--color-ink); background:var(--color-ink); padding:0 11px; color:var(--color-on-dark); font:500 12px/1 var(--font-data); letter-spacing:.07em; text-transform:uppercase; }
     .shell-meta { display:flex; align-items:center; gap:24px; padding:0 18px; }
     .shell-meta strong { margin-left:6px; font:500 12px/1 var(--font-data); }
+    .github-link { margin-left:auto; display:flex; align-items:center; gap:8px; border-left:1px solid var(--color-rule); padding:0 18px; color:var(--color-ink); font:600 12px/1 var(--font-data); letter-spacing:.05em; text-decoration:none; }
+    .github-link svg { width:17px; height:17px; fill:currentColor; }
+    .github-link:hover .github-label { text-decoration:underline; text-underline-offset:3px; }
     main { max-width:1480px; margin:0 auto; padding:22px 18px 24px; }
     .episode-nav { display:flex; justify-content:space-between; align-items:end; gap:24px; margin-bottom:15px; }
     .episode-nav h1 { margin:4px 0 0; font:500 36px/1 var(--font-display); letter-spacing:-.02em; }
@@ -140,6 +143,8 @@
     @media (max-width:620px) {
       .shell { flex-wrap:wrap; }
       .brand { width:auto; flex:1; border-right:0; }
+      .github-link { padding:0 14px; }
+      .github-label { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; }
       main { padding:16px 12px 18px; }
       .episode-nav { align-items:start; flex-direction:column; }
       .episode-nav h1 { font-size:36px; }
@@ -160,6 +165,7 @@
   <div class="brand"><i class="brand-mark" aria-hidden="true"></i>Crypto Anomaly Analyser</div>
   <div class="runtime" aria-label="Runtime mode">Replay</div>
   <div class="shell-meta"><span><span class="label">Symbol</span><strong>LUNAUSDT</strong></span><span><span class="label">Sample</span><strong>May 7–11, 2022</strong></span></div>
+  <a class="github-link" href="https://github.com/Zeng-Zer/crypto-analyser" target="_blank" rel="noopener noreferrer" aria-label="View source on GitHub"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.64 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.5-2.69-.96-.09-.23-.48-.96-.82-1.15-.28-.15-.68-.52-.01-.53.63-.01 1.08.59 1.23.83.72 1.23 1.87.88 2.33.67.07-.53.28-.88.51-1.08-1.78-.2-3.64-.9-3.64-4.01 0-.89.31-1.62.82-2.19-.08-.2-.36-1.04.08-2.16 0 0 .67-.22 2.2.84A7.5 7.5 0 0 1 8 3.88a7.5 7.5 0 0 1 2 .27c1.53-1.06 2.2-.84 2.2-.84.44 1.12.16 1.96.08 2.16.51.57.82 1.3.82 2.19 0 3.12-1.87 3.81-3.65 4.01.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.36-3.58-8-8-8Z"/></svg><span class="github-label">GitHub</span></a>
 </header>
 <main id="story" tabindex="-1">
   <section class="episode-nav" aria-label="Episode navigation">

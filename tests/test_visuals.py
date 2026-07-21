@@ -88,6 +88,11 @@ def test_rag_changed_episode_can_be_opened_directly(page: Page):
     expect(page.locator("#episode-position")).to_have_text("4 of 8")
     expect(page.locator("#trigger-badge")).to_have_text("Price Z -3.52")
     expect(page.locator("#verdict")).to_have_text("Explained by news")
+    github = page.get_by_role("link", name="View source on GitHub")
+    expect(github).to_be_visible()
+    expect(github).to_have_attribute("href", "https://github.com/Zeng-Zer/crypto-analyser")
+    expect(github).to_have_attribute("rel", "noopener noreferrer")
+    expect(github.locator("svg")).to_have_count(1)
 
 
 def test_guided_story_replaces_operator_dashboard(page: Page):
@@ -315,6 +320,7 @@ def test_layout_has_no_horizontal_overflow(
     page = browser.new_page(viewport=viewport)
     try:
         page.goto(f"{workbench_url}/{path}")
+        expect(page.get_by_role("link", name="View source on GitHub")).to_be_visible()
         assert page.evaluate("document.documentElement.scrollWidth <= document.documentElement.clientWidth")
     finally:
         page.close()
