@@ -8,7 +8,7 @@ Historical crypto anomaly detection system that processes past market data to va
 
 The core insight: **unexplained price moves** (where derivatives data show nothing unusual) often precede news by 30min-24h. This system validates that hypothesis on real historical events.
 
-**Validation approach:** Three-way ablation comparing derivatives-only, derivatives+pre-onset RAG, and news-only. Direct verdict overlap and news timing test the hypothesis; Ragas measures rationale faithfulness and answer relevancy. LUNA is one case study, not general proof.
+**Validation approach:** Three-way controlled comparison of derivatives-only, derivatives+pre-onset RAG, and news-only. Direct verdict changes test context contribution; Ragas Faithfulness checks whether combined-output rationale claims follow from supplied context. LUNA is one case study, not general proof.
 
 ## Core Value
 
@@ -29,7 +29,7 @@ Ablation Study:
 ├── Run A: Derivatives-only classification
 ├── Run B: Derivatives + pre-onset RAG context
 ├── Run C: Pre-onset news only
-└── Compare verdict overlap, news timing, faithfulness, answer relevancy
+└── Compare verdicts; check combined rationale faithfulness
 ```
 
 **Deliverables:**
@@ -46,7 +46,7 @@ Ablation Study:
 1. Data engineering (batch processing, API orchestration, historical data pipelines)
 2. LLM engineering (prompt design, structured output, evaluation)
 3. RAG engineering (pgvector, hybrid search, embedding, retrieval)
-4. LLM evaluation (Ragas faithfulness and answer relevancy)
+4. LLM evaluation (Ragas Faithfulness on product output)
 5. Statistical analysis (Z-scores, feature engineering)
 6. Scientific methodology (ablation study, hypothesis testing)
 
@@ -89,15 +89,15 @@ Add streaming capabilities after Milestone 1 validates the approach.
 ### Active
 
 - [x] Historical OHLCV data downloaded for target symbols (Binance Data Vision)
-- [x] Z-score computation detects 5 episodes in LUNA May 7-11
+- [x] Combined price-Z, 4h drawdown, and 2h return detection finds 8 episodes in LUNA May 7-11
 - [x] Feature extraction pulls funding rate and open interest at episode onset
 - [x] RAG pipeline loads local archive into pgvector and retrieves pre-onset news
 - [x] LLM classifier produces structured verdicts, confidence, and rationale
 - [x] Ablation run A: derivatives-only classification complete
 - [x] Ablation run B: derivatives+RAG classification complete
 - [x] Ablation run C: news-only classification complete
-- [x] Ragas evaluation produces faithfulness and answer relevancy metrics
-- [x] Comparison JSON records direct and Ragas metrics
+- [x] Ragas evaluation checks combined-output rationale Faithfulness
+- [x] Comparison JSON records controlled verdicts and per-anomaly Faithfulness
 - [x] Final JSON summary records findings and limitations
 
 ### Out of Scope
@@ -126,7 +126,7 @@ Add streaming capabilities after Milestone 1 validates the approach.
 - Run B: derivatives + news published by episode onset
 - Run C: news-only classification
 - Direct verdict overlap and publication timing test source utility; Ragas measures generated-rationale quality
-- LUNA result: each isolated source explained 4/5 episodes, with one derivatives-only early move and one news-only move
+- LUNA result: each isolated source explained 7/8 episodes; six overlapped, one was derivatives-only, and one was news-only
 
 **Why historical first:** Real-time infrastructure (Kafka, WebSocket) adds complexity before proving value. Historical data is real data. Validate the hypothesis on known events. If it works, real-time is just "run the same pipeline live."
 

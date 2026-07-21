@@ -2,6 +2,7 @@
 .idea
 *.log
 tmp/
+.pi-subagents/
 
 *.py[cod]
 __pycache__/
@@ -12,6 +13,7 @@ dist
 htmlcov
 .venv/
 .env
+graphify-out/
 
 *.csv
 *.zip

@@ -25,7 +25,7 @@ class ClassificationValidationError(RuntimeError):
 
 @dataclass(frozen=True, slots=True)
 class PromptTemplate:
-    """System and user templates for all three evidence modes."""
+    """System and user templates for all three context modes."""
 
     system: str
     user_run_a: str
@@ -51,6 +51,14 @@ def _episode_features(context: dict, onset_ts: int) -> dict | None:
     return next((feature for feature in context["features"] if feature["onset_ts"] == onset_ts), None)
 
 
+def _percent(value: float | None, places: int) -> str | None:
+    return None if value is None else f"{value * 100:.{places}f}%"
+
+
+def _compact_percent(value: float) -> str:
+    return f"{value * 100:g}%"
+
+
 def _episode_vars(episode: dict, features: dict | None, meta: dict, event_reference: str) -> dict[str, Any]:
     return {
         "symbol": meta["symbol"],
@@ -58,25 +66,91 @@ def _episode_vars(episode: dict, features: dict | None, meta: dict, event_refere
         "end": meta["end"],
         "onset_ts": episode["onset_ts"],
         "severity": episode["severity"],
-        "peak_z_abs": abs(episode["peak_z"]),
+        "peak_z_abs": abs(episode["peak_z"]) if episode["peak_z"] is not None else None,
+        "drawdown_onset_4h": episode.get("drawdown_onset_4h"),
+        "return_onset_2h": episode.get("return_onset_2h"),
+        "triggers": ", ".join(episode.get("onset_triggers", episode.get("triggers", ["price_zscore"]))),
         "event_reference": event_reference,
-        "funding_rate_current": features.get("funding_rate_current") if features else None,
-        "funding_rate_avg_4h": features.get("funding_rate_avg_4h") if features else None,
+        "funding_rate_current_pct": _percent(features.get("funding_rate_current"), 4) if features else None,
+        "funding_rate_avg_4h_pct": _percent(features.get("funding_rate_avg_4h"), 4) if features else None,
         "oi_current": features.get("oi_current") if features else None,
-        "oi_change_4h": features.get("oi_change_4h") if features else None,
+        "oi_change_4h_pct": _percent(features.get("oi_change_4h"), 2) if features else None,
     }
 
 
-def _rag_block(symbol: str, onset_ts: int, rag_dir: Path | None = None) -> dict[str, str]:
+def _rag_data(symbol: str, onset_ts: int, rag_dir: Path | None = None) -> dict[str, Any]:
     rag_path = (rag_dir or data_root() / "rag") / f"{symbol}_{onset_ts}_rag.json"
     if not rag_path.exists():
         raise FileNotFoundError(f"RAG context not found: {rag_path}; run retrieval before derivatives_rag")
-    rag = json.loads(rag_path.read_text(encoding="utf-8"))
+    return json.loads(rag_path.read_text(encoding="utf-8"))
+
+
+def _rag_block(symbol: str, onset_ts: int, rag_dir: Path | None = None) -> dict[str, str]:
+    rag = _rag_data(symbol, onset_ts, rag_dir)
+    block = "\n\n".join(
+        (
+            f"[source_ref: news_{article['id']}]\n"
+            f"[{article['date_pub']}] {article['title']}\n"
+            f"{article.get('description') or ''}"
+        )
+        for article in rag["articles"]
+    )
     return {
-        "rag_context_block": rag["block"],
+        "rag_context_block": block,
         "k": str(rag.get("k", _RAG_K_DEFAULT)),
         "window": rag.get("window", _RAG_WINDOW_DEFAULT),
     }
+
+
+def _validate_supporting_refs(
+    result: ClassificationResult,
+    mode: str,
+    episode: dict[str, Any],
+    features: dict[str, Any] | None,
+    meta: dict[str, Any],
+    data_dir: Path,
+) -> None:
+    refs = set(result.synthesis.supporting_refs)
+    derivative_refs = {"funding_rate_current", "oi_change_4h"}
+    news_articles = (
+        _rag_data(meta["symbol"], episode["onset_ts"], data_dir / "rag")["articles"]
+        if mode != "derivatives_only"
+        else []
+    )
+    news_refs = {f"news_{article['id']}" for article in news_articles}
+    allowed = (derivative_refs if mode != "news_only" else set()) | news_refs
+    if invalid := refs - allowed:
+        raise ValueError(f"synthesis contains unavailable supporting refs: {sorted(invalid)}")
+
+    breached = set()
+    if mode != "news_only":
+        if not features or any(features.get(ref) is None for ref in derivative_refs):
+            if result.classification != "insufficient_data":
+                raise ValueError("missing derivatives require insufficient_data")
+        else:
+            if abs(features["funding_rate_current"]) >= FUNDING_RATE_THRESHOLD:
+                breached.add("funding_rate_current")
+            if abs(features["oi_change_4h"]) >= OI_CHANGE_THRESHOLD:
+                breached.add("oi_change_4h")
+            if breached and result.classification != "explained_derivatives":
+                raise ValueError("breached derivatives require explained_derivatives")
+            if result.classification == "insufficient_data":
+                raise ValueError("insufficient_data requires missing derivatives")
+
+    if mode == "derivatives_only" and result.classification == "explained_news":
+        raise ValueError("derivatives_only cannot return explained_news")
+    if mode == "news_only" and result.classification == "explained_derivatives":
+        raise ValueError("news_only cannot return explained_derivatives")
+    if result.classification in {"unexplained", "insufficient_data"} and refs:
+        raise ValueError(f"{result.classification} must not contain supporting refs")
+    if result.classification == "explained_news":
+        if refs & derivative_refs or not refs & news_refs:
+            raise ValueError("explained_news requires news refs and no derivative refs")
+    if result.classification == "explained_derivatives":
+        if refs & (derivative_refs - breached):
+            raise ValueError("normal derivative metrics cannot support explained_derivatives")
+        if not refs & breached:
+            raise ValueError("explained_derivatives requires a breached derivative ref")
 
 
 def _build_prompts(
@@ -86,8 +160,6 @@ def _build_prompts(
     meta: dict,
     mode: str,
     *,
-    funding_rate_threshold: float = FUNDING_RATE_THRESHOLD,
-    oi_change_threshold: float = OI_CHANGE_THRESHOLD,
     rag_dir: Path | None = None,
 ) -> tuple[str, str, str]:
     event_reference = f"{meta['symbol']}_{episode['onset_ts']}"
@@ -99,8 +171,8 @@ def _build_prompts(
     system = _render(
         template.system,
         {
-            "funding_rate_mag_threshold": funding_rate_threshold,
-            "oi_change_4h_threshold": oi_change_threshold,
+            "funding_rate_mag_threshold_pct": _percent(FUNDING_RATE_THRESHOLD, 4),
+            "oi_change_4h_threshold_pct": _compact_percent(OI_CHANGE_THRESHOLD),
         },
     )
     if mode == "derivatives_rag":
@@ -127,8 +199,11 @@ def _write_classification(
                 "classification": result.classification,
                 "severity": episode["severity"],
                 "confidence": result.confidence,
+                "synthesis": {
+                    "reasons": list(result.synthesis.reasons),
+                    "supporting_refs": list(result.synthesis.supporting_refs),
+                },
                 "rationale": result.rationale,
-                "news_relevance": result.news_relevance,
                 "mode": mode,
                 "onset_ts": episode["onset_ts"],
             },
@@ -148,8 +223,6 @@ def classify_episodes(
     mode: str,
     *,
     data_dir: Path | None = None,
-    funding_rate_threshold: float = FUNDING_RATE_THRESHOLD,
-    oi_change_threshold: float = OI_CHANGE_THRESHOLD,
 ) -> list[Path]:
     root = data_dir or data_root()
     paths = []
@@ -160,12 +233,18 @@ def classify_episodes(
             _episode_features(context, episode["onset_ts"]),
             meta,
             mode,
-            funding_rate_threshold=funding_rate_threshold,
-            oi_change_threshold=oi_change_threshold,
             rag_dir=root / "rag",
         )
         try:
             result = client.classify(user_prompt, event_reference, system_prompt)
+            _validate_supporting_refs(
+                result,
+                mode,
+                episode,
+                _episode_features(context, episode["onset_ts"]),
+                meta,
+                root,
+            )
         except (KeyError, ValueError, TypeError, json.JSONDecodeError) as exc:
             raise ClassificationValidationError(
                 f"LLM response failed schema validation for {event_reference}: {exc}"
@@ -184,8 +263,6 @@ def classify_batch(
     context_path: Path | None = None,
     client: LLMClient | None = None,
     model: str = LLM_MODEL,
-    funding_rate_threshold: float = FUNDING_RATE_THRESHOLD,
-    oi_change_threshold: float = OI_CHANGE_THRESHOLD,
 ) -> list[Path]:
     root = data_dir or data_root()
     anomalies = json.loads(anomalies_path.read_text(encoding="utf-8"))
@@ -202,6 +279,4 @@ def classify_batch(
         PromptTemplate.load(),
         mode,
         data_dir=root,
-        funding_rate_threshold=funding_rate_threshold,
-        oi_change_threshold=oi_change_threshold,
     )

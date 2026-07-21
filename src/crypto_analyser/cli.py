@@ -14,10 +14,13 @@ from dotenv import load_dotenv
 
 from crypto_analyser._paths import repo_root
 from crypto_analyser.constants import (
-    FUNDING_RATE_THRESHOLD,
+    DRAWDOWN_HOURS,
+    DRAWDOWN_THRESHOLD,
     LLM_MODEL,
+    MAX_GAP,
     MIN_CONSECUTIVE,
-    OI_CHANGE_THRESHOLD,
+    RETURN_HOURS,
+    RETURN_THRESHOLD,
     WINDOW_HOURS,
     ZSCORE_THRESHOLD,
 )
@@ -46,9 +49,12 @@ def _run(args: argparse.Namespace) -> None:
         force_download=args.force_download,
         window_hours=args.window_hours,
         threshold=args.threshold,
+        drawdown_hours=args.drawdown_hours,
+        drawdown_threshold=args.drawdown_threshold,
+        return_hours=args.return_hours,
+        return_threshold=args.return_threshold,
+        max_gap=args.max_gap,
         min_consecutive=args.min_consecutive,
-        funding_rate_threshold=args.funding_rate_threshold,
-        oi_change_threshold=args.oi_change_threshold,
         llm_model=args.model,
     )
     print(path)
@@ -109,11 +115,9 @@ def _evaluate(args: argparse.Namespace) -> None:
             args.symbol,
             args.start,
             args.end,
-            _env("DATABASE_URL"),
             args.judge_model,
             _env("LLM_API_URL"),
             _env("LLM_API_KEY"),
-            args.embedding_model,
             args.data_dir,
         )
     except ImportError as exc:
@@ -135,9 +139,12 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--data-dir", type=Path, default=Path("data"))
     run.add_argument("--window-hours", type=float, default=WINDOW_HOURS)
     run.add_argument("--threshold", type=float, default=ZSCORE_THRESHOLD)
+    run.add_argument("--drawdown-hours", type=float, default=DRAWDOWN_HOURS)
+    run.add_argument("--drawdown-threshold", type=float, default=DRAWDOWN_THRESHOLD)
+    run.add_argument("--return-hours", type=float, default=RETURN_HOURS)
+    run.add_argument("--return-threshold", type=float, default=RETURN_THRESHOLD)
+    run.add_argument("--max-gap", type=int, default=MAX_GAP)
     run.add_argument("--min-consecutive", type=int, default=MIN_CONSECUTIVE)
-    run.add_argument("--funding-rate-threshold", type=float, default=FUNDING_RATE_THRESHOLD)
-    run.add_argument("--oi-change-threshold", type=float, default=OI_CHANGE_THRESHOLD)
     run.add_argument("--model", default=os.getenv("LLM_MODEL", LLM_MODEL))
     run.add_argument("--skip-download", action="store_true")
     run.add_argument("--force-download", action="store_true")
@@ -168,12 +175,11 @@ def build_parser() -> argparse.ArgumentParser:
     search.add_argument("--model", default=os.getenv("EMBEDDING_MODEL", DEFAULT_MODEL))
     search.set_defaults(handler=_search_news)
 
-    evaluate = commands.add_parser("evaluate", help="Evaluate completed evidence modes")
+    evaluate = commands.add_parser("evaluate", help="Compare completed context modes")
     evaluate.add_argument("--symbol", default="LUNAUSDT")
     evaluate.add_argument("--start", default="2022-05-07")
     evaluate.add_argument("--end", default="2022-05-11")
     evaluate.add_argument("--judge-model", default=os.getenv("RAGAS_JUDGE_MODEL", "glm-5.2-short"))
-    evaluate.add_argument("--embedding-model", default=os.getenv("EMBEDDING_MODEL", DEFAULT_MODEL))
     evaluate.add_argument("--data-dir", type=Path, default=Path("data"))
     evaluate.set_defaults(handler=_evaluate)
     return parser

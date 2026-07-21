@@ -1,17 +1,17 @@
-# Severity is derived from peak |Z|, not LLM-emitted
+# Severity is derived from detection strength, not LLM-emitted
 
 `severity` measures price deviation, not model judgment. Detection assigns it
-from episode peak |Z| using the shared vocabulary:
+from the strongest normalized price-Z, 4-hour-drawdown, or 2-hour-return trigger:
 
-- `low`: ≥2.5
-- `medium`: ≥3.0
-- `high`: ≥4.0
-- `extreme`: ≥5.0
+- `low`: ≥1.0× threshold
+- `medium`: ≥1.2× threshold
+- `high`: ≥1.6× threshold
+- `extreme`: ≥2.0× threshold
 
 Classification copies this value from the episode record. The LLM emits only
-classification, confidence, rationale, news relevance, and event reference.
+classification, confidence, concise synthesis, detailed rationale, and event reference.
 This keeps repeated ablation runs from changing an objective market feature.
 
-The current LUNA run contains five episodes and reaches peak |Z| 4.31 (`high`).
+The current LUNA run contains eight episodes. Severity uses the strongest normalized price-Z, 4-hour-drawdown, or 2-hour-return trigger; the raw-price peak remains |Z| 4.31 (`high`).
 See `CONTEXT.md` for domain terminology and the packaged classification schema
 for the LLM output contract.

@@ -4,168 +4,177 @@
     "start": "2022-05-07",
     "end": "2022-05-11"
   },
-  "evaluated_at": "2026-07-15T22:32:56.366182+00:00",
+  "evaluated_at": "2026-07-20T00:16:26.659385+00:00",
   "metrics": {
-    "faithfulness": "Ragas grounding of rationale in supplied evidence",
-    "answer_relevancy": "Ragas relevance of rationale to classification question",
-    "verdict_overlap": "Direct source-ablation outcome; primary hypothesis evidence"
+    "faithfulness": "Ragas share of combined-rationale claims supported by supplied context",
+    "verdict_comparison": "Controlled outcome when classifier context changes"
   },
   "derivatives_only": {
     "mode": "derivatives_only",
-    "episode_count": 5,
+    "episode_count": 8,
     "classification_breakdown": {
-      "explained_derivatives": 4,
+      "explained_derivatives": 7,
       "unexplained": 1
     },
-    "average_confidence": 0.89,
-    "faithfulness": 0.34393939393939393,
-    "answer_relevancy": 0.5940808035933175,
+    "faithfulness": null,
     "episodes": [
       {
         "onset_ts": 1651971000000,
         "verdict": "explained_derivatives",
-        "confidence": 0.85,
-        "rationale": "funding_rate_current=-0.00060605 breaches the |0.0005| threshold, indicating unusual derivatives pressure (negative funding suggests heavy short positioning). oi_change_4h=0.055 is below the 0.10 threshold, so OI alone would not trigger, but the funding rate signal is sufficient to classify this as derivatives-explained. The negative funding is consistent with bearish positioning that could drive a price anomaly.",
-        "news_relevance": null,
-        "derivatives": {
-          "funding_rate_current": -0.00060605,
-          "funding_rate_avg_4h": -0.00033475374999999996,
-          "oi_current": 3365562.0,
-          "oi_change_4h": 0.05498252594933356
+        "synthesis": {
+          "reasons": [
+            "Funding rate of -0.00060605 breaches the |0.0005| threshold, indicating significant short pressure.",
+            "OI change of 0.055 is below the 0.1 threshold and does not independently explain the anomaly."
+          ],
+          "supporting_refs": [
+            "funding_rate_current"
+          ]
         },
-        "retrieved_news": [],
-        "faithfulness": 0.25,
-        "answer_relevancy": 0.6537391550065677,
-        "retrieved_articles": 0,
-        "latest_news_age_at_onset_minutes": null,
-        "first_matching_news_after_onset": {
-          "date_pub": "2022-05-08T09:30:18+00:00",
-          "title": "\u2018Extreme Fear\u2019 Crypto Crash Suddenly Wipes $200 Billion From The Price Of Bitcoin, Ethereum, BNB, XRP, Luna, Solana, Cardano And Avalanche",
-          "link": "https://cryptopanic.com/news/cardano/15147649/Extreme-Fear-Crypto-Crash-Suddenly-Wipes-200-Billion-From-The-Price-Of-Bitcoin-Ethereum-BNB-XRP-Luna-Solana-Cardano-And-Avalanche",
-          "delay_minutes": 520.3
-        }
+        "rationale": "The derivatives rubric classifies an episode as explained_derivatives when |funding_rate_current| >= 0.0005 OR |oi_change_4h| >= 0.1. Here, funding_rate_current is -0.00060605, whose absolute value 0.00060605 exceeds the 0.0005 threshold, satisfying the funding leg of the rule. The oi_change_4h is 0.05498252594933356, which is below the 0.1 threshold and therefore normal, but the funding breach alone is sufficient to classify the episode as explained_derivatives. The funding_avg_4h of -0.00033475374999999996 is below threshold and is not the deciding metric; the rubric keys on funding_rate_current. No news context was supplied or evaluated, and per instructions no news refs are included. The price anomaly (peak |Z| = 3.32, 4h drawdown of -6.58%) is consistent with the negative funding rate signaling elevated short positioning in LUNAUSDT during the early stages of the Terra collapse period.",
+        "faithfulness": null,
+        "retrieved_news": []
       },
       {
         "onset_ts": 1652114100000,
         "verdict": "explained_derivatives",
-        "confidence": 0.85,
-        "rationale": "oi_change_4h=0.1158 (approximately 11.6%) exceeds the 0.10 threshold, indicating unusual derivatives activity. While funding_rate_current=-0.00046 is below the 0.0005 threshold, the OI surge alone breaches the rubric criterion. The combination of rising open interest alongside negative funding suggests significant new short positions entering the market, consistent with the derivatives-driven anomaly classification.",
-        "news_relevance": null,
-        "derivatives": {
-          "funding_rate_current": -0.00046004,
-          "funding_rate_avg_4h": -7.55375e-06,
-          "oi_current": 3431398.0,
-          "oi_change_4h": 0.11575157035768192
+        "synthesis": {
+          "reasons": [
+            "OI rose 11.58% over 4h, breaching the 0.10 threshold and signaling large positioning changes.",
+            "Funding rate of -0.00046 is below the 0.0005 threshold and does not independently explain the move."
+          ],
+          "supporting_refs": [
+            "oi_change_4h"
+          ]
         },
-        "retrieved_news": [],
-        "faithfulness": 0.3333333333333333,
-        "answer_relevancy": 0.7105401066695309,
-        "retrieved_articles": 0,
-        "latest_news_age_at_onset_minutes": null,
-        "first_matching_news_after_onset": {
-          "date_pub": "2022-05-09T16:50:00+00:00",
-          "title": "Luna Foundation Guard \u2018Is Not Trying to Exit Its Bitcoin Position\u2019, Says Terra\u2019s Do Kwon",
-          "link": "https://cryptopanic.com/news/15156430/Luna-Foundation-Guard-Is-Not-Trying-to-Exit-Its-Bitcoin-Position-Says-Terras-Do-Kwon",
-          "delay_minutes": 15.0
-        }
+        "rationale": "The oi_change_4h is 0.11575157035768192, which breaches the strict binary threshold of |oi_change_4h| >= 0.10. This alone qualifies the episode as explained_derivatives. The funding_rate_current is -0.00046004, whose absolute value (0.00046) is below the 0.0005 threshold, so funding does not independently breach the rubric. However, the OI change is decisive: an 11.58% increase in open interest over a 4-hour window indicates a substantial influx or shift in positioning that credibly aligns with the detected price anomaly (4h drawdown of -10.2%, 2h return of -6.8%). No news context was supplied or evaluated, and per instructions no news refs are included. The OI breach is the sole but sufficient driver for the explained_derivatives verdict.",
+        "faithfulness": null,
+        "retrieved_news": []
       },
       {
         "onset_ts": 1652133000000,
         "verdict": "explained_derivatives",
-        "confidence": 0.95,
-        "rationale": "oi_change_4h=0.2449 (a ~24.5% increase in open interest over 4h) clearly breaches the 0.10 threshold from the rubric, indicating significant derivatives activity accompanying this price anomaly. While funding_rate_current=-0.00046 is just below the 0.0005 threshold, the OI surge alone is sufficient to classify this as explained by derivatives. This episode occurs during the early stages of the LUNA crisis, and the spike in OI likely reflects new positions being opened in response to emerging price dislocation.",
-        "news_relevance": null,
-        "derivatives": {
-          "funding_rate_current": -0.00046004,
-          "funding_rate_avg_4h": -0.00046004,
-          "oi_current": 4473359.0,
-          "oi_change_4h": 0.2449201149921103
+        "synthesis": {
+          "reasons": [
+            "OI surged 24.49% over 4h, far exceeding the 0.10 threshold and signaling large new position inflows.",
+            "Funding rate at -0.00046 is elevated but below the 0.0005 threshold, so OI is the sole derivative breach."
+          ],
+          "supporting_refs": [
+            "oi_change_4h"
+          ]
         },
-        "retrieved_news": [],
-        "faithfulness": 0.25,
-        "answer_relevancy": 0.6665757642955001,
-        "retrieved_articles": 0,
-        "latest_news_age_at_onset_minutes": null,
-        "first_matching_news_after_onset": {
-          "date_pub": "2022-05-09T22:49:08+00:00",
-          "title": "Terra Stablecoin Peg Slips Below $0.70\u2014Despite Loan From Bitcoin Reserves",
-          "link": "https://cryptopanic.com/news/15157573/Terra-Stablecoin-Peg-Slips-Below-070Despite-Loan-From-Bitcoin-Reserves",
-          "delay_minutes": 59.1
-        }
+        "rationale": "The derivatives rubric requires |funding_rate_current| >= 0.0005 OR |oi_change_4h| >= 0.1 for an explained_derivatives classification. The funding rate is -0.00046004, whose absolute value (0.00046) falls just below the 0.0005 threshold and is therefore treated as normal per the strict binary rule. However, the 4h open interest change is 0.2449201149921103, which substantially exceeds the 0.1 threshold. This 24.49% OI surge represents a significant derivatives event\u2014large new position inflows during a period of price weakness (4h drawdown of -15.76%, 2h return of -3.72%)\u2014consistent with traders opening new short or hedging positions. The OI breach alone is sufficient to classify this episode as explained_derivatives. No news context was supplied or evaluated.",
+        "faithfulness": null,
+        "retrieved_news": []
       },
       {
         "onset_ts": 1652136300000,
         "verdict": "unexplained",
-        "confidence": 0.85,
-        "rationale": "Neither derivatives threshold is breached: |funding_rate_current|=0.00046 is below the 0.0005 threshold, and |oi_change_4h|=0.0118 (1.18%) is well below the 0.10 threshold. Both features are non-null and clearly quiet, so the move is not explained by derivatives. No news context is available in Run A, so the episode is classified as unexplained.",
-        "news_relevance": null,
-        "derivatives": {
-          "funding_rate_current": -0.00046004,
-          "funding_rate_avg_4h": -0.00046004,
-          "oi_current": 4687480.0,
-          "oi_change_4h": -0.011840467893163214
+        "synthesis": {
+          "reasons": [
+            "Funding rate of -0.00046 is below the 0.0005 threshold, so it does not qualify as a derivatives breach.",
+            "OI change of -1.18% over 4h is well below the 0.10 (10%) threshold, indicating normal positioning activity.",
+            "With both derivatives metrics normal and no news context supplied, the price anomaly lacks an identifiable mechanism."
+          ],
+          "supporting_refs": []
         },
-        "retrieved_news": [],
-        "faithfulness": 0.6363636363636364,
-        "answer_relevancy": 0.432276281774031,
-        "retrieved_articles": 0,
-        "latest_news_age_at_onset_minutes": null,
-        "first_matching_news_after_onset": {
-          "date_pub": "2022-05-09T22:49:08+00:00",
-          "title": "Terra Stablecoin Peg Slips Below $0.70\u2014Despite Loan From Bitcoin Reserves",
-          "link": "https://cryptopanic.com/news/15157573/Terra-Stablecoin-Peg-Slips-Below-070Despite-Loan-From-Bitcoin-Reserves",
-          "delay_minutes": 4.1
-        }
+        "rationale": "The episode exhibits a medium-severity price anomaly with a peak Z-score of 3.52 and a 2h return of -14.25% at onset. However, neither derivatives metric breaches the required rubric thresholds. The funding rate current is -0.00046004, whose absolute value (0.00046) falls below the 0.0005 threshold. The 4h open interest change is -0.01184 (approximately -1.18%), well below the 0.10 (10%) threshold. Per the strict binary rubric, both values are normal and cannot be classified as extreme or near-breach. No news context was supplied, so there is no credible event-specific mechanism to explain the move. The instructions explicitly state that explained_news is unavailable for this episode and that no news refs are valid. Therefore, with normal derivatives and no news explanation, the episode is classified as unexplained.",
+        "faithfulness": null,
+        "retrieved_news": []
+      },
+      {
+        "onset_ts": 1652154600000,
+        "verdict": "explained_derivatives",
+        "synthesis": {
+          "reasons": [
+            "Funding rate of -0.00147167 breaches the 0.0005 absolute threshold, indicating significant short pressure.",
+            "OI change of +25.97% over 4h breaches the 0.10 threshold, showing large new positioning into the move."
+          ],
+          "supporting_refs": [
+            "funding_rate_current",
+            "oi_change_4h"
+          ]
+        },
+        "rationale": "Both derivatives metrics breach the rubric thresholds at onset. The funding rate current is -0.00147167, whose absolute value (0.00147167) exceeds the 0.0005 threshold, signaling significant bearish funding pressure consistent with the -25.3% 2h return. Additionally, the 4h open interest change is +0.2597, well above the 0.10 threshold, indicating a substantial influx of new positions accompanying the price drawdown. Either breach alone would suffice for explained_derivatives; both breaching simultaneously provides strong corroboration. No news evaluation is required per instructions.",
+        "faithfulness": null,
+        "retrieved_news": []
       },
       {
         "onset_ts": 1652217600000,
         "verdict": "explained_derivatives",
-        "confidence": 0.95,
-        "rationale": "Both derivatives signals breach the configured thresholds. funding_rate_current=-0.00189747 has an absolute value of ~0.0019, well above the 0.0005 threshold, indicating significant negative funding (shorts paying longs). Additionally, oi_change_4h=0.1877 (18.77%) exceeds the 0.10 threshold, indicating a substantial open interest increase over the 4-hour lookback. The combination of highly negative funding and a large OI surge points to aggressive short positioning in derivatives, which explains the price anomaly.",
-        "news_relevance": null,
-        "derivatives": {
-          "funding_rate_current": -0.00189747,
-          "funding_rate_avg_4h": -0.00189747,
-          "oi_current": 10021731.0,
-          "oi_change_4h": 0.18772509695412984
+        "synthesis": {
+          "reasons": [
+            "Funding rate of -0.00189747 exceeds the 0.0005 absolute threshold, indicating significant short pressure.",
+            "OI change of +0.1878 over 4h breaches the 0.1 threshold, confirming large positioning shifts into the move."
+          ],
+          "supporting_refs": [
+            "funding_rate_current",
+            "oi_change_4h"
+          ]
         },
-        "retrieved_news": [],
-        "faithfulness": 0.25,
-        "answer_relevancy": 0.5072727102209577,
-        "retrieved_articles": 0,
-        "latest_news_age_at_onset_minutes": null,
-        "first_matching_news_after_onset": {
-          "date_pub": "2022-05-10T21:28:58+00:00",
-          "title": "What Terra's Meltdown Means for Centralized Stablecoins Tether and USDC",
-          "link": "https://cryptopanic.com/news/15168494/What-Terras-Meltdown-Means-for-Centralized-Stablecoins-Tether-and-USDC",
-          "delay_minutes": 9.0
-        }
+        "rationale": "Both derivatives metrics breach the rubric thresholds at the episode onset. The funding rate is -0.00189747, whose absolute value (0.00189747) is well above the 0.0005 threshold, signaling extreme short-side funding pressure consistent with the -23.87% 2h return and -39.87% 4h drawdown. Additionally, the 4h open interest change is +0.18773, exceeding the 0.1 threshold, indicating a substantial 18.8% increase in OI over the lookback window. Either breach alone would suffice for explained_derivatives; both breaching simultaneously provides strong corroboration. No news context was supplied or required, and per instructions no news refs are valid. The derivatives data is complete and non-null, so insufficient_data does not apply.",
+        "faithfulness": null,
+        "retrieved_news": []
+      },
+      {
+        "onset_ts": 1652242800000,
+        "verdict": "explained_derivatives",
+        "synthesis": {
+          "reasons": [
+            "Funding rate of -0.0071 far exceeds the 0.0005 threshold, indicating extreme short-side pressure.",
+            "OI surged 26.2% over 4h, well above the 0.1 threshold, signaling massive new position influx during the price drop."
+          ],
+          "supporting_refs": [
+            "funding_rate_current",
+            "oi_change_4h"
+          ]
+        },
+        "rationale": "Both derivatives metrics breach their respective thresholds by wide margins. The funding rate current is -0.00710039, which is over 14x the absolute threshold of 0.0005, indicating extreme negative funding consistent with heavy short pressure or forced long unwinding. The 4h open interest change is 0.2625 (26.25%), far exceeding the 0.1 (10%) threshold, showing a massive influx of new positions accompanying the -25.6% 2h return. The combination of deeply negative funding and surging OI alongside a sharp price decline is consistent with a derivatives-driven sell-off where short sellers pile in and longs are liquidated. No news context was supplied, but none is needed since both derivative signals independently satisfy the rubric for explained_derivatives.",
+        "faithfulness": null,
+        "retrieved_news": []
+      },
+      {
+        "onset_ts": 1652281800000,
+        "verdict": "explained_derivatives",
+        "synthesis": {
+          "reasons": [
+            "Funding rate of -0.009 far exceeds the 0.0005 threshold, signaling extreme short-side pressure.",
+            "OI dropped 27.7% over 4h, breaching the 0.1 threshold and confirming massive position unwinding."
+          ],
+          "supporting_refs": [
+            "funding_rate_current",
+            "oi_change_4h"
+          ]
+        },
+        "rationale": "Both derivatives metrics decisively breach the classification rubric. The funding rate current is -0.009, which is 18x the absolute threshold of 0.0005, indicating extreme bearish sentiment with shorts paying longs at an extraordinarily high rate. Simultaneously, the 4h open interest change is -0.2773, far exceeding the 0.1 threshold, confirming a massive 27.7% reduction in open positions over the lookback window. This combination\u2014deeply negative funding coupled with a sharp OI collapse\u2014is consistent with forced deleveraging and panic-driven position unwinding, which fully explains the extreme drawdown of -55.9% detected at onset. No news context is required to classify this episode, as the derivative signals alone are conclusive.",
+        "faithfulness": null,
+        "retrieved_news": []
       }
     ]
   },
   "derivatives_rag": {
     "mode": "derivatives_rag",
-    "episode_count": 5,
+    "episode_count": 8,
     "classification_breakdown": {
-      "explained_derivatives": 4,
-      "unexplained": 1
+      "explained_derivatives": 7,
+      "explained_news": 1
     },
-    "average_confidence": 0.874,
-    "faithfulness": 0.4943506493506494,
-    "answer_relevancy": 0.7088530863183038,
+    "faithfulness": 0.7067171071327082,
     "episodes": [
       {
         "onset_ts": 1651971000000,
         "verdict": "explained_derivatives",
-        "confidence": 0.85,
-        "rationale": "funding_rate_current=-0.00060605 breaches the |0.0005| threshold, indicating unusual derivatives activity. While oi_change_4h=0.055 does not independently breach the 0.10 threshold, the negative funding rate signals significant bearish pressure in the perpetuals market. The retrieved news articles discuss general crypto market warnings and algorithmic stablecoin competition but do not specifically explain a LUNA price anomaly at this timestamp; the funding rate breach is the more direct signal.",
-        "news_relevance": "The retrieved news articles are tangential: one discusses Cardano launching algorithmic stablecoins rivaling Terra's UST, and the other covers a general Bitcoin warning and broad market crash. Neither provides a specific, credible explanation for a LUNA-specific price anomaly at this exact time, so the derivatives signal (negative funding breach) is the primary driver of the classification.",
-        "derivatives": {
-          "funding_rate_current": -0.00060605,
-          "funding_rate_avg_4h": -0.00033475374999999996,
-          "oi_current": 3365562.0,
-          "oi_change_4h": 0.05498252594933356
+        "synthesis": {
+          "reasons": [
+            "Funding rate of -0.00060605 breaches the 0.0005 threshold, signaling strong short pressure on LUNA.",
+            "OI change of 0.055 is below the 0.1 threshold, so OI does not independently explain the anomaly.",
+            "News articles discuss general crypto regulatory fears and Cardano stablecoins, not a LUNA-specific catalyst."
+          ],
+          "supporting_refs": [
+            "funding_rate_current"
+          ]
         },
+        "rationale": "The funding_rate_current is -0.00060605, whose absolute value exceeds the 0.0005 threshold, satisfying the derivatives rubric for explained_derivatives. The oi_change_4h is 0.05498252594933356, which is below the 0.1 threshold and therefore does not independently breach. Because at least one derivative metric breaches, the classification is explained_derivatives regardless of news content. Regarding the retrieved news: news_36442 discusses Cardano and IOST launching algorithmic stablecoins inspired by Terra, which is tangential and does not provide a direct LUNA-specific price catalyst. news_36550 discusses a broad crypto regulatory warning from CoinShares affecting multiple assets including LUNA, but this is a general market sentiment headline rather than an event-specific mechanism for LUNA's price anomaly. Neither article is included as a corroborating reference because neither affirmatively supports a LUNA-specific causal driver. The decisive signal is the negative funding rate breach, indicating elevated short-side pressure in the derivatives market at the time of the detected price anomaly.",
+        "faithfulness": 0.5,
         "retrieved_news": [
           {
             "date_pub": "2022-05-07T22:10:04+00:00",
@@ -179,30 +188,24 @@
             "source": "Historical",
             "link": null
           }
-        ],
-        "faithfulness": 0.625,
-        "answer_relevancy": 0.6498668676597251,
-        "retrieved_articles": 2,
-        "latest_news_age_at_onset_minutes": 159.9,
-        "first_matching_news_after_onset": {
-          "date_pub": "2022-05-08T09:30:18+00:00",
-          "title": "\u2018Extreme Fear\u2019 Crypto Crash Suddenly Wipes $200 Billion From The Price Of Bitcoin, Ethereum, BNB, XRP, Luna, Solana, Cardano And Avalanche",
-          "link": "https://cryptopanic.com/news/cardano/15147649/Extreme-Fear-Crypto-Crash-Suddenly-Wipes-200-Billion-From-The-Price-Of-Bitcoin-Ethereum-BNB-XRP-Luna-Solana-Cardano-And-Avalanche",
-          "delay_minutes": 520.3
-        }
+        ]
       },
       {
         "onset_ts": 1652114100000,
         "verdict": "explained_derivatives",
-        "confidence": 0.85,
-        "rationale": "oi_change_4h=0.1158 exceeds the 0.10 threshold, indicating an 11.6% surge in open interest within the 4h lookback window \u2014 a clear derivatives anomaly. funding_rate_current=-0.00046 is just below the 0.0005 threshold but, combined with the OI spike, reinforces that derivatives activity is unusual. The retrieved news about LFG deploying $1.5B to defend the UST peg provides broader context for the LUNA price dislocation, but the OI breach means derivatives already explain the move per the rubric.",
-        "news_relevance": "The retrieved news articles describe the Luna Foundation Guard deploying $1.5B in Bitcoin and UST to defend the UST peg, which provides fundamental context for LUNA's price collapse. However, since the OI change already breaches the 0.10 threshold, the news supplements rather than independently explains the move.",
-        "derivatives": {
-          "funding_rate_current": -0.00046004,
-          "funding_rate_avg_4h": -7.55375e-06,
-          "oi_current": 3431398.0,
-          "oi_change_4h": 0.11575157035768192
+        "synthesis": {
+          "reasons": [
+            "OI surged 11.58% in 4h, breaching the 0.10 threshold and signaling large new position openings during the LUNA selloff.",
+            "Funding rate of -0.00046 is below the 0.0005 threshold, so funding alone is not explanatory, but OI breach is decisive.",
+            "LFG deploying $1.5B to defend UST peg corroborates the derivative signals as market participants repositioned amid the peg crisis."
+          ],
+          "supporting_refs": [
+            "oi_change_4h",
+            "news_36959"
+          ]
         },
+        "rationale": "The derivatives rubric is applied as a strict binary rule. The funding_rate_current is -0.00046004, whose absolute value (0.00046004) is below the 0.0005 threshold, so funding alone does not qualify as a breach. However, oi_change_4h is 0.11575157035768192, which exceeds the 0.10 threshold, constituting a clear OI breach. Per the rubric, when either derivative breaches its threshold, explained_derivatives is the valid classification. The 11.58% OI surge indicates substantial new positioning\u2014likely short-building or forced liquidation cascades\u2014as LUNA's price dropped over 10% in 4h. The supplied news context strongly corroborates this: news_36959 reports the Luna Foundation Guard deploying $1.5B to defend the UST peg, news_36984 describes LFG selling $1.5B in Bitcoin at a major loss, and news_37021 notes LUNA was among the biggest losers in a broad crypto market dive. These articles provide a credible event-specific mechanism\u2014the UST depeg crisis and LFG's emergency BTC deployment\u2014that explains why OI would surge as market participants rushed to reposition. The news is included as corroborating context alongside the primary OI breach signal. The classification is explained_derivatives with high confidence because the OI breach is unambiguous and the news provides consistent, event-specific corroboration.",
+        "faithfulness": 0.391304347826087,
         "retrieved_news": [
           {
             "date_pub": "2022-05-09T11:15:07+00:00",
@@ -222,30 +225,25 @@
             "source": "Historical",
             "link": null
           }
-        ],
-        "faithfulness": 0.42857142857142855,
-        "answer_relevancy": 0.763616162966342,
-        "retrieved_articles": 3,
-        "latest_news_age_at_onset_minutes": 319.9,
-        "first_matching_news_after_onset": {
-          "date_pub": "2022-05-09T16:50:00+00:00",
-          "title": "Luna Foundation Guard \u2018Is Not Trying to Exit Its Bitcoin Position\u2019, Says Terra\u2019s Do Kwon",
-          "link": "https://cryptopanic.com/news/15156430/Luna-Foundation-Guard-Is-Not-Trying-to-Exit-Its-Bitcoin-Position-Says-Terras-Do-Kwon",
-          "delay_minutes": 15.0
-        }
+        ]
       },
       {
         "onset_ts": 1652133000000,
         "verdict": "explained_derivatives",
-        "confidence": 0.9,
-        "rationale": "oi_change_4h=0.2449 is a ~24.5% increase in open interest over 4h, well past the 0.10 threshold, indicating significant derivatives activity. funding_rate_current=-0.00046 is just below the 0.0005 threshold but still notably negative, suggesting short pressure. The OI surge alone is sufficient to classify this as explained by derivatives. Retrieved news about the UST depeg and LFG deploying reserves provides broader context for the LUNA price move, but the derivatives data independently breaches the OI threshold, so explained_derivatives is the appropriate classification.",
-        "news_relevance": "The retrieved news articles describe the UST stablecoin depegging below $0.95 and the Luna Foundation Guard deploying $1.5B in BTC and UST to defend the peg \u2014 a fundamental event that clearly drove LUNA's price decline. However, because the OI change already breaches the 0.10 threshold, the derivatives data independently explains the anomaly without needing the news context.",
-        "derivatives": {
-          "funding_rate_current": -0.00046004,
-          "funding_rate_avg_4h": -0.00046004,
-          "oi_current": 4473359.0,
-          "oi_change_4h": 0.2449201149921103
+        "synthesis": {
+          "reasons": [
+            "OI surged 24.49% over 4h, far exceeding the 0.10 threshold and signaling massive positioning shifts during the UST depeg event.",
+            "Funding rate of -0.00046004 is below the 0.0005 threshold and does not independently breach, but the OI breach alone satisfies the derivatives rubric.",
+            "News articles confirm the UST peg crisis and LFG's $1.5B BTC deployment, providing corroborating context for the derivatives-driven move."
+          ],
+          "supporting_refs": [
+            "oi_change_4h",
+            "news_36959",
+            "news_36767"
+          ]
         },
+        "rationale": "The derivatives rubric is applied as a strict binary rule. The funding_rate_current is -0.00046004, whose absolute value (0.00046004) is below the 0.0005 threshold, so funding alone does not breach. However, oi_change_4h is 0.2449201149921103 (approximately 24.49%), which far exceeds the 0.10 (10%) threshold. Because the rubric states that explained_derivatives is valid when |funding_rate_current| >= 0.0005 OR |oi_change_4h| >= 0.1, the OI breach alone is sufficient to classify this episode as explained_derivatives. The news context strongly corroborates the move: multiple articles from May 9, 2022 describe the UST stablecoin losing its peg (falling to $0.95 and below) and the Luna Foundation Guard deploying $1.5 billion in BTC and UST to defend the peg. This fundamental event plausibly drove the massive 24.49% OI surge as traders rushed to position themselves amid the unfolding crisis. The LUNA price drawdown of -15.76% over 4h and -3.72% over 2h is consistent with the severity of the UST depeg event. The funding rate, while elevated in absolute terms, remains just below the strict threshold and thus is not cited as an independent breach, though it reflects bearish pressure consistent with the price decline. The OI change is the decisive derivative signal.",
+        "faithfulness": 0.5652173913043478,
         "retrieved_news": [
           {
             "date_pub": "2022-05-09T16:50:00+00:00",
@@ -277,30 +275,24 @@
             "source": "Historical",
             "link": null
           }
-        ],
-        "faithfulness": 0.4,
-        "answer_relevancy": 0.7807677148244554,
-        "retrieved_articles": 5,
-        "latest_news_age_at_onset_minutes": 46.8,
-        "first_matching_news_after_onset": {
-          "date_pub": "2022-05-09T22:49:08+00:00",
-          "title": "Terra Stablecoin Peg Slips Below $0.70\u2014Despite Loan From Bitcoin Reserves",
-          "link": "https://cryptopanic.com/news/15157573/Terra-Stablecoin-Peg-Slips-Below-070Despite-Loan-From-Bitcoin-Reserves",
-          "delay_minutes": 59.1
-        }
+        ]
       },
       {
         "onset_ts": 1652136300000,
-        "verdict": "unexplained",
-        "confidence": 0.82,
-        "rationale": "Derivatives are quiet: funding_rate_current=-0.00046 does not breach the |0.0005| threshold, and oi_change_4h=-0.0118 (1.2%) is well below the 0.10 threshold. Although the retrieved news describes the broader UST depeg crisis and LFG's $1.5B BTC deployment to defend the peg, these articles explain UST's instability rather than a specific LUNA price anomaly at the episode onset. The news provides macro context about the Terra ecosystem stress but does not pinpoint a discrete catalyst for this particular LUNA price move, so the episode remains unexplained by both derivatives and specific news.",
-        "news_relevance": "The retrieved news describes the broader UST depeg and LFG's emergency measures to defend the peg, which provides important context about Terra ecosystem stress. However, these articles explain the systemic crisis unfolding around UST rather than identifying a specific catalyst for this particular LUNA price anomaly at the episode onset, so they do not fully explain the move.",
-        "derivatives": {
-          "funding_rate_current": -0.00046004,
-          "funding_rate_avg_4h": -0.00046004,
-          "oi_current": 4687480.0,
-          "oi_change_4h": -0.011840467893163214
+        "verdict": "explained_news",
+        "synthesis": {
+          "reasons": [
+            "LFG deployed $1.5B in BTC and UST reserves to defend the UST peg as it fell to $0.95, directly pressuring LUNA which backs the stablecoin.",
+            "Funding rate of -0.00046004 and OI change of -0.0118 are both below rubric thresholds, so derivatives do not explain the move."
+          ],
+          "supporting_refs": [
+            "news_36959",
+            "news_36767",
+            "news_36829"
+          ]
         },
+        "rationale": "The derivatives context does not breach the rubric thresholds. The funding rate current is -0.00046004, whose absolute value is below the 0.0005 threshold. The 4h open interest change is -0.011840467893163214, whose absolute value is well below the 0.1 threshold. Since neither derivative breaches, explained_derivatives is not available. The news context, however, supplies a credible event-specific mechanism: the Luna Foundation Guard voted to deploy $1.5 billion in BTC and UST to defend the UST stablecoin peg after UST fell to approximately $0.95 (news_36959, news_36829, news_36767). Because LUNA is the collateral asset that absorbs peg-stress for the Terra algorithmic stablecoin system, the deployment of reserve assets and the visible depeg of UST constitute a direct, credible mechanism for the observed LUNA price drawdown of -19.3% over 4h and -14.3% over 2h. The funding rate, while negative, is normal and does not independently explain the magnitude of the move. The news is not mere keyword overlap; it describes a concrete capital deployment and peg-defense event that mechanically impacts LUNA's value. Therefore, explained_news is the appropriate classification with high confidence.",
+        "faithfulness": 0.8695652173913043,
         "retrieved_news": [
           {
             "date_pub": "2022-05-09T16:50:00+00:00",
@@ -332,30 +324,78 @@
             "source": "Historical",
             "link": null
           }
-        ],
-        "faithfulness": 0.8181818181818182,
-        "answer_relevancy": 0.8275279093170139,
-        "retrieved_articles": 5,
-        "latest_news_age_at_onset_minutes": 101.8,
-        "first_matching_news_after_onset": {
-          "date_pub": "2022-05-09T22:49:08+00:00",
-          "title": "Terra Stablecoin Peg Slips Below $0.70\u2014Despite Loan From Bitcoin Reserves",
-          "link": "https://cryptopanic.com/news/15157573/Terra-Stablecoin-Peg-Slips-Below-070Despite-Loan-From-Bitcoin-Reserves",
-          "delay_minutes": 4.1
-        }
+        ]
+      },
+      {
+        "onset_ts": 1652154600000,
+        "verdict": "explained_derivatives",
+        "synthesis": {
+          "reasons": [
+            "Funding rate of -0.00147167 breaches the 0.0005 threshold, indicating severe short pressure on LUNA.",
+            "OI change of 0.2597 breaches the 0.1 threshold, showing a 26% surge in open interest during the price drawdown.",
+            "News articles about UST depegging and LFG deploying reserves corroborate the derivatives-driven sell-off."
+          ],
+          "supporting_refs": [
+            "funding_rate_current",
+            "oi_change_4h",
+            "news_36959",
+            "news_36746"
+          ]
+        },
+        "rationale": "Both derivatives metrics breach their respective thresholds at onset. The funding rate current is -0.00147167, whose absolute value (0.00147167) exceeds the 0.0005 threshold, indicating extreme negative funding consistent with heavy short positioning. The 4h open interest change is 0.25973337737573915, which exceeds the 0.1 threshold, indicating a roughly 26% surge in open interest over the lookback window. The combination of negative funding and rising OI during a -25.3% 2h return and -30.6% 4h drawdown is consistent with aggressive short-side pressure driving the price anomaly. The supplied news context strongly corroborates this mechanism: multiple articles (news_36959, news_36746, news_36767, news_36829) describe the UST stablecoin losing its dollar peg and the Luna Foundation Guard deploying $1.5 billion in BTC reserves to defend it, providing a fundamental catalyst for the derivatives-driven sell-off in LUNA. Because both derivative values independently breach rubric thresholds, the classification is explained_derivatives, with the news articles included as corroborating supporting_refs.",
+        "faithfulness": 0.7777777777777778,
+        "retrieved_news": [
+          {
+            "date_pub": "2022-05-09T16:50:00+00:00",
+            "title": "Luna Foundation Guard \u2018Is Not Trying to Exit Its Bitcoin Position\u2019, Says Terra\u2019s Do Kwon",
+            "source": "Historical",
+            "link": null
+          },
+          {
+            "date_pub": "2022-05-09T17:29:03+00:00",
+            "title": "Luna Foundation Guard To Support Struggling UST Peg With BTC Reserves",
+            "source": "Historical",
+            "link": null
+          },
+          {
+            "date_pub": "2022-05-09T11:15:07+00:00",
+            "title": "Terra\u2019s LFG to Deploy $1.5B to \u201cProtect the UST Peg\u201d",
+            "source": "Historical",
+            "link": null
+          },
+          {
+            "date_pub": "2022-05-09T22:49:08+00:00",
+            "title": "Terra Stablecoin Peg Slips Below $0.70\u2014Despite Loan From Bitcoin Reserves",
+            "source": "Historical",
+            "link": null
+          },
+          {
+            "date_pub": "2022-05-09T21:03:14+00:00",
+            "title": "TerraUSD Stablecoin Plunges Below $0.95",
+            "source": "Historical",
+            "link": null
+          }
+        ]
       },
       {
         "onset_ts": 1652217600000,
         "verdict": "explained_derivatives",
-        "confidence": 0.95,
-        "rationale": "Both derivatives thresholds are clearly breached: funding_rate_current=-0.00189747 exceeds the 0.0005 absolute threshold (nearly 4x), and oi_change_4h=0.18772509695412984 is an ~18.8% increase, well past the 0.10 threshold. The extreme negative funding rate signals heavy short pressure, and the ~19% OI surge over 4h indicates a massive influx of new positions, consistent with the LUNA collapse dynamics. While the retrieved news (UST depegging, LFG draining BTC reserves, Binance halting withdrawals) provides important context for the broader Terra ecosystem crisis, the derivatives data independently breaches both thresholds and is the primary classification signal per the rubric.",
-        "news_relevance": "The retrieved news provides strong corroborating context for the price move \u2014 the UST stablecoin lost its dollar peg, the Luna Foundation Guard drained its BTC treasury defending the peg, and Binance halted LUNA/UST withdrawals. However, since derivatives data already breaches both funding and OI thresholds, the news serves as supplementary explanation rather than the primary classification driver.",
-        "derivatives": {
-          "funding_rate_current": -0.00189747,
-          "funding_rate_avg_4h": -0.00189747,
-          "oi_current": 10021731.0,
-          "oi_change_4h": 0.18772509695412984
+        "synthesis": {
+          "reasons": [
+            "Funding rate of -0.00189747 breaches the 0.0005 threshold, indicating extreme short pressure consistent with the -23.9% 2h price drop.",
+            "Open interest changed +18.77% over 4h, exceeding the 0.1 threshold and signaling large new positioning during the LUNA collapse.",
+            "Multiple news articles corroborate the derivatives signal, documenting UST depeg, LFG treasury depletion, and Binance halting Terra withdrawals."
+          ],
+          "supporting_refs": [
+            "funding_rate_current",
+            "oi_change_4h",
+            "news_37127",
+            "news_37305",
+            "news_37288"
+          ]
         },
+        "rationale": "Both derivatives metrics breach their respective thresholds at onset. The funding rate current is -0.00189747, whose absolute value (0.00189747) far exceeds the 0.0005 threshold, indicating extreme negative funding consistent with heavy short pressure during LUNA's collapse. The 4h open interest change is +0.18773, well above the 0.1 threshold, signaling a massive influx of new positions\u2014likely shorts\u2014during the episode. The price action is severe: a -23.9% 2h return and -39.9% 4h drawdown at onset, with a peak Z-score of 3.32. The news context strongly corroborates the derivatives signal: multiple articles from May 10 document UST losing its dollar peg (falling to $0.61\u2013$0.62), the Luna Foundation Guard draining $1.5 billion in BTC to defend the peg, Binance suspending LUNA and UST withdrawals, and LUNA nosediving 60%. These articles provide a credible event-specific mechanism\u2014the algorithmic stablecoin death spiral between UST and LUNA\u2014that directly explains both the derivative breaches and the price anomaly. Because both derivative values independently breach the rubric thresholds, the classification is `explained_derivatives` with news as corroborating context.",
+        "faithfulness": 0.6086956521739131,
         "retrieved_news": [
           {
             "date_pub": "2022-05-10T17:30:37+00:00",
@@ -387,38 +427,135 @@
             "source": "Historical",
             "link": null
           }
-        ],
-        "faithfulness": 0.2,
-        "answer_relevancy": 0.5224867768239824,
-        "retrieved_articles": 5,
-        "latest_news_age_at_onset_minutes": 152.2,
-        "first_matching_news_after_onset": {
-          "date_pub": "2022-05-10T21:28:58+00:00",
-          "title": "What Terra's Meltdown Means for Centralized Stablecoins Tether and USDC",
-          "link": "https://cryptopanic.com/news/15168494/What-Terras-Meltdown-Means-for-Centralized-Stablecoins-Tether-and-USDC",
-          "delay_minutes": 9.0
-        }
+        ]
+      },
+      {
+        "onset_ts": 1652242800000,
+        "verdict": "explained_derivatives",
+        "synthesis": {
+          "reasons": [
+            "Funding rate of -0.00710 massively breaches the 0.0005 threshold, indicating extreme short pressure during the LUNA collapse.",
+            "OI change of +26.25% over 4h breaches the 0.10 threshold, showing a surge in open positions amid the UST depeg crisis.",
+            "News of Binance halting Terra withdrawals and LFG draining its BTC treasury corroborates the derivatives-driven sell-off."
+          ],
+          "supporting_refs": [
+            "funding_rate_current",
+            "oi_change_4h",
+            "news_37127",
+            "news_37305",
+            "news_37288"
+          ]
+        },
+        "rationale": "Both derivatives metrics breach their respective thresholds by wide margins. The funding rate current is -0.00710039, whose absolute value (0.00710039) far exceeds the 0.0005 threshold, indicating extreme negative funding consistent with massive short pressure during the LUNA/UST collapse. The 4h open interest change is +0.2624572826814134 (approximately +26.2%), which also breaches the 0.10 (10%) threshold, indicating a substantial surge in open positions as the crisis unfolded. Because both derivative values breach their thresholds, the episode is classified as explained_derivatives. The retrieved news articles provide corroborating context: news_37127 reports LUNA nosediving 60% and Binance disabling Terra withdrawals; news_37305 reports the Luna Foundation Guard draining its Bitcoin treasury to defend the UST peg; and news_37288 reports Binance halting Terra withdrawals amid the UST meltdown. These articles affirmatively support the narrative of a derivatives-driven collapse where extreme negative funding and surging open interest accompanied the catastrophic LUNA price decline. No derivative value is null, so insufficient_data does not apply.",
+        "faithfulness": 1.0,
+        "retrieved_news": [
+          {
+            "date_pub": "2022-05-10T17:30:37+00:00",
+            "title": "LUNA Nosedives A Staggering 60% As Binance Disables Terra Withdrawals \u2014 What\u2019s Next For UST?",
+            "source": "Historical",
+            "link": null
+          },
+          {
+            "date_pub": "2022-05-10T09:19:11+00:00",
+            "title": "Luna Foundation Guard Drains Bitcoin Treasury To Save UST Peg",
+            "source": "Historical",
+            "link": null
+          },
+          {
+            "date_pub": "2022-05-10T18:47:48+00:00",
+            "title": "Cryptocurrency Luna Lurches as Terra USD Volatility Continues, Erasing Billions",
+            "source": "Historical",
+            "link": null
+          },
+          {
+            "date_pub": "2022-05-10T10:25:00+00:00",
+            "title": "Binance Halts Terra Withdrawals Amid UST Meltdown",
+            "source": "Historical",
+            "link": null
+          },
+          {
+            "date_pub": "2022-05-10T17:53:24+00:00",
+            "title": "RT @0xfordsrevenge: Everyone looking at this $Luna / $UST fiasco... have a minute to read the basics of the $AMPL ecosystem and why the $SP\u2026",
+            "source": "Historical",
+            "link": null
+          }
+        ]
+      },
+      {
+        "onset_ts": 1652281800000,
+        "verdict": "explained_derivatives",
+        "synthesis": {
+          "reasons": [
+            "Funding rate of -0.009 far exceeds the 0.0005 threshold, signaling extreme short pressure during the UST depeg crash.",
+            "OI dropped 27.7% in 4h, well beyond the 0.1 threshold, confirming massive position unwinding and deleveraging.",
+            "News corroborates: UST depeg and LUNA collapse drove the derivatives stress."
+          ],
+          "supporting_refs": [
+            "funding_rate_current",
+            "oi_change_4h",
+            "news_37127",
+            "news_37677"
+          ]
+        },
+        "rationale": "Both derivatives metrics breach their respective thresholds decisively. The funding rate current is -0.009, which is 18x the absolute threshold of 0.0005, indicating extreme negative funding consistent with heavy short pressure or forced liquidations during the LUNA collapse. The 4h open interest change is -0.2773, far exceeding the 0.1 threshold, reflecting a 27.7% decline in open interest over four hours \u2014 a clear signal of massive position unwinding and deleveraging. These derivative signals alone satisfy the explained_derivatives criteria. The news context strongly corroborates the mechanism: articles from May 10-11 describe the UST stablecoin depegging from its dollar peg, Binance disabling Terra withdrawals, LUNA falling 60%, and South Korean exchanges issuing cautionary warnings. The UST depeg directly impaired LUNA's algorithmic stabilization mechanism, providing a credible event-specific driver for both the price collapse and the extreme derivatives stress observed. News references news_37127 and news_37677 are included as corroborating context alongside the breached derivative refs.",
+        "faithfulness": 0.9411764705882353,
+        "retrieved_news": [
+          {
+            "date_pub": "2022-05-11T12:24:42+00:00",
+            "title": "\u201cTerra\u2019s Return to Form Will be a Sight to Behold,\u201d Says Do Kwon As He Unveils UST and LUNA Recovery Plan",
+            "source": "Historical",
+            "link": null
+          },
+          {
+            "date_pub": "2022-05-10T17:30:37+00:00",
+            "title": "LUNA Nosedives A Staggering 60% As Binance Disables Terra Withdrawals \u2014 What\u2019s Next For UST?",
+            "source": "Historical",
+            "link": null
+          },
+          {
+            "date_pub": "2022-05-11T11:19:18+00:00",
+            "title": "Major South Korean Exchanges Release LUNA Update Amid UST Debacle",
+            "source": "Historical",
+            "link": null
+          },
+          {
+            "date_pub": "2022-05-11T07:45:59+00:00",
+            "title": "Luna price collapses below $5 as UST slides further from dollar peg",
+            "source": "Historical",
+            "link": null
+          },
+          {
+            "date_pub": "2022-05-10T18:47:48+00:00",
+            "title": "Cryptocurrency Luna Lurches as Terra USD Volatility Continues, Erasing Billions",
+            "source": "Historical",
+            "link": null
+          }
+        ]
       }
     ]
   },
   "news_only": {
     "mode": "news_only",
-    "episode_count": 5,
+    "episode_count": 8,
     "classification_breakdown": {
       "unexplained": 1,
-      "explained_news": 4
+      "explained_news": 7
     },
-    "average_confidence": 0.8800000000000001,
-    "faithfulness": 0.42857142857142855,
-    "answer_relevancy": 0.8290823145789918,
+    "faithfulness": null,
     "episodes": [
       {
         "onset_ts": 1651971000000,
         "verdict": "unexplained",
-        "confidence": 0.85,
-        "rationale": "The retrieved news articles do not credibly explain a medium-severity price anomaly in LUNAUSDT. The first article discusses Cardano and IOST launching algorithmic stablecoins inspired by Terra, which is a tangential industry development rather than a direct catalyst for a LUNA price move. The second article is a broad market warning about potential government bans on cryptocurrencies, mentioning Luna among many other assets (Ethereum, BNB, XRP, Solana, Cardano, Avalanche) in the context of a general price crash. Neither article provides a specific, credible driver for a localized LUNA price anomaly. The actual catalyst for LUNA's collapse in this period (the UST depeg and associated liquidity crisis) is not present in the retrieved news context.",
-        "news_relevance": "Article 1 (Cardano algorithmic stablecoins) is only tangentially related to LUNA, mentioning Terra as a reference point but providing no direct price-moving information. Article 2 (Bitcoin warning) is a broad market commentary listing Luna among many tokens; it does not contain LUNA-specific news that would explain a targeted price anomaly. No retrieved article addresses the UST depeg or any Terra-specific event that would credibly explain the observed price move.",
-        "derivatives": null,
+        "synthesis": {
+          "reasons": [
+            "Neither article addresses LUNA-specific fundamentals; one discusses Cardano launching rival stablecoins and the other is a general crypto market warning.",
+            "The detected anomaly is a modest 6.6% drawdown with a preceding 3.8% bounce, consistent with routine volatility rather than a news-driven event.",
+            "No supplied news describes any LUNA-specific catalyst, protocol change, or market event that would credibly explain the price movement."
+          ],
+          "supporting_refs": []
+        },
+        "rationale": "The two retrieved articles do not credibly explain the LUNA price anomaly at onset. News_36442 discusses Cardano and IOST planning to launch algorithmic stablecoins inspired by Terra's UST model; while Terra is mentioned contextually, the article is about competitor initiatives and contains no information that would drive a sudden LUNA price decline. News_36550 is a broad market warning from a CoinShares executive about potential government bans on cryptocurrencies, naming several tokens including Luna in a headline list; this is generic macro commentary with no LUNA-specific substance. The detected anomaly itself\u2014a 6.6% drawdown with a peak z-score of 3.32\u2014is moderate in severity and could plausibly arise from routine market volatility, order flow dynamics, or broader risk-off sentiment that the supplied news only vaguely touches. Critically, the well-known Terra/UST depeg crisis that escalated dramatically around May 7-9, 2022 is not represented in the retrieved articles at a level of specificity that would explain this particular LUNA price movement. Without a direct, credible catalyst in the supplied news, the anomaly is best classified as unexplained.",
+        "faithfulness": null,
         "retrieved_news": [
           {
             "date_pub": "2022-05-07T22:10:04+00:00",
@@ -432,25 +569,25 @@
             "source": "Historical",
             "link": null
           }
-        ],
-        "faithfulness": 0.42857142857142855,
-        "answer_relevancy": 0.8626199673514703,
-        "retrieved_articles": 2,
-        "latest_news_age_at_onset_minutes": 159.9,
-        "first_matching_news_after_onset": {
-          "date_pub": "2022-05-08T09:30:18+00:00",
-          "title": "\u2018Extreme Fear\u2019 Crypto Crash Suddenly Wipes $200 Billion From The Price Of Bitcoin, Ethereum, BNB, XRP, Luna, Solana, Cardano And Avalanche",
-          "link": "https://cryptopanic.com/news/cardano/15147649/Extreme-Fear-Crypto-Crash-Suddenly-Wipes-200-Billion-From-The-Price-Of-Bitcoin-Ethereum-BNB-XRP-Luna-Solana-Cardano-And-Avalanche",
-          "delay_minutes": 520.3
-        }
+        ]
       },
       {
         "onset_ts": 1652114100000,
         "verdict": "explained_news",
-        "confidence": 0.85,
-        "rationale": "The retrieved news directly and credibly explains the severe LUNA price anomaly. On 2022-05-09, the Luna Foundation Guard announced it would deploy $1.5B (in BTC and UST) to defend the UST peg, and a separate article reports LFG 'sold' $1.5B in Bitcoin (bought at ~$47K) for ~$33K. These actions\u2014massive BTC liquidation at a major loss and emergency UST peg defense\u2014directly impacted LUNA's ecosystem mechanics and market confidence, explaining the high-severity price move. A third article confirms LUNA was 'among the biggest' losers during the broader market dive, consistent with the anomaly.",
-        "news_relevance": "The first article (LFG deploying $1.5B to protect UST peg) is highly relevant as it describes the emergency peg-defense mechanism directly tied to LUNA's collapse dynamics. The second article (LFG selling $1.5B BTC at a loss) is directly relevant as it quantifies the scale of reserve depletion undermining confidence. The third article (broader market dive naming LUNA among biggest losers) provides corroboration of LUNA-specific severity beyond general market conditions.",
-        "derivatives": null,
+        "synthesis": {
+          "reasons": [
+            "LFG deployed $1.5B in BTC and UST to defend the UST peg, signaling severe stress in the Terra ecosystem directly impacting LUNA.",
+            "LFG reportedly sold $1.5B in BTC bought at $47,000 for $33,000, revealing massive reserve losses undermining LUNA's backing.",
+            "Terra LUNA was flagged among the biggest losers amid a $250B crypto market sell-off, compounding ecosystem-specific pressure."
+          ],
+          "supporting_refs": [
+            "news_36959",
+            "news_36984",
+            "news_37021"
+          ]
+        },
+        "rationale": "The supplied news articles collectively provide a credible explanation for the LUNA price anomaly detected at onset on May 9, 2022. News_36959 reports the Luna Foundation Guard's emergency deployment of $1.5 billion in Bitcoin and UST to OTC firms to protect the UST peg, directly signaling acute stress in the Terra ecosystem that would negatively impact LUNA's value given the token's relationship to UST's stability mechanism. News_36984 adds critical detail that the LFG sold $1.5 billion in Bitcoin originally purchased at $47,000 for approximately $33,000, revealing enormous reserve losses that undermined market confidence in the Terra ecosystem's financial backing. News_37021 provides broader market context, noting that Terra LUNA was specifically named among the biggest losers during a $250 billion crypto market sell-off, with Bitcoin tumbling below $35,000. Together, these articles describe both idiosyncratic Terra-specific stress (peg defense, reserve depletion) and broader market weakness that credibly explain the approximately 10% drawdown and 6.8% two-hour decline observed at onset. The timing is coherent: all articles were published within hours before the detected anomaly, and the mechanisms described\u2014peg defense signaling, reserve liquidation at a loss, and broad market contagion\u2014are directly relevant to LUNA's price action. While the articles do not provide granular detail on every aspect of the collapse that unfolded subsequently, they are sufficient to classify the onset anomaly as explained by available news.",
+        "faithfulness": null,
         "retrieved_news": [
           {
             "date_pub": "2022-05-09T11:15:07+00:00",
@@ -470,25 +607,25 @@
             "source": "Historical",
             "link": null
           }
-        ],
-        "faithfulness": 0.42857142857142855,
-        "answer_relevancy": 0.8624447361184715,
-        "retrieved_articles": 3,
-        "latest_news_age_at_onset_minutes": 319.9,
-        "first_matching_news_after_onset": {
-          "date_pub": "2022-05-09T16:50:00+00:00",
-          "title": "Luna Foundation Guard \u2018Is Not Trying to Exit Its Bitcoin Position\u2019, Says Terra\u2019s Do Kwon",
-          "link": "https://cryptopanic.com/news/15156430/Luna-Foundation-Guard-Is-Not-Trying-to-Exit-Its-Bitcoin-Position-Says-Terras-Do-Kwon",
-          "delay_minutes": 15.0
-        }
+        ]
       },
       {
         "onset_ts": 1652133000000,
         "verdict": "explained_news",
-        "confidence": 0.85,
-        "rationale": "The retrieved news from May 9, 2022 directly explains the LUNA price anomaly. Multiple articles describe the Luna Foundation Guard (LFG) deploying $1.5 billion in BTC and UST to defend the UST stablecoin peg, which had fallen to $0.95 and then below $0.95. Because LUNA is the algorithmic token that absorbs UST peg pressure, the UST depeg and LFG's emergency reserve deployment credibly explain the LUNA price movement during this window. The articles are published at or before the episode onset and directly concern the mechanism driving LUNA's price.",
-        "news_relevance": "All five retrieved articles are directly relevant: they report the UST stablecoin losing its dollar peg (falling to $0.95 and below), LFG voting to deploy $1.5B in reserves to defend the peg, and Do Kwon's public statements about not exiting the BTC position. These events are the proximate cause of LUNA's price stress, as LUNA's design ties its value to absorbing UST imbalances.",
-        "derivatives": null,
+        "synthesis": {
+          "reasons": [
+            "LFG deployed $1.5B in BTC and UST reserves to defend the UST peg after it fell to $0.95, directly pressuring LUNA's value.",
+            "UST depeg to record lows below $0.95 created algorithmic selling pressure on LUNA as the mechanism's arbitrage pathway.",
+            "Do Kwon publicly stated LFG is not exiting its Bitcoin position, signaling ongoing reserve depletion concerns for LUNA holders."
+          ],
+          "supporting_refs": [
+            "news_36959",
+            "news_36767",
+            "news_36840"
+          ]
+        },
+        "rationale": "The retrieved news articles collectively provide a credible explanation for the LUNA price anomaly detected around May 9-10, 2022. The core mechanism is the UST depeg crisis: articles news_36959, news_36829, and news_36840 describe the Luna Foundation Guard's emergency deployment of $1.5 billion in BTC and UST to defend the UST peg, which had fallen to approximately $0.95. Article news_36767 confirms UST plunged below $0.95, and news_36795 reports a record low for the stablecoin. Because LUNA serves as the absorption mechanism for UST's algorithmic stability\u2014UST depegging forces arbitrageurs to burn UST and mint LUNA, increasing LUNA supply\u2014the depeg event directly explains the downward price pressure on LUNA. The severity is classified as 'low' with a peak Z-score of ~2.94 and a 4h drawdown of ~15.8%, which is consistent with the early stage of the UST crisis before the full collapse. The timing aligns well: all articles are published within hours before or around the onset timestamp of May 9, 2022. While the broader Terra collapse would escalate dramatically in the following days, the news available at onset credibly explains the initial LUNA price decline through the UST depeg mechanism and LFG's reserve deployment response.",
+        "faithfulness": null,
         "retrieved_news": [
           {
             "date_pub": "2022-05-09T16:50:00+00:00",
@@ -520,25 +657,25 @@
             "source": "Historical",
             "link": null
           }
-        ],
-        "faithfulness": 0.2857142857142857,
-        "answer_relevancy": 0.8610602074712865,
-        "retrieved_articles": 5,
-        "latest_news_age_at_onset_minutes": 46.8,
-        "first_matching_news_after_onset": {
-          "date_pub": "2022-05-09T22:49:08+00:00",
-          "title": "Terra Stablecoin Peg Slips Below $0.70\u2014Despite Loan From Bitcoin Reserves",
-          "link": "https://cryptopanic.com/news/15157573/Terra-Stablecoin-Peg-Slips-Below-070Despite-Loan-From-Bitcoin-Reserves",
-          "delay_minutes": 59.1
-        }
+        ]
       },
       {
         "onset_ts": 1652136300000,
         "verdict": "explained_news",
-        "confidence": 0.9,
-        "rationale": "The retrieved news directly and credibly explains the LUNA price anomaly. Multiple articles from May 9, 2022 document that UST depegged to ~$0.95 (a record low), prompting the Luna Foundation Guard to deploy $1.5 billion in BTC and UST reserves to defend the peg. Because LUNA is the algorithmic stablecoin's collateralary token\u2014minted/burned to absorb UST supply imbalances\u2014a UST depeg event directly and mechanically pressures LUNA's price. The articles describe the exact mechanism (UST peg failure, LFG reserve deployment) that would drive a medium-severity LUNA price anomaly at this timestamp.",
-        "news_relevance": "All five retrieved articles are highly relevant. The first three (16:50, 17:29, 11:15 UTC) describe LFG's emergency $1.5B deployment to defend the UST peg, indicating acute stress in the Terra ecosystem. The fourth and fifth articles (21:03, 19:06 UTC) confirm UST had fallen to approximately $0.95, a record low. Together, these articles establish a direct causal chain: UST depegged from $1, LFG intervened with reserves, and LUNA\u2014the token structurally exposed to UST's stability\u2014experienced the observed price anomaly.",
-        "derivatives": null,
+        "synthesis": {
+          "reasons": [
+            "UST depegged to $0.95, directly pressuring LUNA which absorbs stablecoin stress via algorithmic arbitrage.",
+            "LFG deployed $1.5B in BTC and UST reserves to defend the peg, signaling severe systemic strain on the Terra ecosystem.",
+            "UST fell to a record low amid broader market tumult, compounding selling pressure on LUNA."
+          ],
+          "supporting_refs": [
+            "news_36959",
+            "news_36767",
+            "news_36795"
+          ]
+        },
+        "rationale": "The price anomaly in LUNAUSDT is credibly explained by the supplied news articles, all published at or before the onset timestamp of 2022-05-09T22:45:00Z. The core mechanism is the UST stablecoin depegging event. Articles news_36767 and news_36795 both report that UST fell to approximately $0.95\u2014a record low\u2014directly linking the stablecoin's collapse to downward pressure on LUNA, since LUNA is the algorithmic counterpart that absorbs UST peg stress through mint/burn arbitrage. Article news_36959 reports LFG's decision to deploy $1.5 billion in BTC and UST to defend the peg, which confirms the severity of the depegging crisis and its direct relevance to LUNA's price. Articles news_36840 and news_36829 provide additional context about LFG's reserve actions and Do Kwon's statements, corroborating the systemic stress narrative. While the articles focus on UST rather than LUNA directly, the Terra ecosystem's algorithmic design means that a UST depeg is a direct and well-known mechanism for LUNA price decline, making this a credible explanation rather than a tangential headline match. The 2h return of -14.3% and 4h drawdown of -19.3% are consistent with the severity of a stablecoin depegging crisis in an algorithmic stablecoin system. No funding or open interest data is considered per scope constraints.",
+        "faithfulness": null,
         "retrieved_news": [
           {
             "date_pub": "2022-05-09T16:50:00+00:00",
@@ -570,25 +707,78 @@
             "source": "Historical",
             "link": null
           }
-        ],
-        "faithfulness": 0.3333333333333333,
-        "answer_relevancy": 0.8850126492902183,
-        "retrieved_articles": 5,
-        "latest_news_age_at_onset_minutes": 101.8,
-        "first_matching_news_after_onset": {
-          "date_pub": "2022-05-09T22:49:08+00:00",
-          "title": "Terra Stablecoin Peg Slips Below $0.70\u2014Despite Loan From Bitcoin Reserves",
-          "link": "https://cryptopanic.com/news/15157573/Terra-Stablecoin-Peg-Slips-Below-070Despite-Loan-From-Bitcoin-Reserves",
-          "delay_minutes": 4.1
-        }
+        ]
+      },
+      {
+        "onset_ts": 1652154600000,
+        "verdict": "explained_news",
+        "synthesis": {
+          "reasons": [
+            "LUNA's 25% drop is directly tied to UST losing its dollar peg, which fell to $0.95 and then below $0.70 during the episode window.",
+            "LFG's emergency deployment of $1.5B in BTC and UST reserves to defend the peg signaled a crisis of confidence in Terra's algorithmic stability mechanism.",
+            "Do Kwon's public reassurance that LFG was not exiting its Bitcoin position confirmed the severity of the depeg event and contagion risk to LUNA."
+          ],
+          "supporting_refs": [
+            "news_36959",
+            "news_36767",
+            "news_36746",
+            "news_36840"
+          ]
+        },
+        "rationale": "The retrieved news articles collectively provide a credible and direct explanation for the ~25% 2h drawdown in LUNAUSDT at onset. The core mechanism is the UST stablecoin's depegging from its $1 target, which is fundamentally linked to LUNA's value through Terra's algorithmic stablecoin design. News_36959 (published May 9, 11:15 UTC) reports LFG's decision to deploy $1.5 billion in BTC and UST to defend the peg, an emergency action signaling acute stress. News_36767 (May 9, 21:03 UTC) confirms UST had fallen to approximately $0.95, a 5% depeg. News_36746 (May 9, 22:49 UTC) reports the situation had deteriorated further with UST slipping below $0.70, explicitly noting that the reserve loan had not resolved the problem. News_36840 (May 9, 16:50 UTC) provides additional context with Do Kwon publicly stating LFG was not exiting its Bitcoin position, which while framed as reassurance, confirms the severity of the situation and potential contagion to LUNA. The temporal sequence is coherent: UST depegging triggered emergency reserve deployment, the peg continued to fail, and LUNA\u2014which is algorithmically burned/minted against UST\u2014experienced a sharp selloff as confidence in the Terra ecosystem collapsed. The 2h return of -25.3% and 4h drawdown of -30.6% are consistent with the magnitude of the UST depeg crisis as described in the news. While the exact onset timestamp (May 10, 02:30 UTC) is slightly after the latest article, all articles were published within the 24h window before onset and describe an ongoing, escalating crisis that directly explains the price anomaly. No alternative explanations are needed given the clear causal chain from UST depeg to LUNA collapse.",
+        "faithfulness": null,
+        "retrieved_news": [
+          {
+            "date_pub": "2022-05-09T16:50:00+00:00",
+            "title": "Luna Foundation Guard \u2018Is Not Trying to Exit Its Bitcoin Position\u2019, Says Terra\u2019s Do Kwon",
+            "source": "Historical",
+            "link": null
+          },
+          {
+            "date_pub": "2022-05-09T17:29:03+00:00",
+            "title": "Luna Foundation Guard To Support Struggling UST Peg With BTC Reserves",
+            "source": "Historical",
+            "link": null
+          },
+          {
+            "date_pub": "2022-05-09T11:15:07+00:00",
+            "title": "Terra\u2019s LFG to Deploy $1.5B to \u201cProtect the UST Peg\u201d",
+            "source": "Historical",
+            "link": null
+          },
+          {
+            "date_pub": "2022-05-09T22:49:08+00:00",
+            "title": "Terra Stablecoin Peg Slips Below $0.70\u2014Despite Loan From Bitcoin Reserves",
+            "source": "Historical",
+            "link": null
+          },
+          {
+            "date_pub": "2022-05-09T21:03:14+00:00",
+            "title": "TerraUSD Stablecoin Plunges Below $0.95",
+            "source": "Historical",
+            "link": null
+          }
+        ]
       },
       {
         "onset_ts": 1652217600000,
         "verdict": "explained_news",
-        "confidence": 0.95,
-        "rationale": "The retrieved news articles from May 10, 2022 provide a direct and credible explanation for the severe LUNA price decline. Multiple articles report that UST lost its dollar peg, plummeting to as low as $0.61\u2013$0.62, which triggered Terra's algorithmic mechanism that mints/burns LUNA to defend the peg. The Luna Foundation Guard draining $1.5 billion from its BTC treasury, Binance halting LUNA and UST withdrawals, and the headline explicitly stating LUNA 'nosedives a staggering 60%' collectively explain the medium-severity anomaly captured in the LUNAUSDT price data at the episode onset.",
-        "news_relevance": "All five retrieved articles are directly relevant: (1) 'LUNA Nosedives A Staggering 60% As Binance Disables Terra Withdrawals' explicitly quantifies the LUNA crash and ties it to UST's depegging and Binance's withdrawal halt; (2) 'Luna Foundation Guard Drains Bitcoin Treasury To Save UST Peg' explains the mechanism\u2014LFG spent $1.5B in BTC defending UST, and Binance suspended LUNA/UST withdrawals; (3) 'Binance Halts Terra Withdrawals Amid UST Meltdown' confirms UST fell to $0.62, directly impacting LUNA via the dual-token algorithmic relationship; (4) 'Cryptocurrency Luna Lurches as Terra USD Volatility Continues, Erasing Billions' confirms LUNA's price collapse and billions in market cap erased, with Do Kwon signaling a recovery plan; (5) 'Cardano Founder on UST Collapse' corroborates the UST free fall context. Together, these articles credibly explain the LUNA price anomaly through the UST depeg event and its cascading effects on LUNA.",
-        "derivatives": null,
+        "synthesis": {
+          "reasons": [
+            "UST lost its dollar peg and crashed to $0.61\u2013$0.62, directly breaking Terra's algorithmic mechanism that burns/mints LUNA to maintain UST's value.",
+            "Binance suspended LUNA and UST withdrawals, trapping holders and intensifying panic selling pressure on LUNA.",
+            "Luna Foundation Guard depleted $1.5B in BTC reserves defending the peg, signaling reserves were insufficient to restore confidence."
+          ],
+          "supporting_refs": [
+            "news_37127",
+            "news_37305",
+            "news_37288",
+            "news_37100",
+            "news_37280"
+          ]
+        },
+        "rationale": "The LUNA price anomaly is comprehensively explained by the supplied news. All five articles describe the same causal chain: Terra's algorithmic stablecoin UST lost its $1 peg and crashed to approximately $0.61\u2013$0.62 (news_37288, news_37280, news_37127). Because Terra's dual-token mechanism requires burning LUNA to mint UST (and vice versa) to maintain the peg, a severe UST depeg directly translates into massive dilution and downward price pressure on LUNA. News_37127 explicitly reports LUNA nosediving 60%, directly matching the severe drawdown detected. News_37305 and news_37288 add that Binance suspended LUNA and UST withdrawals, which would trap holders and amplify panic selling. News_37305 further reports the Luna Foundation Guard deploying $1.5 billion in BTC to defend the peg, demonstrating that the situation had escalated beyond normal stabilization mechanisms. News_37100 confirms billions in value were erased and notes Do Kwon signaling a recovery plan, underscoring the severity. The articles are tightly clustered within hours of the onset timestamp and each independently corroborates the mechanism driving LUNA's collapse. There is no ambiguity or tangentiality: the news directly describes the event being detected.",
+        "faithfulness": null,
         "retrieved_news": [
           {
             "date_pub": "2022-05-10T17:30:37+00:00",
@@ -620,34 +810,132 @@
             "source": "Historical",
             "link": null
           }
-        ],
-        "faithfulness": 0.6666666666666666,
-        "answer_relevancy": 0.6742740126635128,
-        "retrieved_articles": 5,
-        "latest_news_age_at_onset_minutes": 152.2,
-        "first_matching_news_after_onset": {
-          "date_pub": "2022-05-10T21:28:58+00:00",
-          "title": "What Terra's Meltdown Means for Centralized Stablecoins Tether and USDC",
-          "link": "https://cryptopanic.com/news/15168494/What-Terras-Meltdown-Means-for-Centralized-Stablecoins-Tether-and-USDC",
-          "delay_minutes": 9.0
-        }
+        ]
+      },
+      {
+        "onset_ts": 1652242800000,
+        "verdict": "explained_news",
+        "synthesis": {
+          "reasons": [
+            "LUNA crashed ~60% as UST lost its dollar peg, falling to $0.62, breaking the dual-token mechanism that burns/mints LUNA to maintain parity.",
+            "Binance disabled LUNA and UST withdrawals, intensifying panic and locking liquidity during the selloff.",
+            "Luna Foundation Guard drained $1.5B in BTC to defend the peg, signaling severe systemic distress and eroding market confidence."
+          ],
+          "supporting_refs": [
+            "news_37127",
+            "news_37305",
+            "news_37288",
+            "news_37100"
+          ]
+        },
+        "rationale": "The episode captures LUNA's extreme -25.6% two-hour return and -40.3% four-hour drawdown at onset on May 11, 2022, which is directly and credibly explained by the supplied news context. Multiple articles published hours before onset document the core causal mechanism: UST, Terra's algorithmic stablecoin, lost its $1 peg and plummeted to as low as $0.62 (news_37288, news_37127). Because Terra's dual-token system is designed to burn LUNA to mint UST (and vice versa) to maintain the peg, a severe UST depeg mechanically creates massive inflationary selling pressure on LUNA. News_37127 explicitly reports LUNA nosediving a staggering 60%, directly matching the severity of the detected anomaly. News_37305 and news_37288 add that Binance suspended LUNA and UST withdrawals, which compounded the selloff by trapping liquidity and intensifying panic. News_37305 further reports the Luna Foundation Guard deploying $1.5 billion in BTC to defend the peg, signaling the severity of the crisis. News_37100 notes Do Kwon signaling a recovery plan, but this does not negate the explanatory power of the other articles. News_37120 is a tangential social media post about AMPL and is not relevant. The convergence of UST depeg, exchange withdrawal halts, and reserve depletion provides a coherent, direct, and sufficient causal explanation for LUNA's extreme price collapse.",
+        "faithfulness": null,
+        "retrieved_news": [
+          {
+            "date_pub": "2022-05-10T17:30:37+00:00",
+            "title": "LUNA Nosedives A Staggering 60% As Binance Disables Terra Withdrawals \u2014 What\u2019s Next For UST?",
+            "source": "Historical",
+            "link": null
+          },
+          {
+            "date_pub": "2022-05-10T09:19:11+00:00",
+            "title": "Luna Foundation Guard Drains Bitcoin Treasury To Save UST Peg",
+            "source": "Historical",
+            "link": null
+          },
+          {
+            "date_pub": "2022-05-10T18:47:48+00:00",
+            "title": "Cryptocurrency Luna Lurches as Terra USD Volatility Continues, Erasing Billions",
+            "source": "Historical",
+            "link": null
+          },
+          {
+            "date_pub": "2022-05-10T10:25:00+00:00",
+            "title": "Binance Halts Terra Withdrawals Amid UST Meltdown",
+            "source": "Historical",
+            "link": null
+          },
+          {
+            "date_pub": "2022-05-10T17:53:24+00:00",
+            "title": "RT @0xfordsrevenge: Everyone looking at this $Luna / $UST fiasco... have a minute to read the basics of the $AMPL ecosystem and why the $SP\u2026",
+            "source": "Historical",
+            "link": null
+          }
+        ]
+      },
+      {
+        "onset_ts": 1652281800000,
+        "verdict": "explained_news",
+        "synthesis": {
+          "reasons": [
+            "UST stablecoin depegged from its $1 peg, breaking Terra's dual-token algorithmic mechanism and causing LUNA to absorb arbitrage selling pressure.",
+            "Binance disabled Terra withdrawals and major South Korean exchanges flagged LUNA as a cautionary item, accelerating panic selling.",
+            "LUNA price collapsed below $5 after falling over 60% across consecutive days, with Do Kwon announcing a recovery plan amid the crisis."
+          ],
+          "supporting_refs": [
+            "news_37127",
+            "news_37677",
+            "news_37630",
+            "news_37100",
+            "news_37600"
+          ]
+        },
+        "rationale": "The retrieved news articles collectively provide a clear and credible explanation for the extreme drawdown in LUNAUSDT detected at onset on May 11, 2022. The core mechanism is the depegging of TerraUSD (UST) from its $1 peg, which directly impacted LUNA through Terra's algorithmic dual-token system. Article news_37127 (May 10, 17:30 UTC) reports LUNA nosediving 60% and Binance disabling Terra withdrawals, establishing both the price collapse and exchange-level disruption well before onset. Article news_37677 (May 11, 07:45 UTC) confirms LUNA collapsed below $5 as UST slid further from its dollar peg, placing the freefall squarely within the pre-onset window. Article news_37630 (May 11, 11:19 UTC) adds that major South Korean exchanges tagged LUNA as a cautionary item and suspended deposits, further constraining liquidity and amplifying selling pressure. Article news_37100 (May 10, 18:47 UTC) reports billions erased and Do Kwon signaling a recovery plan, confirming market awareness of systemic distress. Article news_37600 (May 11, 12:24 UTC) describes the third consecutive day of LUNA price decline and Kwon's unveiling of a recovery plan, directly contextualizing the severity of the drawdown. Together, these articles describe a coherent causal chain: UST depegging triggered algorithmic arbitrage that minted and sold massive LUNA supply, exchange withdrawals were disabled, major exchanges issued cautionary warnings, and the price entered a multi-day freefall. The 4h drawdown of approximately -55.9% and the extreme severity classification are fully consistent with the events described. No article is tangential; each contributes to the explanation. The news is not merely surface headline matching\u2014it describes the specific mechanism (algorithmic stablecoin depeg breaking the dual-token equilibrium) that drove the price collapse. Confidence is high because multiple independent sources corroborate the same causal narrative within the relevant time window.",
+        "faithfulness": null,
+        "retrieved_news": [
+          {
+            "date_pub": "2022-05-11T12:24:42+00:00",
+            "title": "\u201cTerra\u2019s Return to Form Will be a Sight to Behold,\u201d Says Do Kwon As He Unveils UST and LUNA Recovery Plan",
+            "source": "Historical",
+            "link": null
+          },
+          {
+            "date_pub": "2022-05-10T17:30:37+00:00",
+            "title": "LUNA Nosedives A Staggering 60% As Binance Disables Terra Withdrawals \u2014 What\u2019s Next For UST?",
+            "source": "Historical",
+            "link": null
+          },
+          {
+            "date_pub": "2022-05-11T11:19:18+00:00",
+            "title": "Major South Korean Exchanges Release LUNA Update Amid UST Debacle",
+            "source": "Historical",
+            "link": null
+          },
+          {
+            "date_pub": "2022-05-11T07:45:59+00:00",
+            "title": "Luna price collapses below $5 as UST slides further from dollar peg",
+            "source": "Historical",
+            "link": null
+          },
+          {
+            "date_pub": "2022-05-10T18:47:48+00:00",
+            "title": "Cryptocurrency Luna Lurches as Terra USD Volatility Continues, Erasing Billions",
+            "source": "Historical",
+            "link": null
+          }
+        ]
       }
     ]
   },
   "comparison": {
-    "derivatives_vs_rag_verdict_agreement": 1.0,
-    "derivatives_vs_rag_verdict_changes": [],
-    "evidence_overlap": {
+    "derivatives_vs_rag_verdict_agreement": 0.875,
+    "derivatives_vs_rag_verdict_changes": [
+      {
+        "onset_ts": 1652136300000,
+        "derivatives_only": "unexplained",
+        "derivatives_rag": "explained_news"
+      }
+    ],
+    "context_overlap": {
       "derivatives_only": 1,
       "news_only": 1,
-      "both": 3,
+      "both": 6,
       "neither": 0
     },
-    "finding": "Adding pre-onset news changed no derivatives-based verdicts. Derivatives-only and news-only each explained four of five episodes: three overlapped, one was derivatives-only, and one was news-only. This LUNA sample does not establish that derivatives outperform news; it shows complementary evidence and one early move that derivatives explained before news did."
+    "finding": "Pre-onset news changed 1 of 8 combined verdicts. Derivatives-only explained 7; news-only explained 7; 6 overlapped, 1 was derivatives-only, 1 was news-only, and 0 was unexplained by either. This LUNA sample shows evidence overlap; it does not establish general source superiority."
   },
   "limitations": [
-    "Five episodes from one historical event are not enough for a general claim.",
-    "Ragas evaluates generated rationale quality, not predictive superiority.",
-    "Post-onset news delay uses first ticker/text match, not a manually verified causal article."
+    "Ragas Faithfulness evaluates rationale support, not whether the verdict is correct.",
+    "One anomaly comparison does not prove causality or source superiority."
   ]
 }
