@@ -159,16 +159,16 @@ def test_orange_highlights_only_context_supporting_verdict(page: Page):
 
 def test_rag_exposes_relevance_order_and_score(page: Page):
     summary = page.locator("#rag-summary")
-    expect(summary.locator("span")).to_have_text("Nearest article was 1.7 h before onset.")
+    expect(summary.locator("span")).to_have_text("Nearest article was 1.7 h before detection.")
     expect(summary.locator("small")).to_have_text("RRF combines semantic and keyword ranking")
     expect(summary.locator("small")).to_have_css("font-size", "12px")
     articles = page.locator("#news-list .news-item")
     expect(articles).to_have_count(5)
     expect(articles.first.locator(".news-meta")).to_contain_text(
-        "Relevance 1 of 5 · RRF 0.0325 · 6 h before onset"
+        "Relevance 1 of 5 · RRF 0.0325 · 6 h before detection"
     )
     expect(articles.nth(3).locator(".news-meta")).to_contain_text(
-        "Relevance 4 of 5 · RRF 0.0317 · 1.7 h before onset"
+        "Relevance 4 of 5 · RRF 0.0317 · 1.7 h before detection"
     )
     expect(page.locator("#news-list")).to_contain_text("TerraUSD Stablecoin Plunges Below $0.95")
     source_links = page.locator("#news-list .news-title a")
