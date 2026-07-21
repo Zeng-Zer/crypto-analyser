@@ -8,7 +8,7 @@
 | News articles and embeddings | PostgreSQL with pgvector | Full-text and vector retrieval |
 | Episodes, features, classifications, reports | Gitignored JSON | Batch pipeline handoff and reproducible artifacts |
 
-PostgreSQL tables for pipeline outputs and TimescaleDB live ingestion are planned for Milestone 2. They are not implemented in Milestone 1.
+PostgreSQL stores news and embeddings only. Pipeline outputs remain JSON; no real-time ingestion or time-series serving database is implemented.
 
 ## Data directory
 
@@ -71,8 +71,6 @@ uv run crypto-analyser news embed \
 
 The HNSW index uses the first 2,000 dimensions because pgvector's `vector` HNSW operator class has a 2,000-dimension limit. Retrieval queries must use the same indexed expression.
 
-## Deployment path
+## Deployment
 
-- Milestone 1 showcase: publish curated report data from a completed batch run.
-- Historical data at larger scale: store Parquet in object storage and query with DuckDB.
-- Milestone 2 live writes: add a serving/time-series database after ingestion and query requirements are defined.
+GitHub Pages serves the committed static snapshot in `visuals/`. Local pipeline execution, PostgreSQL/pgvector, source Parquet, and generated JSON are not part of the hosted site.

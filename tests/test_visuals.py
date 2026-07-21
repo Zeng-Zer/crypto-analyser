@@ -46,6 +46,7 @@ def page(browser: Browser, workbench_url: str):
     errors: list[str] = []
     page.on("console", lambda message: errors.append(message.text) if message.type == "error" else None)
     page.on("pageerror", lambda error: errors.append(str(error)))
+    # Scenario tests deep-link Episode 04; bare-URL default is verified separately below.
     page.goto(f"{workbench_url}/index.html?onset=1652136300000")
     expect(page.locator("#episode-title")).to_have_text("Episode 04")
     yield page
@@ -177,6 +178,9 @@ def test_reader_typography_uses_shared_scale(page: Page):
 
 
 def test_combined_llm_output_is_concise(page: Page):
+    expect(page.locator(".classifier-note")).to_have_text(
+        "Classifier interpretation of supplied context, not a causal finding."
+    )
     reasons = page.locator("#reason-list li")
     expect(reasons).to_have_count(2)
     expect(reasons.first).to_contain_text("$0.95")
@@ -273,7 +277,7 @@ def test_layout_has_no_horizontal_overflow(
 def test_selected_anomaly_has_inline_explanation_check(page: Page):
     expect(page.get_by_role("link", name="Check this explanation")).to_have_count(0)
     expect(page.get_by_role("heading", name="Did news change the result?")).to_be_visible()
-    expect(page.get_by_role("heading", name="Could each input explain the move?")).to_be_visible()
+    expect(page.get_by_role("heading", name="Did each input support an explanation?")).to_be_visible()
     expect(page.get_by_role("heading", name="How much is backed by the inputs?")).to_be_visible()
     expect(page.locator("#check-answer")).to_have_text("Yes — news changed the result.")
     rows = page.locator("#context-results .check-row")
@@ -283,9 +287,9 @@ def test_selected_anomaly_has_inline_explanation_check(page: Page):
     expect(rows.nth(1)).to_contain_text("News alone")
     expect(rows.nth(1)).to_contain_text("Yes")
     expect(rows.nth(2)).to_contain_text("With both")
-    expect(rows.nth(2)).to_contain_text("News explains the move")
+    expect(rows.nth(2)).to_contain_text("Classifier selected news")
     expect(page.locator("#context-rule")).to_have_text(
-        "Market activity stayed within its limits, so pre-onset news explains the move."
+        "Market activity stayed within its limits; the classifier selected pre-onset news."
     )
     expect(page.locator("#faithfulness-score")).to_have_text("87%")
     expect(page.locator("#faithfulness-meter")).to_have_attribute("aria-valuenow", "87")
@@ -307,9 +311,9 @@ def test_selected_anomaly_has_inline_explanation_check(page: Page):
     expect(page.locator("#check-answer")).to_have_text("No — result stayed the same.")
     expect(rows.nth(0)).to_contain_text("Yes")
     expect(rows.nth(1)).to_contain_text("Yes")
-    expect(rows.nth(2)).to_contain_text("Market activity remains primary")
+    expect(rows.nth(2)).to_contain_text("Classifier retained market activity")
     expect(page.locator("#context-rule")).to_have_text(
-        "When funding or open interest crosses its limit, market activity remains primary."
+        "A funding or open-interest threshold breach made the classifier retain market activity."
     )
     expect(page.locator("#faithfulness-score")).to_have_text("57%")
     expect(page.locator("#faithfulness-meaning")).to_have_text(

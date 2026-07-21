@@ -29,7 +29,7 @@
   "finding": "Pre-onset news changed 1 of 8 combined verdicts. Derivatives-only explained 7; news-only explained 7; 6 overlapped, 1 was derivatives-only, 1 was news-only, and 0 was unexplained by either. This LUNA sample shows evidence overlap; it does not establish general source superiority.",
   "limitations": [
     "Ragas Faithfulness evaluates rationale support, not whether the verdict is correct.",
-    "One anomaly comparison does not prove causality or source superiority."
+    "One eight-episode LUNA case study does not prove causality or source superiority."
   ],
   "generated_at": "2026-07-20T00:16:26.659385+00:00"
 }

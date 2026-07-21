@@ -1,5 +1,7 @@
 # Draft: Crypto Analyzer Phase 1
 
+> Superseded planning draft retained for provenance. Current implementation and conclusions are documented in [`.sisyphus/PROJECT.md`](../PROJECT.md), [`README.md`](../../README.md), and committed final reports.
+
 ## Requirements (confirmed)
 - Historical anomaly detection for LUNA crash (May 7-11, 2022)
 - Derivatives signals: funding rate + open interest only

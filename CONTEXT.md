@@ -1,6 +1,6 @@
-# Crypto Analyzer (Milestone 1)
+# Crypto Anomaly Analyser (Milestone 1)
 
-Historical batch pipeline that validates whether derivatives market structure (funding rate, open interest) classifies crypto price crashes better than lagging news feeds. LUNA crash (May 7-11, 2022) is the validation window.
+Historical batch pipeline comparing how derivatives market structure (funding rate, open interest) and pre-onset news affect LLM classifications of crypto price anomalies. LUNA (May 7–11, 2022) is one case study, not general validation of source superiority.
 
 ## Language
 
@@ -19,8 +19,8 @@ Signal that admitted bars into an episode: `price_zscore`, `drawdown_4h`, `retur
 _Avoid_: cause, explanation
 
 **Episode onset**:
-The first flagged bar of an episode. Derivatives extraction and classification key on this timestamp.
-_Avoid_: trigger time, anomaly start, detection time (imply a single instant)
+The first flagged bar of an episode. Derivatives extraction, news cutoff, and classification key on this timestamp. The UI labels it “Signal detected” because the underlying decline may have begun earlier.
+_Avoid_: crash start, causal onset
 
 **Severity**:
 Band of strongest normalized detection signal: low (>=1.0× threshold), medium (>=1.2×), high (>=1.6×), extreme (>=2.0×). Computed by detection and stored on each episode; downstream components read it verbatim — never LLM-emitted.
@@ -58,9 +58,7 @@ in Run A.
 _Avoid_: headline-driven, news-caused, reported
 
 **Unexplained**:
-Derivatives context shows nothing unusual AND no credible news explanation is
-available. The highest-priority signal and the validation of the project
-hypothesis — such moves often precede news by 30min-24h.
+Derivatives context shows nothing unusual AND no credible pre-onset news explanation is available. This is the outcome relevant to the hypothesis that price can move before public explanation, but confirming that hypothesis requires post-onset publication timing or additional evidence not implemented here.
 _Avoid_: orphan, mystery, unattributed
 
 **Insufficient data**:

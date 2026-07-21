@@ -1,10 +1,10 @@
 # Crypto Anomaly Analyser
 
-Historical batch pipeline testing whether derivatives market structure—funding rates and open interest—classifies crypto price crashes more faithfully than lagging news.
+Historical batch pipeline comparing how derivatives market structure—funding rates and open interest—and pre-onset news affect LLM classifications of crypto price anomalies.
 
 **[Open the LUNA crash evidence workbench](https://zeng-zer.github.io/crypto-analyser/)**
 
-An **unexplained** price episode has neither unusual derivatives activity nor credible retrieved news. Those episodes are the hypothesis signal: price can move before a public explanation appears.
+An **unexplained** price episode has neither unusual derivatives activity nor credible retrieved news. Such episodes would support the hypothesis that price can move before a public explanation appears; this LUNA case produced no episode unexplained by both isolated sources.
 
 ## Pipeline
 
@@ -30,7 +30,7 @@ Controlled context comparison:
 | News and embeddings | PostgreSQL with pgvector |
 | Pipeline intermediates and reports | Gitignored JSON under `data/` |
 
-PostgreSQL output tables and TimescaleDB-backed live ingestion are Milestone 2 plans, not current behavior.
+This repository has no real-time ingestion or time-series serving database.
 
 ## Quickstart
 
@@ -75,7 +75,7 @@ Required environment variables: `DATABASE_URL`, `LLM_API_URL`, and `LLM_API_KEY`
 uv run python -m http.server 8000 --directory visuals
 ```
 
-Open `http://localhost:8000`. The page guides reviewers through one episode at a time: focused anomaly chart, onset-safe context, hybrid RAG results, combined LLM output, then a compact explanation check. Episode 04 leads because pre-onset news changes its otherwise unexplained verdict; Previous/Next browses all eight episodes. The explanation check shows whether market activity and news can explain the move alone, then names combined primary outcome; Ragas Faithfulness checks combined rationale only. Page embeds committed historical snapshot, so it can be hosted on GitHub Pages without a backend. After generating new local pipeline artifacts, refresh them with `uv run python scripts/build_visual_data.py`.
+Open `http://localhost:8000`. The page starts with Episode 01 and guides reviewers chronologically through all eight episodes: focused anomaly chart, onset-safe context, hybrid retrieval results, structured LLM output, then a compact explanation check. The comparison records verdict changes across context modes; Ragas Faithfulness checks whether claims in the combined rationale follow from supplied context. It does not score verdict correctness or prove causality. Page embeds a committed historical snapshot, so GitHub Pages serves it without a backend. After generating new local pipeline artifacts, refresh it with `uv run python scripts/build_visual_data.py`.
 
 Run browser tests after installing Chromium once:
 
@@ -104,9 +104,9 @@ src/crypto_analyser/
 data/                  # Gitignored parquet and generated JSON
 ```
 
-## Validation case
+## Case study
 
-Milestone 1 validates the LUNAUSDT crash window from May 7–11, 2022 using Binance Data Vision. FTX and Bybit windows are planned enrichment cases.
+Milestone 1 analyzes one case: the LUNAUSDT crash window from May 7–11, 2022 using Binance Data Vision. It does not establish general source superiority.
 
 ## Contributors
 

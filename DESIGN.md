@@ -134,7 +134,7 @@ Newsreader carries investigation headings and key findings. Source Sans 3 carrie
 
 ## Layout
 
-Use one continuous page presenting one episode at a time with Previous/Next navigation. A focused anomaly chart leads into three numbered columns: market activity, pre-onset RAG retrieval, and combined structured LLM analysis. Episode 04 is historical default because it demonstrates RAG changing an otherwise unexplained result. A compact explanation check follows cards, compares three context runs, and checks combined rationale with Ragas Faithfulness. On small screens, stack all steps in reading order.
+Use one continuous page presenting one episode at a time with Previous/Next navigation. A focused anomaly chart leads into three numbered columns: market activity, pre-onset RAG retrieval, and combined structured LLM analysis. Episode 01 is the chronological default; onset query parameters support direct links to other episodes. A compact explanation check follows cards, compares three context runs, and checks combined rationale with Ragas Faithfulness. On small screens, stack all steps in reading order.
 
 ## Elevation & Depth
 
@@ -163,7 +163,7 @@ Corners are square or two pixels. Episode markers are circles because they repre
 - Make pre-onset temporal safety explicit through publication age.
 - Call supplied material context; reserve evidence for context that supports a stated verdict.
 - Pair every color encoding with text; one legend above source cards defines orange as context supporting verdict.
-- State that one anomaly comparison does not prove causality or source superiority.
+- State that one eight-episode LUNA case study does not prove causality or source superiority.
 - Make Previous/Next, chart hover, keyboard focus, and reduced-motion modes work.
 - Keep anomaly, context/RAG, LLM result, and explanation check in one continuous reading flow.
 - Keep source timestamps visible. Keep detailed rationale and self-confidence in audit JSON, not reader UI.

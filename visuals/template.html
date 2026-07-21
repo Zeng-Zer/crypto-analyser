@@ -91,6 +91,7 @@
     .verdict.news { color:var(--color-news); }
     .support-legend { display:flex; align-items:center; gap:7px; margin:14px 0 -2px; color:var(--color-ink-muted); font:500 12px/1.3 var(--font-data); letter-spacing:.04em; text-transform:uppercase; }
     .support-legend i { width:14px; height:3px; background:var(--color-warning); }
+    .classifier-note { margin:0 0 13px; color:var(--color-ink-muted); font-size:14px; line-height:1.4; }
     .reason-title { margin:17px 0 8px; color:var(--color-ink-muted); font:500 12px/1.3 var(--font-data); letter-spacing:.05em; text-transform:uppercase; }
     .reason-list { margin:0; padding-left:21px; }
     .reason-list li { padding-left:3px; font-size:16px; line-height:1.4; }
@@ -169,14 +170,14 @@
   <section class="story-grid" aria-label="Analysis story">
     <article class="story-card" aria-labelledby="context-title"><header class="story-head"><div class="step-title"><span class="step-no">02</span><h2 id="context-title">Market activity</h2></div></header><div class="story-body"><span class="context-state" id="context-state"></span><p class="story-lead" id="context-summary"></p><div class="signal-grid" id="signal-grid"></div><section class="always-details" aria-labelledby="technical-title"><h3 id="technical-title">Technical details</h3><div class="detail-body" id="context-details"></div></section></div></article>
     <article class="story-card" aria-labelledby="rag-title"><header class="story-head"><div class="step-title"><span class="step-no">03</span><h2 id="rag-title">News RAG</h2></div></header><div class="story-body"><p class="story-lead rag-summary" id="rag-summary"></p><div class="news-list" id="news-list"></div></div></article>
-    <article class="story-card" aria-labelledby="llm-title"><header class="story-head"><div class="step-title"><span class="step-no">04</span><h2 id="llm-title">LLM analysis</h2></div></header><div class="story-body"><div class="verdict" id="verdict"></div><h3 class="reason-title">Why this verdict</h3><ul class="reason-list" id="reason-list"></ul></div></article>
+    <article class="story-card" aria-labelledby="llm-title"><header class="story-head"><div class="step-title"><span class="step-no">04</span><h2 id="llm-title">LLM analysis</h2></div></header><div class="story-body"><div class="verdict" id="verdict"></div><p class="classifier-note">Classifier interpretation of supplied context, not a causal finding.</p><h3 class="reason-title">Why this verdict</h3><ul class="reason-list" id="reason-list"></ul></div></article>
   </section>
 
   <section class="explanation-panel" id="explanation-check" aria-labelledby="explanation-title">
     <header class="story-head"><div class="step-title"><span class="step-no">05</span><h2 id="explanation-title">Explanation check</h2></div></header>
     <div class="explanation-grid">
       <article class="explanation-cell"><h3>Did news change the result?</h3><strong class="check-answer" id="check-answer"></strong><p class="check-detail" id="check-detail"></p></article>
-      <article class="explanation-cell"><h3>Could each input explain the move?</h3><div id="context-results"></div><p class="check-detail" id="context-rule"></p></article>
+      <article class="explanation-cell"><h3>Did each input support an explanation?</h3><div id="context-results"></div><p class="check-detail" id="context-rule"></p></article>
       <article class="explanation-cell"><h3>How much is backed by the inputs?</h3><div class="faithfulness"><span class="label">Ragas · Faithfulness</span><strong id="faithfulness-score"></strong></div><div class="meter" id="faithfulness-meter" role="progressbar" aria-label="Ragas Faithfulness"><i id="faithfulness-bar"></i></div><p class="quality-note" id="faithfulness-meaning"></p><p class="quality-unbacked" id="faithfulness-unbacked"></p><p class="quality-method">How calculated: Ragas splits the detailed explanation into claims, checks each against supplied inputs, then divides backed claims by all claims.</p><p class="quality-caveat">Not directly backed does not mean false. This score does not verify result or prove cause.</p></article>
     </div>
   </section>
@@ -207,7 +208,7 @@ const readerReason=text=>text
 const triggerLabel=episode=>episode.onset_triggers.includes('return_2h')?`2h return ${(episode.return_onset_2h*100).toFixed(1)}%`:episode.onset_triggers.includes('drawdown_4h')?`4h drawdown ${(episode.drawdown_onset_4h*100).toFixed(1)}%`:`Price Z ${episode.peak_z.toFixed(2)}`;
 const verdictLabels={explained_derivatives:'Explained by market activity',explained_news:'Explained by news',unexplained:'Unexplained',insufficient_data:'Insufficient data'};
 const verdictClass=value=>value==='explained_derivatives'?'derivatives':value==='explained_news'?'news':'';
-const combinedOutcomes={explained_derivatives:{label:'Market activity remains primary',className:'derivatives'},explained_news:{label:'News explains the move',className:'news'},unexplained:{label:'No supported explanation',className:'unexplained'},insufficient_data:{label:'Not enough context',className:'unexplained'}};
+const combinedOutcomes={explained_derivatives:{label:'Classifier retained market activity',className:'derivatives'},explained_news:{label:'Classifier selected news',className:'news'},unexplained:{label:'No supported explanation',className:'unexplained'},insufficient_data:{label:'Not enough context',className:'unexplained'}};
 const make=(name,attributes={})=>{const element=document.createElementNS(NS,name);Object.entries(attributes).forEach(([key,value])=>element.setAttribute(key,value));return element;};
 const requestedOnset=Number(new URLSearchParams(location.search).get('onset'));
 let selected=atlas.episodes.findIndex(episode=>episode.onset_ts===requestedOnset);
@@ -234,9 +235,9 @@ function renderStory(){
   $('#reason-list').innerHTML=verdict.synthesis.reasons.map(reason=>`<li>${esc(readerReason(reason))}</li>`).join('');
   const market=episode.verdicts.derivatives_only,news=episode.verdicts.news_only,changed=market.verdict!==verdict.verdict,marketExplains=market.verdict==='explained_derivatives',newsExplains=news.verdict==='explained_news',combined=combinedOutcomes[verdict.verdict];
   $('#check-answer').textContent=changed?'Yes — news changed the result.':'No — result stayed the same.';
-  $('#check-detail').textContent=changed?'Market activity alone found no supported explanation; adding news did.':verdict.verdict==='explained_derivatives'?'Adding news did not change the result; market activity remained primary.':'Adding news did not change the result.';
+  $('#check-detail').textContent=changed?'The classifier found no supported explanation from market activity alone; adding news changed its verdict.':verdict.verdict==='explained_derivatives'?'Adding news did not change the classifier verdict.':'Adding news did not change the classifier verdict.';
   $('#context-results').innerHTML=`<div class="check-row"><span>Market activity alone</span><strong class="${marketExplains?'derivatives':'unexplained'}">${marketExplains?'Yes':'No'}</strong></div><div class="check-row"><span>News alone</span><strong class="${newsExplains?'news':'unexplained'}">${newsExplains?'Yes':'No'}</strong></div><div class="check-row"><span>With both</span><strong class="${combined.className}">${combined.label}</strong></div>`;
-  $('#context-rule').textContent=verdict.verdict==='explained_derivatives'?'When funding or open interest crosses its limit, market activity remains primary.':verdict.verdict==='explained_news'?'Market activity stayed within its limits, so pre-onset news explains the move.':verdict.verdict==='unexplained'?'Neither input supplied a supported explanation.':'Required market activity data was missing.';
+  $('#context-rule').textContent=verdict.verdict==='explained_derivatives'?'A funding or open-interest threshold breach made the classifier retain market activity.':verdict.verdict==='explained_news'?'Market activity stayed within its limits; the classifier selected pre-onset news.':verdict.verdict==='unexplained'?'The classifier found no supported explanation in either input.':'Required market activity data was missing.';
   const percent=Math.round(episode.faithfulness*100);$('#faithfulness-score').textContent=`${percent}%`;$('#faithfulness-bar').style.width=`${percent}%`;$('#faithfulness-meter').setAttribute('aria-valuenow',percent);$('#faithfulness-meter').setAttribute('aria-valuemin','0');$('#faithfulness-meter').setAttribute('aria-valuemax','100');$('#faithfulness-meaning').textContent=`${percent}% of claims were directly backed by supplied market data and news.`;$('#faithfulness-unbacked').textContent=`${100-percent}% were not directly backed by those inputs.`;
   drawChart();
 }

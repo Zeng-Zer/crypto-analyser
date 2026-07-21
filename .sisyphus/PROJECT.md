@@ -1,26 +1,24 @@
-# Crypto Analyzer
+# Crypto Anomaly Analyser
 
 ## What This Is
 
-Historical crypto anomaly detection system that processes past market data to validate a hypothesis: derivatives market structure (funding rates, open interest) can classify price crashes better than lagging news feeds.
+Historical crypto anomaly analysis comparing how derivatives market structure (funding rates, open interest) and pre-onset news affect structured LLM classifications.
 
-**Milestone 1 scope:** Entirely historical/backtesting-based. No Kafka, no WebSocket, no real-time infrastructure. One CLI drives an in-process library pipeline that computes Z-scores, fetches derivatives context, and classifies with an LLM.
+**Milestone 1 scope:** Entirely historical/backtesting-based. No Kafka, WebSocket, or real-time infrastructure. One CLI drives an in-process library pipeline that computes anomaly episodes, fetches derivatives context, retrieves time-safe news, and classifies with an LLM.
 
-The core insight: **unexplained price moves** (where derivatives data show nothing unusual) often precede news by 30min-24h. This system validates that hypothesis on real historical events.
+The tested hypothesis is that derivatives can explain anomalous price moves when pre-onset news cannot. The LUNA case produced complementary evidence: each isolated source explained seven of eight episodes, with six overlaps and no episode unexplained by both sources. This does not establish source superiority or measure post-onset news delay.
 
-**Validation approach:** Three-way controlled comparison of derivatives-only, derivatives+pre-onset RAG, and news-only. Direct verdict changes test context contribution; Ragas Faithfulness checks whether combined-output rationale claims follow from supplied context. LUNA is one case study, not general proof.
+**Comparison approach:** Three controlled context modes: derivatives-only, derivatives+pre-onset RAG, and news-only. Verdict changes test context contribution; Ragas Faithfulness checks whether combined-rationale claims follow from supplied context. It does not score verdict correctness or causality.
 
 ## Core Value
 
-Detect and classify historical price anomalies. Prove the hypothesis works on real events (LUNA, FTX, Bybit).
-
-If the classification is "unexplained," that's the highest priority signal — and the hypothesis is validated.
+Reproducibly detect historical price-anomaly episodes, assemble time-safe derivatives/news context, and compare structured classifications without claiming more than one LUNA case supports.
 
 ## Milestones
 
-### Milestone 1: Historical Analysis (Current)
+### Milestone 1: Historical Analysis (Complete)
 
-Complete, shippable project. Validates entire hypothesis without real-time complexity.
+Complete LUNA case study that exercises the batch, RAG, classification, evaluation, and evidence-workbench paths.
 
 ```
 Historical OHLCV → Compute Z-score offline → Fetch derivatives at timestamp → LLM classify → JSON report
@@ -39,7 +37,7 @@ Ablation Study:
 - RAG pipeline for ablation comparison (local news archive → pgvector)
 - LLM classifier with structured output
 - Ablation study: derivatives-only vs derivatives+RAG with Ragas evaluation
-- Validation on LUNA crash event (May 7-11, 2022 — pre-crash focus)
+- LUNA crash case study (May 7–11, 2022)
 - Output: JSON reports with classifications + comparison metrics
 
 **Skills showcased:**
@@ -48,18 +46,18 @@ Ablation Study:
 3. RAG engineering (pgvector, hybrid search, embedding, retrieval)
 4. LLM evaluation (Ragas Faithfulness on product output)
 5. Statistical analysis (Z-scores, feature engineering)
-6. Scientific methodology (ablation study, hypothesis testing)
+6. Experimental methodology (controlled context comparison and explicit limitations)
 
 ### Milestone 2: Real-time Infrastructure (Future, Optional)
 
-Add streaming capabilities after Milestone 1 validates the approach.
+Candidate extension if external demand warrants live operation.
 
 - WebSocket ingestion for live price data
 - Kafka streaming pipeline
 - Real-time Z-score triggers
 - Live Discord alerts
 
-**Deferred** until Milestone 1 proves the hypothesis works.
+**Not implemented.** Milestone 1 is historical and static.
 
 ## Requirements
 
@@ -78,13 +76,12 @@ Add streaming capabilities after Milestone 1 validates the approach.
 
 - [x] Binance Data Vision provides FREE historical data for LUNAUSDT (May 2022)
   - Symbol: LUNAUSDT (pre-crash)
-  - OHLCV: 1-min klines available
+  - OHLCV: pipeline uses 5-minute klines
   - Funding rate: 8h intervals available
   - Open Interest: 5-min metrics (May 1-12, delisted after crash)
-- [x] pgvector Docker setup verified and working
-  - `pgvector/pgvector:pg17` (official image, migrated from deprecated ankane/pgvector)
-  - PostgreSQL 17.9 + pgvector 0.8.2 (both current versions)
-  - Hybrid search (vector similarity) tested and working
+- [x] PostgreSQL/pgvector development service and retrieval integration verified
+  - Compose uses `pgvector/pgvector:pg17`
+  - Hybrid retrieval combines vector and full-text ranks with reciprocal rank fusion
 
 ### Active
 
@@ -104,9 +101,9 @@ Add streaming capabilities after Milestone 1 validates the approach.
 
 | Feature                                        | Reason                                                                          |
 |------------------------------------------------+---------------------------------------------------------------------------------|
-| Real-time infrastructure (Kafka, WebSocket)    | Milestone 2. Validate hypothesis first.                                         |
-| ML classifier                                  | LLM works zero-shot. ML after accumulating labels.                              |
-| Bull/Bear/Judge debate                         | Polish. Single classifier proves pipeline first.                                |
+| Real-time infrastructure (Kafka, WebSocket)    | Not needed for the historical case study.                                       |
+| ML classifier                                  | No labeled training set; structured LLM comparison is the current scope.        |
+| Bull/Bear/Judge debate                         | Not needed for the controlled three-mode comparison.                            |
 | RAG as production signal                       | Milestone 1 uses it only as ablation evidence.                                  |
 | Exchange inflows / on-chain data               | Start simple. Funding rate + OI only.                                           |
 | Whale Alert / Options IV / Put-Call ratio      | Start simple. Add later if needed.                                              |
@@ -117,25 +114,24 @@ Add streaming capabilities after Milestone 1 validates the approach.
 
 ## Context
 
-**Resume project** built by a tech lead data engineer with an intern. The intern is junior with no experience and will be slow. Work must be structured so the intern never blocks the main developer.
+**Collaboration:** David Zeng led the end-to-end pipeline and evidence workbench. Luc Zhang contributed the PostgreSQL news schema, embedding/indexing workflow, vector retrieval prototype, and time-bounded RAG retrieval.
 
-**Differentiation from other crypto AI projects:** Most use price + news. News is lagging 15-60 minutes. This system uses derivatives market structure (funding rates, open interest) — concurrent or leading signals that explain price moves BEFORE news arrives.
+**Project focus:** Compare concurrent derivatives context with news published by each episode onset, rather than treating retrieved news as automatically causal.
 
-**Scientific validation via ablation study:**
+**Controlled context comparison:**
 - Run A: derivatives-only classification
 - Run B: derivatives + news published by episode onset
 - Run C: news-only classification
-- Direct verdict overlap and publication timing test source utility; Ragas measures generated-rationale quality
+- Verdict overlap records context-conditioned classifier changes; publication time is an onset-eligibility cutoff; Ragas measures combined-rationale support
 - LUNA result: each isolated source explained 7/8 episodes; six overlapped, one was derivatives-only, and one was news-only
 
-**Why historical first:** Real-time infrastructure (Kafka, WebSocket) adds complexity before proving value. Historical data is real data. Validate the hypothesis on known events. If it works, real-time is just "run the same pipeline live."
+**Why historical first:** Fixed historical inputs make temporal cutoffs, classifications, and evaluation reproducible. Real-time operation would require separate ingestion, persistence, failure handling, and alerting work.
 
-**Validation window:** May 7-11, 2022 (pre-crash focus). LUNA delisted May 12, so validation focuses on the days before the crash when derivatives signals should have caught anomalies.
+**Case window:** May 7–11, 2022. It includes the crisis period before LUNAUSDT derivatives data end around the May 12 delisting.
 
 ## Constraints
 
-- **Intern blocking:** Intern tasks must be enrichment only, never on critical path. If intern is slow, main developer proceeds without waiting.
-- **Simple first:** One CLI, direct function composition, and focused tests. One event (LUNA) validates the workflow.
+- **Simple first:** One CLI, direct function composition, and focused tests. One LUNA case exercises the workflow but does not validate general source superiority.
 - **No real-time yet:** Milestone 1 is entirely batch/historical. No Kafka, no WebSocket, no streaming.
 - **Start with two derivatives signals:** Funding rate and open interest only. Add more later.
 
@@ -143,15 +139,15 @@ Add streaming capabilities after Milestone 1 validates the approach.
 
 | Decision                                    | Rationale                                                                                                                              | Outcome    |
 |---------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------+------------|
-| Historical-first, real-time later           | Validate hypothesis on known events before building streaming infrastructure. Complexity deferred.                                     | — Pending  |
+| Historical-first, real-time later           | Make time cutoffs and comparisons reproducible before considering live infrastructure.                                                  | — Verified |
 | LLM first, ML later                         | No labeled training data. LLM works zero-shot. ML after accumulating labels.                                                           | — Pending  |
 | Derivatives over news (primary)             | LUNA shows complementary evidence; one early move was derivatives-only. More events required.                                          | — Inconclusive |
 | RAG included for ablation comparison        | Three-way ablation separates derivatives, combined context, and news-only evidence.                                                     | — Verified |
-| Single classifier before debate             | Debate is polish. Single LLM proves pipeline first.                                                                                    | — Pending  |
+| Single classifier before debate             | One structured classifier exercises the comparison without adding a debate layer.                                                      | — Verified |
 | Funding rate + OI only                      | Start simple. Two derivatives signals, add more if needed.                                                                             | — Pending  |
 | Unit + integration tests                    | Library functions are tested directly; CLI routing and PostgreSQL retrieval have integration coverage.                                | — Verified |
-| LUNA first (May 7-11), FTX/Bybit enrichment | One event validates hypothesis. Intern validates others in parallel. Pre-crash focus (LUNA delisted May 12).                           | — Pending  |
-| Binance Data Vision (FREE data)             | No API key, no rate limits. Historical OHLCV, funding, OI all free. Reduces complexity and cost.                                       | — Verified |
+| LUNA first (May 7–11), FTX/Bybit enrichment | One event exercises the workflow; additional events are required for broader conclusions.                                               | — Partial  |
+| Binance Data Vision archives                | Historical OHLCV, funding, and OI were available without an API key for the LUNA window.                                                | — Verified |
 
 ---
-*Last updated: 2026-07-15 — LUNA three-way ablation complete*
+*Last updated: 2026-07-21 — public-claims audit complete*

@@ -1,5 +1,7 @@
 # Crypto Analyzer Phase 1 (Milestone 1) - Historical Analysis Pipeline
 
+> Historical execution plan retained for provenance. Status claims, role-allocation notes, and hypotheses below reflect planning-time assumptions and are superseded by [`.sisyphus/PROJECT.md`](../PROJECT.md), [`README.md`](../../README.md), and committed final reports.
+
 ## TL;DR
 
 > **Quick Summary**: Build historical crypto anomaly detection system that validates hypothesis: derivatives market structure (funding rates, open interest) can classify price crashes better than lagging news feeds.

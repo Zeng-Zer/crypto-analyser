@@ -172,7 +172,7 @@ def evaluate(
         "comparison": compare_modes(results),
         "limitations": [
             "Ragas Faithfulness evaluates rationale support, not whether the verdict is correct.",
-            "One anomaly comparison does not prove causality or source superiority.",
+            "One eight-episode LUNA case study does not prove causality or source superiority.",
         ],
     }
 
