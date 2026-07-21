@@ -1,5 +1,0 @@
-2026-05-31 12:57:39 | WARNING  | crypto_analyser.download_utils | Config has placeholder values — using defaults
-2026-05-31 12:57:39 | INFO     | crypto_analyser.download_utils | --- LUNAUSDT 2022-05 ---
-2026-05-31 12:57:39 | INFO     | crypto_analyser.download_utils | Downloading https://data.binance.vision/data/futures/um/monthly/klines/LUNAUSDT/5m/LUNAUSDT-5m-2022-05.zip
-2026-05-31 12:57:40 | INFO     | crypto_analyser.download_utils | Wrote 3350 rows to data/ohlcv/LUNAUSDT_2022-05.parquet (2022-05-01 00:00 to 2022-05-12 15:30)
-2026-05-31 12:57:40 | INFO     | crypto_analyser.download_utils | Completed: 1/1 months downloaded

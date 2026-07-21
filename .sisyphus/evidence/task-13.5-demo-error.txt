@@ -1,4 +1,0 @@
-➜  crypto-analyser git:(feat-13.5) ✗ python3 scripts/demo_retrieval.py --query "Bitcoin ETF approval" --api-url "http://localhost:9999"
-Starting demo with query: 'Bitcoin ETF approval' (Limit: 10)
-
-❌ API Error: Failed to reach the embedding API. Check the URL or your connection.

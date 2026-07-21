@@ -1,8 +1,0 @@
-{
-  "mode": "derivatives_only",
-  "episode_count": 5,
-  "classification_breakdown": {
-    "explained_derivatives": 4,
-    "unexplained": 1
-  }
-}

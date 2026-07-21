@@ -3,6 +3,10 @@
 *.log
 tmp/
 .pi-subagents/
+.pi/
+.opencode/
+.sisyphus/
+AGENTS.md
 
 *.py[cod]
 __pycache__/

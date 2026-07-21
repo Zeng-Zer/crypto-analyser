@@ -117,7 +117,6 @@ Milestone 1 analyzes one case: the LUNAUSDT crash window from May 7–11, 2022 u
 - [CONTEXT.md](CONTEXT.md) — domain language and classification outcomes
 - [docs/storage.md](docs/storage.md) — storage design
 - [docs/adr/](docs/adr/) — architecture decisions
-- [.sisyphus/PROJECT.md](.sisyphus/PROJECT.md) — project roadmap
 
 ## Status
 
