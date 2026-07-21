@@ -1,4 +1,4 @@
-"""Build the LUNA Context Atlas pages from canonical pipeline artifacts."""
+"""Build the Crypto Anomaly Analyser page from canonical pipeline artifacts."""
 
 from __future__ import annotations
 
@@ -164,7 +164,7 @@ def build_snapshot(root: Path) -> dict[str, Any]:
     start_close, end_close = bars[0]["close"], bars[-1]["close"]
     snapshot = {
         "meta": {
-            "title": "LUNA Context Atlas",
+            "title": "Crypto Anomaly Analyser",
             "symbol": symbol,
             "start": start,
             "end": end,

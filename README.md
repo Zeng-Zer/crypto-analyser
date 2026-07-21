@@ -1,4 +1,4 @@
-# Crypto Analyzer
+# Crypto Anomaly Analyser
 
 Historical batch pipeline testing whether derivatives market structure—funding rates and open interest—classifies crypto price crashes more faithfully than lagging news.
 
@@ -105,6 +105,10 @@ data/                  # Gitignored parquet and generated JSON
 ## Validation case
 
 Milestone 1 validates the LUNAUSDT crash window from May 7–11, 2022 using Binance Data Vision. FTX and Bybit windows are planned enrichment cases.
+
+## Contributors
+
+- [Luc Zhang (@luckk11)](https://github.com/luckk11) — PostgreSQL news schema, embedding and indexing workflow, vector retrieval prototype, and time-bounded RAG retrieval.
 
 ## Documentation
 

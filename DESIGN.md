@@ -1,6 +1,6 @@
 ---
 version: alpha
-name: LUNA Context Atlas
+name: Crypto Anomaly Analyser
 description: Scientific editorial system for historical replay, time-safe context assembly, and offline evaluation.
 colors:
   primary: '#a33d2d'
