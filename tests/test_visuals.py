@@ -282,8 +282,22 @@ def test_live_workbench_streams_one_absolute_price_series(browser: Browser, work
     expect(page.locator("#price-state")).to_contain_text("Potential signal")
     sockets["price"].send(message(next_open + 300_000, 9_000, True))
     expect(page.locator("#price-state")).to_have_text("Episode active")
+    expect(page.locator("#market-chart .episode-band")).to_have_count(1)
+    expect(page.locator("#market-chart .episode-start-marker")).to_have_count(1)
+    expect(page.locator("#market-chart .episode-start-label")).to_have_text("EPISODE START")
+    assert page.evaluate(
+        """() => {
+          const box = document.querySelector('.episode-start-label').getBBox();
+          return box.x >= 0 && box.x + box.width <= 1000;
+        }"""
+    )
     expect(page.locator("#analysis-status")).to_have_text("Analysed")
     expect(page.locator(".analysis-verdict")).to_have_text("Explained by news")
+    expected_meta = page.evaluate(
+        "timestamp => `Price + market activity + news · detected at ${fullFormat.format(new Date(timestamp))}`",
+        next_open,
+    )
+    expect(page.locator(".analysis-meta")).to_have_text(expected_meta)
     expect(page.locator("#analysis-body")).to_contain_text("Bitcoin selloff follows policy shock")
     expect(page.locator("#analysis-body")).to_contain_text("similarity 0.9100")
     assert len(analysis_requests) == 1
@@ -556,7 +570,7 @@ def test_selected_anomaly_has_inline_explanation_check(page: Page):
     expect(rows.nth(2)).to_contain_text("With both")
     expect(rows.nth(2)).to_contain_text("Classifier selected news")
     expect(page.locator("#context-rule")).to_have_text(
-        "Market activity stayed within its limits; the classifier selected pre-onset news."
+        "Market activity stayed within its limits; the classifier selected news published before detection."
     )
     expect(page.locator("#faithfulness-score")).to_have_text("87%")
     expect(page.locator("#faithfulness-meter")).to_have_attribute("aria-valuenow", "87")
