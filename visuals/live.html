@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Live BTCUSDT anomaly observation from closed Binance spot and USD-M futures 5-minute bars.">
+  <meta name="description" content="Live BTCUSDT price streaming, anomaly detection, market activity, news retrieval, RAG, and LLM analysis.">
   <title>Live BTCUSDT | Crypto Anomaly Analyser</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23171916'/%3E%3Ccircle cx='16' cy='16' r='6' fill='%23a33d2d'/%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -49,17 +49,11 @@
     .plate { border:1px solid var(--color-ink); background:var(--color-surface); }
     .plate-head { display:flex; justify-content:space-between; align-items:center; gap:18px; padding:12px 15px; border-bottom:1px solid var(--color-rule); }
     .plate-head h2, .section-head h2 { margin:0; font:500 20px/1.15 var(--font-display); }
-    .legend { display:flex; align-items:center; gap:16px; color:var(--color-ink-muted); font:500 12px/1 var(--font-data); }
-    .legend span { display:flex; align-items:center; gap:7px; }
-    .legend i { width:18px; height:3px; background:var(--color-anomaly); }
-    .legend .futures { background:var(--color-derivatives); }
     .chart-wrap { position:relative; height:clamp(340px,52vh,560px); }
     #market-chart { display:block; width:100%; height:100%; }
     svg text { fill:var(--color-ink-muted); font:500 12px/1 var(--font-data); }
     .grid-line { stroke:var(--color-rule-light); stroke-width:1; }
-    .spot-line, .futures-line { fill:none; stroke-width:2.2; vector-effect:non-scaling-stroke; }
-    .spot-line { stroke:var(--color-anomaly); }
-    .futures-line { stroke:var(--color-derivatives); }
+    .price-line { fill:none; stroke:var(--color-anomaly); stroke-width:2.2; vector-effect:non-scaling-stroke; }
     .chart-hit { fill:transparent; cursor:crosshair; }
     .crosshair { stroke:var(--color-ink-muted); stroke-width:1; stroke-dasharray:2 3; pointer-events:none; opacity:0; }
     .tooltip { position:absolute; z-index:3; pointer-events:none; opacity:0; transform:translate(12px,-50%); border:1px solid var(--color-ink); background:var(--color-surface-strong); padding:8px 10px; white-space:pre-line; font:500 12px/1.5 var(--font-data); }
@@ -67,6 +61,7 @@
     .tooltip.visible { opacity:1; }
     .market-grid { display:grid; grid-template-columns:1fr 1fr; border:1px solid var(--color-rule); background:var(--color-rule); gap:1px; margin-top:16px; }
     .market-card { min-width:0; background:var(--color-surface); }
+    .chart-error { margin:0; padding:0 15px 12px; }
     .section-head { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:12px 15px; border-bottom:1px solid var(--color-rule); }
     .connection { color:var(--color-ink-muted); font:500 11px/1.3 var(--font-data); letter-spacing:.06em; text-transform:uppercase; }
     .connection.streaming { color:var(--color-news); }
@@ -112,14 +107,6 @@
     .news-title a:hover { text-decoration:underline; }
     .secondary-action { margin-top:12px; border:1px solid var(--color-ink); border-radius:2px; background:transparent; padding:9px 12px; cursor:pointer; font:500 12px/1.3 var(--font-data); letter-spacing:.06em; text-transform:uppercase; }
     .secondary-action:hover { background:var(--color-rule-light); }
-    .ledger { margin-top:16px; border:1px solid var(--color-ink); background:var(--color-surface); }
-    .table-wrap { overflow-x:auto; }
-    table { width:100%; border-collapse:collapse; font:500 13px/1.4 var(--font-data); }
-    th, td { padding:10px 14px; border-bottom:1px solid var(--color-rule-light); text-align:right; white-space:nowrap; }
-    th { color:var(--color-ink-muted); font-size:11px; letter-spacing:.06em; text-transform:uppercase; }
-    th:first-child, td:first-child { text-align:left; }
-    tbody tr:last-child td { border-bottom:0; }
-    .empty { color:var(--color-ink-muted); text-align:center!important; }
     .note { margin:14px 0 0; color:var(--color-ink-muted); font-size:14px; }
     @media (max-width:900px) {
       .shell-meta { display:none; }
@@ -159,43 +146,41 @@
 </header>
 <main id="main" tabindex="-1">
   <section class="intro" aria-labelledby="page-title">
-    <div><span class="label">Live market observation</span><h1 id="page-title">BTCUSDT, without trade-level noise</h1><p class="intro-copy">Binance spot and USD-M futures sockets feed the existing anomaly thresholds. Only closed 5-minute bars enter detection: 24 rows per hour across both markets.</p></div>
-    <button class="primary-action" id="reconnect" type="button">Reconnect feeds</button>
+    <div><span class="label">Live market observation</span><h1 id="page-title">BTCUSDT, from stream to explanation</h1><p class="intro-copy">Binance streams closed BTC price bars in real time. Detection runs on every 5-minute close, market activity refreshes every minute, news every 90 seconds, and RAG + LLM analysis starts on confirmed episodes.</p></div>
+    <button class="primary-action" id="reconnect" type="button">Reconnect stream</button>
   </section>
 
   <section class="summary-strip" aria-label="Live stream summary">
-    <div class="summary-item"><span class="label">Latest closed bar</span><strong id="latest-closed">Waiting for backfill</strong></div>
-    <div class="summary-item"><span class="label">Window</span><strong>24h detector · 48h memory cap</strong></div>
-    <div class="summary-item"><span class="label">Storage</span><strong>Browser memory only</strong></div>
+    <div class="summary-item"><span class="label">Latest price bar</span><strong id="latest-closed">Waiting for backfill</strong></div>
+    <div class="summary-item"><span class="label">Price stream</span><strong id="feed-status">Connecting</strong></div>
+    <div class="summary-item"><span class="label">Context refresh</span><strong>Market 60s · news 90s</strong></div>
   </section>
 
   <section class="plate" aria-labelledby="chart-heading">
-    <header class="plate-head"><h2 id="chart-heading">Relative close performance · trailing 24h</h2><div class="legend" aria-label="Chart legend"><span><i aria-hidden="true"></i>Spot</span><span><i class="futures" aria-hidden="true"></i>USD-M futures</span></div></header>
-    <div class="chart-wrap"><svg id="market-chart" role="img" aria-labelledby="chart-title chart-desc"><title id="chart-title">BTCUSDT spot and futures relative close chart</title><desc id="chart-desc">Relative performance from closed five-minute Binance bars over the trailing 24 hours.</desc></svg><div class="tooltip" role="status" aria-live="polite"></div></div>
+    <header class="plate-head"><h2 id="chart-heading">BTC price · trailing 24h</h2><span class="label">Closed 5m · live</span></header>
+    <div class="chart-wrap"><svg id="market-chart" role="img" aria-labelledby="chart-title chart-desc"><title id="chart-title">Live BTC price over the trailing 24 hours</title><desc id="chart-desc">Absolute BTCUSDT price from closed five-minute Binance bars.</desc></svg><div class="tooltip" role="status" aria-live="polite"></div></div>
+    <p class="error-detail chart-error" id="chart-error" role="alert"></p>
   </section>
 
-  <section class="market-grid" aria-label="Detector readings">
-    <article class="market-card" aria-labelledby="spot-title"><header class="section-head"><h2 id="spot-title">Spot</h2><span class="connection" id="spot-connection">Connecting</span></header><div class="detector-body"><span class="detector-state warmup" id="spot-state">Warming up</span><div class="metric-grid" id="spot-metrics"></div><p class="error-detail" id="spot-error" role="alert"></p></div></article>
-    <article class="market-card" aria-labelledby="futures-title"><header class="section-head"><h2 id="futures-title">USD-M futures</h2><span class="connection" id="futures-connection">Connecting</span></header><div class="detector-body"><span class="detector-state warmup" id="futures-state">Warming up</span><div class="metric-grid" id="futures-metrics"></div><p class="error-detail" id="futures-error" role="alert"></p></div></article>
+  <section class="market-grid" aria-label="Live analysis inputs">
+    <article class="market-card" aria-labelledby="price-title"><header class="section-head"><h2 id="price-title">Price anomaly detector</h2><span class="connection" id="price-connection">Connecting</span></header><div class="detector-body"><span class="detector-state warmup" id="price-state">Warming up</span><div class="metric-grid" id="price-metrics"></div><p class="error-detail" id="price-error" role="alert"></p></div></article>
+    <article class="market-card" aria-labelledby="activity-title"><header class="section-head"><h2 id="activity-title">Market activity</h2><span class="connection" id="activity-status">Loading</span></header><div class="detector-body"><span class="detector-state warmup" id="activity-state">Fetching Binance</span><div class="metric-grid" id="activity-metrics"></div><p class="error-detail" id="activity-error" role="alert"></p></div></article>
   </section>
 
   <section class="ambient-news" aria-labelledby="ambient-title"><header class="section-head"><h2 id="ambient-title">Latest Bitcoin news</h2><span class="analysis-status" id="ambient-status">Loading</span></header><div id="ambient-list" class="ambient-state">Fetching latest headlines. No LLM call.</div></section>
 
-  <section class="analysis" aria-labelledby="analysis-title"><header class="section-head"><h2 id="analysis-title">Episode RAG + LLM</h2><span class="analysis-status" id="analysis-status">Waiting</span></header><div id="analysis-body"><div class="analysis-body"><p class="analysis-lead" id="analysis-lead">Runs once when either market reaches a confirmed episode. News is filtered to publication time at or before onset, then ranked against the combined BTC event.</p><p class="error-detail" id="analysis-error" role="alert"></p><button class="secondary-action" id="retry-analysis" type="button" hidden>Retry analysis</button></div></div></section>
+  <section class="analysis" aria-labelledby="analysis-title"><header class="section-head"><h2 id="analysis-title">Episode RAG + LLM</h2><span class="analysis-status" id="analysis-status">Waiting</span></header><div id="analysis-body"><div class="analysis-body"><p class="analysis-lead" id="analysis-lead">Runs once when price reaches a confirmed episode. Funding, open interest, and news are frozen at onset before combined classification.</p><p class="error-detail" id="analysis-error" role="alert"></p><button class="secondary-action" id="retry-analysis" type="button" hidden>Retry analysis</button></div></div></section>
 
-  <section class="ledger" aria-labelledby="ledger-title"><header class="section-head"><h2 id="ledger-title">Latest closed bars</h2><span class="label">Newest first</span></header><div class="table-wrap"><table><thead><tr><th>Closed</th><th>Spot close</th><th>Futures close</th></tr></thead><tbody id="bar-ledger"><tr><td class="empty" colspan="3">Waiting for Binance data</td></tr></tbody></table></div></section>
-  <p class="note">Observation only, not trading advice. Live analysis is news-only: it does not persist bars or infer funding, open interest, or causality.</p>
+  <p class="note">Observation only, not trading advice. Live bars are not persisted and supplied context does not prove causality.</p>
 </main>
 <script>
 const INTERVAL_MS=300000,WINDOW_BARS=288,MAX_BARS=576,CHART_BARS=288,MAX_GAP=6,MIN_FLAGS=2;
 const THRESHOLDS={z:2.5,drawdown:.5,return:.25};
-const sources={
-  spot:{key:'spot',label:'Spot',rest:'https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=5m&limit=576',socketUrl:'wss://stream.binance.com:9443/ws/btcusdt@kline_5m',bars:[],buffer:[],ready:false,connected:false,loading:false,needsBackfill:false,status:'Connecting',error:'',socket:null,retry:null,backfillRetry:null},
-  futures:{key:'futures',label:'USD-M futures',rest:'https://fapi.binance.com/fapi/v1/klines?symbol=BTCUSDT&interval=5m&limit=576',socketUrl:'wss://fstream.binance.com/ws/btcusdt@kline_5m',bars:[],buffer:[],ready:false,connected:false,loading:false,needsBackfill:false,status:'Connecting',error:'',socket:null,retry:null,backfillRetry:null}
-};
+const source={rest:'https://fapi.binance.com/fapi/v1/klines?symbol=BTCUSDT&interval=5m&limit=576',socketUrl:'wss://fstream.binance.com/ws/btcusdt@kline_5m',bars:[],buffer:[],ready:false,connected:false,loading:false,needsBackfill:false,status:'Connecting',error:'',socket:null,retry:null,backfillRetry:null};
 const $=selector=>document.querySelector(selector),NS='http://www.w3.org/2000/svg';
 const analysis={loading:false,result:null,error:'',attempted:new Set()};
 const ambient={loading:false,result:null,error:''};
+const activity={loading:false,result:null,error:''};
 const zone=Intl.DateTimeFormat().resolvedOptions().timeZone;
 const dateFormat=new Intl.DateTimeFormat('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
 const fullFormat=new Intl.DateTimeFormat('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit'});
@@ -209,7 +194,7 @@ const make=(name,attributes={})=>{const element=document.createElementNS(NS,name
 
 function validBar(timestamp,close,closeTime){
   const ts=Number(timestamp),price=Number(close),closed=Number(closeTime);
-  return Number.isInteger(ts)&&ts>0&&Number.isFinite(price)&&price>0&&Number.isInteger(closed)&&closed===ts+INTERVAL_MS-1?{ts,close:price,closeTime:closed}:null;
+  return Number.isInteger(ts)&&ts>0&&ts%INTERVAL_MS===0&&Number.isFinite(price)&&price>0&&Number.isInteger(closed)&&closed===ts+INTERVAL_MS-1?{ts,close:price,closeTime:closed}:null;
 }
 function restBar(row){return Array.isArray(row)&&row.length>=7?validBar(row[0],row[4],row[6]):null;}
 function socketBar(payload){
@@ -258,41 +243,48 @@ function detector(allBars){
   return {kind:'active',label:gap?`Episode active · gap ${gap}/${MAX_GAP}`:'Episode active',reading:current,onsetTs};
 }
 function metric(label,value,note,breach=false){return `<div class="metric"><span>${label}</span><strong class="${breach?'breach':''}">${value}</strong><small>${note}</small></div>`;}
-function renderMarket(source){
-  const result=detector(source.bars),reading=result.reading,state=$(`#${source.key}-state`),connection=$(`#${source.key}-connection`);
+function renderPrice(){
+  const result=detector(source.bars),reading=result.reading,state=$('#price-state'),connection=$('#price-connection');
   state.className=`detector-state ${result.kind}`;state.textContent=result.label;
   connection.className=`connection ${source.connected&&source.ready?'streaming':source.error?'error':''}`;connection.textContent=`${source.status} · ${source.bars.length} bars`;
-  $(`#${source.key}-error`).textContent=source.error;
-  $(`#${source.key}-metrics`).innerHTML=reading?[
-    metric('Latest close',fmtPrice(reading.close),'Closed bar'),
+  $('#price-error').textContent=source.error;
+  $('#price-metrics').innerHTML=reading?[
+    metric('Latest price',fmtPrice(reading.close),'Closed 5-minute bar'),
     metric('24h Z-score',reading.z.toFixed(2),`Limit ±${THRESHOLDS.z.toFixed(1)}`,Math.abs(reading.z)>THRESHOLDS.z),
     metric('4h drawdown',fmtPercent(reading.drawdown),`Limit -${(THRESHOLDS.drawdown*100).toFixed(0)}%`,reading.drawdown<=-THRESHOLDS.drawdown),
     metric('2h return',fmtPercent(reading.change),`Limit -${(THRESHOLDS.return*100).toFixed(0)}%`,reading.change<=-THRESHOLDS.return)
-  ].join(''):metric('Detector window',`${source.bars.length}/${WINDOW_BARS}`,'Closed bars required');
+  ].join(''):metric('Detector window',`${contiguousBars(source.bars).length}/${WINDOW_BARS}`,'Closed price bars required');
+}
+function renderActivity(){
+  const status=$('#activity-status'),state=$('#activity-state'),metrics=$('#activity-metrics');
+  status.className=`connection ${activity.error?'error':activity.result?'streaming':''}`;
+  if(activity.loading&&!activity.result){status.textContent='Loading';state.className='detector-state warmup';state.textContent='Fetching Binance';metrics.innerHTML=metric('Context','Waiting','Funding and open interest');$('#activity-error').textContent='';return;}
+  if(activity.error&&!activity.result){status.textContent='Failed';state.className='detector-state warmup';state.textContent='Unavailable';metrics.innerHTML='';$('#activity-error').textContent=activity.error;return;}
+  if(!activity.result)return;
+  const result=activity.result,missing=result.funding_rate_current==null||result.oi_change_4h==null,breach=result.funding_breach||result.oi_breach;
+  status.textContent=`${activity.error?'Stale':activity.loading?'Refreshing':'Updated'} · 60s`;state.className=`detector-state ${missing?'warmup':breach?'active':''}`;state.textContent=missing?'Incomplete':breach?'Threshold breach':'Normal';$('#activity-error').textContent=activity.error;
+  metrics.innerHTML=[
+    metric('Funding rate',result.funding_rate_current==null?'Unavailable':`${(result.funding_rate_current*100).toFixed(4)}%`,'Limit ±0.0500%',result.funding_breach),
+    metric('OI change · 4h',fmtPercent(result.oi_change_4h),'Limit ±10%',result.oi_breach)
+  ].join('');
 }
 function renderRuntime(){
-  const all=Object.values(sources),healthy=all.filter(source=>source.connected&&source.ready&&source.status==='Streaming').length,runtime=$('#runtime-state');
-  runtime.className='runtime';
-  if(healthy===all.length){runtime.textContent='Live';runtime.classList.add('live');}
-  else if(healthy>0){runtime.textContent='Partial';runtime.classList.add('partial');}
-  else if(all.some(source=>source.error)){runtime.textContent='Attention';runtime.classList.add('offline');}
+  const runtime=$('#runtime-state');runtime.className='runtime';
+  if(source.connected&&source.ready&&source.status==='Streaming'){runtime.textContent='Live';runtime.classList.add('live');}
+  else if(source.error){runtime.textContent='Attention';runtime.classList.add('offline');}
   else runtime.textContent='Connecting';
-  const latest=Math.max(...all.flatMap(source=>source.bars.slice(-1).map(bar=>bar.closeTime)));
-  $('#latest-closed').textContent=Number.isFinite(latest)?fmtFull(latest):'Waiting for backfill';
-}
-function renderLedger(){
-  const maps=Object.fromEntries(Object.values(sources).map(source=>[source.key,new Map(source.bars.map(bar=>[bar.ts,bar]))]));
-  const timestamps=[...new Set(Object.values(sources).flatMap(source=>source.bars.map(bar=>bar.ts)))].sort((a,b)=>b-a).slice(0,10);
-  $('#bar-ledger').innerHTML=timestamps.length?timestamps.map(timestamp=>`<tr><td>${fmtFull(timestamp+INTERVAL_MS)}</td><td>${fmtPrice(maps.spot.get(timestamp)?.close)}</td><td>${fmtPrice(maps.futures.get(timestamp)?.close)}</td></tr>`).join(''):'<tr><td class="empty" colspan="3">Waiting for Binance data</td></tr>';
+  const latest=source.bars.at(-1)?.closeTime;
+  $('#latest-closed').textContent=Number.isFinite(latest)?fmtFull(latest):'Waiting for price backfill';
+  $('#feed-status').textContent=source.ready?`${source.status} · ${source.bars.length} bars`:source.status;
+  $('#chart-error').textContent=source.error;
 }
 function activeAnalysisKey(){
-  const tails=Object.values(sources).map(source=>contiguousBars(source.bars));
-  if(Object.values(sources).some(source=>!source.ready)||tails.some(bars=>bars.length<WINDOW_BARS))return null;
-  if(new Set(tails.map(bars=>bars.at(-1)?.ts)).size!==1)return null;
-  const active=Object.values(sources).map(source=>detector(source.bars)).filter(result=>result.kind==='active');
-  return active.length?`BTCUSDT_${Math.min(...active.map(result=>result.onsetTs))}`:null;
+  const bars=contiguousBars(source.bars);
+  if(!source.ready||bars.length<WINDOW_BARS)return null;
+  const result=detector(bars);
+  return result.kind==='active'?`BTCUSDT_${result.onsetTs}`:null;
 }
-function analysisPayload(){return {symbol:'BTCUSDT',interval:'5m',markets:Object.fromEntries(Object.values(sources).map(source=>[source.key,contiguousBars(source.bars).map(({ts,close,closeTime})=>({ts,close,closeTime}))]))};}
+function analysisPayload(){return {symbol:'BTCUSDT',interval:'5m',markets:{price:contiguousBars(source.bars).map(({ts,close,closeTime})=>({ts,close,closeTime}))}};}
 function renderAmbient(){
   const status=$('#ambient-status'),list=$('#ambient-list');status.className='analysis-status';
   if(ambient.loading&&!ambient.result){status.textContent='Refreshing';list.className='ambient-state';list.textContent='Fetching latest headlines. No LLM call.';return;}
@@ -312,19 +304,30 @@ async function refreshAmbient(){
   }catch(error){ambient.error=`Latest news unavailable: ${error.message}`;}
   finally{ambient.loading=false;renderAmbient();}
 }
+async function refreshActivity(){
+  if(activity.loading)return;
+  activity.loading=true;activity.error='';renderActivity();
+  try{
+    const response=await fetch('/api/live-derivatives',{cache:'no-store'}),payload=await response.json().catch(()=>({error:`HTTP ${response.status}`}));
+    if(!response.ok)throw new Error(payload.error||`HTTP ${response.status}`);
+    activity.result=payload;
+  }catch(error){activity.error=`Market activity unavailable: ${error.message}`;}
+  finally{activity.loading=false;renderActivity();}
+}
 function renderAnalysis(){
   const status=$('#analysis-status'),body=$('#analysis-body'),key=activeAnalysisKey();
   status.className='analysis-status';
   if(analysis.loading){status.textContent='Analysing';body.innerHTML='<div class="analysis-body"><p class="analysis-lead">Confirmed episode. Fetching time-safe news, ranking candidates, then waiting for structured LLM output.</p></div>';return;}
   if(analysis.result){
-    const result=analysis.result,labels={explained_news:'Explained by news',unexplained:'Unexplained by retrieved news',insufficient_data:'Insufficient news data'},onset=Number(result.onset_ts),host=(()=>{try{return new URL(result.retrieval.url).host;}catch{return 'configured news API';}})(),free=result.retrieval.free_tier?' · free endpoint candidate cap':'';
+    const result=analysis.result,labels={explained_derivatives:'Explained by market activity',explained_news:'Explained by news',unexplained:'Unexplained',insufficient_data:'Insufficient data'},onset=Number(result.onset_ts),host=(()=>{try{return new URL(result.retrieval.url).host;}catch{return 'configured news API';}})(),free=result.retrieval.free_tier?' · free endpoint candidate cap':'',d=result.derivatives;
     status.textContent='Analysed';status.classList.add('ready');
-    body.innerHTML=`<div class="analysis-body"><div class="analysis-verdict">${esc(labels[result.classification]||result.classification)}</div><p class="analysis-meta">News-only · ${esc(result.markets.join(' + '))} · onset ${esc(fmtFull(onset))} · ${result.retrieval.candidate_count} candidates from ${esc(host)}${free}${result.cached?' · cached':''}</p></div><div class="analysis-grid"><article class="analysis-cell"><h3>Why this verdict</h3><ul class="reason-list">${result.synthesis.reasons.map(reason=>`<li>${esc(reason)}</li>`).join('')}</ul></article><article class="analysis-cell"><h3>Embedding-ranked pre-onset news</h3><div class="news-list">${result.articles.length?result.articles.map((article,index)=>{const age=Math.max(0,(onset-Date.parse(article.date_pub))/60000);return `<article class="news-item ${article.supporting?'supporting':''}" ${article.supporting?'aria-label="Article supports verdict"':''}><div class="news-meta">Relevance ${index+1} of ${result.articles.length} · similarity ${Number(article.relevance_score).toFixed(4)} · ${elapsed(age)} before onset · ${esc(article.source)}</div><div class="news-title"><a href="${esc(article.link)}" target="_blank" rel="noopener noreferrer">${esc(article.title)} ↗</a></div></article>`;}).join(''):'<div class="news-item">No usable article was published in the 24 hours before onset.</div>'}</div></article></div>`;
+    const context=[metric('Funding rate',d.funding_rate_current==null?'Unavailable':`${(d.funding_rate_current*100).toFixed(4)}%`,'Limit ±0.0500%',d.funding_breach),metric('OI change · 4h',fmtPercent(d.oi_change_4h),'Limit ±10%',d.oi_breach)].join('');
+    body.innerHTML=`<div class="analysis-body"><div class="analysis-verdict">${esc(labels[result.classification]||result.classification)}</div><p class="analysis-meta">Price + market activity + news · onset ${esc(fmtFull(onset))} · ${result.retrieval.candidate_count} candidates from ${esc(host)}${free}${result.cached?' · cached':''}</p><div class="metric-grid">${context}</div></div><div class="analysis-grid"><article class="analysis-cell"><h3>Why this verdict</h3><ul class="reason-list">${result.synthesis.reasons.map(reason=>`<li>${esc(reason)}</li>`).join('')}</ul></article><article class="analysis-cell"><h3>Embedding-ranked pre-onset news</h3><div class="news-list">${result.articles.length?result.articles.map((article,index)=>{const age=Math.max(0,(onset-Date.parse(article.date_pub))/60000);return `<article class="news-item ${article.supporting?'supporting':''}" ${article.supporting?'aria-label="Article supports verdict"':''}><div class="news-meta">Relevance ${index+1} of ${result.articles.length} · similarity ${Number(article.relevance_score).toFixed(4)} · ${elapsed(age)} before onset · ${esc(article.source)}</div><div class="news-title"><a href="${esc(article.link)}" target="_blank" rel="noopener noreferrer">${esc(article.title)} ↗</a></div></article>`;}).join(''):'<div class="news-item">No usable article was published in the 24 hours before onset.</div>'}</div></article></div>`;
     return;
   }
   if(analysis.error){status.textContent='Failed';status.classList.add('error');body.innerHTML=`<div class="analysis-body"><p class="analysis-lead">Confirmed episode could not be analysed.</p><p class="error-detail" role="alert">${esc(analysis.error)}</p><button class="secondary-action" id="retry-analysis" type="button" ${key?'':'hidden'}>Retry analysis</button></div>`;$('#retry-analysis')?.addEventListener('click',()=>maybeAnalyse(true));return;}
   status.textContent=key?'Queued':'Waiting';
-  body.innerHTML=`<div class="analysis-body"><p class="analysis-lead">${key?'Confirmed episode detected. Preparing one combined market analysis.':'Runs once when either market reaches a confirmed episode. News is filtered to publication time at or before onset, then ranked against the combined BTC event.'}</p><p class="error-detail" role="alert"></p></div>`;
+  body.innerHTML=`<div class="analysis-body"><p class="analysis-lead">${key?'Confirmed price episode detected. Freezing market activity and news at detection time.':'Runs once when price reaches a confirmed episode. Funding, open interest, and news are anchored at detection time.'}</p><p class="error-detail" role="alert"></p></div>`;
 }
 async function maybeAnalyse(force=false){
   const key=activeAnalysisKey();
@@ -338,7 +341,7 @@ async function maybeAnalyse(force=false){
   }catch(error){analysis.error=error.message;}
   finally{analysis.loading=false;renderAnalysis();}
 }
-function render(){Object.values(sources).forEach(renderMarket);renderRuntime();renderLedger();drawChart();renderAnalysis();void maybeAnalyse();}
+function render(){renderPrice();renderActivity();renderRuntime();drawChart();renderAnalysis();void maybeAnalyse();}
 
 async function backfill(source){
   if(source.loading)return;
@@ -370,33 +373,31 @@ function connect(source){
   socket.addEventListener('close',()=>{
     if(source.socket!==socket)return;
     source.connected=false;source.needsBackfill=true;source.status='Reconnecting';render();
-    clearTimeout(source.retry);source.retry=setTimeout(()=>connect(source),source.key==='spot'?2000:2500);
+    clearTimeout(source.retry);source.retry=setTimeout(()=>connect(source),2500);
   });
 }
 function start(source){connect(source);backfill(source);}
 
 const svg=$('#market-chart');
 function drawChart(){
-  const title=svg.querySelector('title'),desc=svg.querySelector('desc');svg.replaceChildren(title,desc);
-  const series=Object.values(sources).map(source=>({key:source.key,bars:source.bars.slice(-CHART_BARS)})).filter(item=>item.bars.length);
-  const W=1000,H=Math.max(300,W*(svg.clientHeight||400)/(svg.clientWidth||1000)),left=62,right=24,top=28,bottom=H-42;
+  const title=svg.querySelector('title'),desc=svg.querySelector('desc'),bars=source.bars.slice(-CHART_BARS);svg.replaceChildren(title,desc);
+  const W=1000,H=Math.max(300,W*(svg.clientHeight||400)/(svg.clientWidth||1000)),left=78,right=24,top=28,bottom=H-42;
   svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
-  if(!series.length){const empty=make('text',{x:W/2,y:H/2,'text-anchor':'middle'});empty.textContent='Waiting for closed Binance bars';svg.append(empty);return;}
-  const start=Math.min(...series.map(item=>item.bars[0].ts)),end=Math.max(...series.map(item=>item.bars.at(-1).ts));
-  const plotted=series.map(item=>{const base=item.bars[0].close;return {...item,points:item.bars.map(bar=>({...bar,value:bar.close/base-1}))};});
-  const values=plotted.flatMap(item=>item.points.map(point=>point.value)),rawLow=Math.min(...values),rawHigh=Math.max(...values),padding=Math.max((rawHigh-rawLow)*.1,.001),low=rawLow-padding,high=rawHigh+padding;
+  if(!bars.length){const empty=make('text',{x:W/2,y:H/2,'text-anchor':'middle'});empty.textContent='Waiting for live price bars';svg.append(empty);return;}
+  const start=bars[0].ts,end=bars.at(-1).ts,values=bars.map(bar=>bar.close),rawLow=Math.min(...values),rawHigh=Math.max(...values),padding=Math.max((rawHigh-rawLow)*.1,rawHigh*.001),low=rawLow-padding,high=rawHigh+padding;
   const x=timestamp=>left+(timestamp-start)/Math.max(end-start,INTERVAL_MS)*(W-left-right),y=value=>bottom-(value-low)/(high-low)*(bottom-top);
-  for(let index=0;index<=4;index++){const value=low+(high-low)*index/4,py=y(value);svg.append(make('line',{x1:left,x2:W-right,y1:py,y2:py,class:'grid-line'}));const label=make('text',{x:left-8,y:py+4,'text-anchor':'end'});label.textContent=fmtPercent(value);svg.append(label);}
+  for(let index=0;index<=4;index++){const value=low+(high-low)*index/4,py=y(value);svg.append(make('line',{x1:left,x2:W-right,y1:py,y2:py,class:'grid-line'}));const label=make('text',{x:left-8,y:py+4,'text-anchor':'end'});label.textContent=`$${Math.round(value).toLocaleString('en-US')}`;svg.append(label);}
   for(let index=0;index<=4;index++){const timestamp=start+(end-start)*index/4,px=x(timestamp);svg.append(make('line',{x1:px,x2:px,y1:top,y2:bottom,class:'grid-line'}));const label=make('text',{x:px+(index===4?-3:3),y:bottom+24,'text-anchor':index===4?'end':'start'});label.textContent=fmtDate(timestamp);svg.append(label);}
-  plotted.forEach(item=>{const path=item.points.map((point,index)=>`${index?'L':'M'}${x(point.ts).toFixed(2)},${y(point.value).toFixed(2)}`).join(' ');svg.append(make('path',{d:path,class:`${item.key}-line`}));});
+  const path=bars.map((bar,index)=>`${index?'L':'M'}${x(bar.ts).toFixed(2)},${y(bar.close).toFixed(2)}`).join(' ');svg.append(make('path',{d:path,class:'price-line'}));
   const vertical=make('line',{x1:0,x2:0,y1:top,y2:bottom,class:'crosshair'}),hit=make('rect',{x:left,y:top,width:W-left-right,height:bottom-top,class:'chart-hit'});
-  hit.addEventListener('pointermove',event=>{const rect=svg.getBoundingClientRect(),pointerX=(event.clientX-rect.left)/rect.width*W,target=start+(pointerX-left)/(W-left-right)*(end-start),timestamp=plotted.flatMap(item=>item.bars).reduce((nearest,bar)=>Math.abs(bar.ts-target)<Math.abs(nearest-target)?bar.ts:nearest,start),cx=x(timestamp),tooltip=$('.tooltip');vertical.style.opacity=1;vertical.setAttribute('x1',cx);vertical.setAttribute('x2',cx);const lines=[fmtFull(timestamp),...plotted.map(item=>{const bar=item.bars.reduce((nearest,candidate)=>Math.abs(candidate.ts-timestamp)<Math.abs(nearest.ts-timestamp)?candidate:nearest);return `${item.key==='spot'?'Spot':'Futures'} ${fmtPrice(bar.close)}`;})];tooltip.textContent=lines.join('\n');tooltip.style.left=`${cx/W*100}%`;tooltip.style.top=`${Math.max(top+35,H*.35)/H*100}%`;tooltip.classList.toggle('align-left',cx>W*.8);tooltip.classList.add('visible');});
+  hit.addEventListener('pointermove',event=>{const rect=svg.getBoundingClientRect(),pointerX=(event.clientX-rect.left)/rect.width*W,target=start+(pointerX-left)/(W-left-right)*(end-start),bar=bars.reduce((nearest,candidate)=>Math.abs(candidate.ts-target)<Math.abs(nearest.ts-target)?candidate:nearest),cx=x(bar.ts),tooltip=$('.tooltip');vertical.style.opacity=1;vertical.setAttribute('x1',cx);vertical.setAttribute('x2',cx);tooltip.textContent=`${fmtFull(bar.ts)}\nPrice ${fmtPrice(bar.close)}`;tooltip.style.left=`${cx/W*100}%`;tooltip.style.top=`${Math.max(top+35,H*.35)/H*100}%`;tooltip.classList.toggle('align-left',cx>W*.8);tooltip.classList.add('visible');});
   hit.addEventListener('pointerleave',()=>{vertical.style.opacity=0;$('.tooltip').classList.remove('visible');});svg.append(hit,vertical);
 }
 $('#reconnect').addEventListener('click',()=>location.reload());
 addEventListener('resize',drawChart);
-Object.values(sources).forEach(start);
+start(source);
 void refreshAmbient();setInterval(refreshAmbient,90000);
+void refreshActivity();setInterval(refreshActivity,60000);
 </script>
 </body>
 </html>

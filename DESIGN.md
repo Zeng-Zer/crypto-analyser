@@ -122,7 +122,7 @@ components:
 
 ## Overview
 
-A scientific editorial showcase rather than a marketing page or crypto trading terminal. It should feel like a guided research story: archival paper, rigorous annotation, measured conclusions, and visible uncertainty. Historical replay walks through one selected episode at a time: anomaly, time-safe market activity, hybrid retrieval, structured LLM output, then a compact explanation check. Live observation is a separate focused surface for closed Binance bars and deterministic detector state; confirmed episodes add time-safe current-news retrieval and news-only structured LLM output. It does not fabricate unavailable derivatives features. Favor a clear narrative over operational density. Audience is hiring teams and data/LLM practitioners with three to ten minutes. Emotional target is credible curiosity, not market hype.
+A scientific editorial showcase rather than a marketing page or crypto trading terminal. It should feel like a guided research story: archival paper, rigorous annotation, measured conclusions, and visible uncertainty. Historical replay walks through one selected episode at a time: anomaly, time-safe market activity, hybrid retrieval, structured LLM output, then a compact explanation check. Live observation is a separate focused surface for closed Binance bars and deterministic detector state; confirmed episodes add onset-safe Binance market activity, current-news retrieval, and combined structured LLM output. Favor a clear narrative over operational density. Audience is hiring teams and data/LLM practitioners with three to ten minutes. Emotional target is credible curiosity, not market hype.
 
 ## Colors
 
@@ -134,7 +134,7 @@ Newsreader carries investigation headings and key findings. Source Sans 3 carrie
 
 ## Layout
 
-Historical replay uses one continuous page presenting one episode at a time with Previous/Next navigation. A focused anomaly chart leads into three numbered columns: market activity, pre-onset RAG retrieval, and combined structured LLM analysis. Episode 01 is the chronological default; onset query parameters support direct links to other episodes. A compact explanation check follows cards, compares three context runs, and checks combined rationale with Ragas Faithfulness. Live observation uses a separate page with one comparative spot/futures chart, current detector readings, an ambient latest-news strip, one episode analysis panel, and a closed-bar ledger. On small screens, stack all steps in reading order.
+Historical replay uses one continuous page presenting one episode at a time with Previous/Next navigation. A focused anomaly chart leads into three numbered columns: market activity, pre-onset RAG retrieval, and combined structured LLM analysis. Episode 01 is the chronological default; onset query parameters support direct links to other episodes. A compact explanation check follows cards, compares three context runs, and checks combined rationale with Ragas Faithfulness. Live observation uses a separate page with one absolute BTC price chart, one price detector, current funding and open-interest readings, an ambient latest-news strip, and one episode analysis panel. On small screens, stack all steps in reading order.
 
 ## Elevation & Depth
 
@@ -147,10 +147,11 @@ Corners are square or two pixels. Episode markers are circles because they repre
 ## Components
 
 - **Runtime label:** Show Replay or Live as compact status; live status must reflect actual connection state.
-- **Live market plate:** Backfill at least 24 hours of closed 5-minute BTCUSDT spot and USD-M futures klines, then append only socket klines where Binance marks `x: true`. Keep a bounded in-memory window and compare both close series without trade-level noise.
-- **Live detector state:** Apply the existing 24-hour Z-score, 4-hour drawdown, and 2-hour return thresholds independently to each market. Name readings as potential signals until two flagged closed bars satisfy episode minimum. Show missing warm-up explicitly.
+- **Live price plate:** Backfill at least 24 hours of closed 5-minute BTCUSDT price bars, then append only socket bars where Binance marks `x: true`. Keep a bounded in-memory window. Plot absolute dollar price so existing points do not change when trailing window advances.
+- **Live detector state:** Apply existing 24-hour Z-score, 4-hour drawdown, and 2-hour return thresholds to price. Name reading as potential signal until two flagged closed bars satisfy episode minimum. Show missing warm-up explicitly.
+- **Live market activity:** Refresh Binance funding rate and 4-hour open-interest change every 60 seconds without LLM calls. At confirmed episode, refetch both at or before price onset and preserve null values.
 - **Ambient live news:** Show up to five latest Bitcoin headlines immediately and refresh every 90 seconds through localhost cache. Do not embed, classify, highlight as support, or imply market explanation.
-- **Live news analysis:** At confirmed episode, submit synchronized spot/futures closed bars to localhost server. Server recomputes episode, filters Bitcoin articles to 24 hours at or before earliest market onset, embedding-ranks top five, and calls news-only structured classifier once per combined event. Show source endpoint, candidate cap, publication age, similarity, and supporting refs. Fail visibly.
+- **Live combined analysis:** At confirmed price episode, submit closed price bars to localhost server. Server recomputes episode, anchors funding and OI at onset, filters Bitcoin articles to 24 hours at or before onset, embedding-ranks top five, and calls existing derivatives + RAG classifier once per event. Show thresholds, candidate cap, publication age, similarity, and supporting refs. Fail visibly.
 - **Episode navigator:** Previous/Next buttons browse all episodes while one episode remains the narrative focus.
 - **Price plate:** Focused native SVG with close-price line, anomaly duration band, signal-detection marker, crosshair, and local-time axes. No analyst controls on the showcase view.
 - **Market activity step:** Show funding rates, open-interest changes, and thresholds as percentages with plain-language normal/breach states. Technical details may add precision but still use percentages; raw fractions stay in machine artifacts.
@@ -175,7 +176,7 @@ Corners are square or two pixels. Episode markers are circles because they repre
 ### Don't
 - Do not use a full-screen hero, dashboard side rails, filter panels, candlesticks, glowing charts, gradients, or generic crypto iconography.
 - Do not present replay as live, invent connection health, or fabricate missing timestamps. Live status follows WebSocket and backfill events.
-- Do not imply that live observation persists bars or proves causes. Do not treat spot/futures price difference as existing funding or open-interest context. Keep LLM credentials server-side and label live output news-only.
+- Do not imply that live observation persists bars or proves causes. Do not expose internal market-source distinctions as reader-facing complexity. Keep LLM credentials server-side.
 - Do not place controlled context runs inside primary analysis cards; keep them in compact explanation check below.
 - Do not expose funding rates, open-interest changes, or their thresholds as decimal fractions.
 - Do not call LLM confidence predictive probability.

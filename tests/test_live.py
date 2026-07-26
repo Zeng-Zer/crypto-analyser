@@ -32,7 +32,7 @@ def _payload(crash_bars: int = 2) -> dict:
     return {
         "symbol": "BTCUSDT",
         "interval": "5m",
-        "markets": {"spot": _bars(crash_bars), "futures": _bars()},
+        "markets": {"price": _bars(crash_bars)},
     }
 
 
@@ -58,16 +58,73 @@ def test_future_bar_is_rejected_even_with_exact_interval_shape():
         live._bars(bars, "spot")
 
 
-def test_combined_event_requires_two_flagged_closed_bars():
+def test_off_grid_bar_is_rejected():
+    bars = _bars()
+    bars[-1] = {
+        **bars[-1],
+        "ts": bars[-1]["ts"] + 1,
+        "closeTime": bars[-1]["closeTime"] + 1,
+    }
+
+    with pytest.raises(ValueError, match="5-minute boundary"):
+        live._bars(bars, "price")
+
+
+def test_price_event_requires_two_flagged_closed_bars():
     with pytest.raises(live.NoConfirmedEpisodeError):
-        live.combined_event(_payload(crash_bars=1))
+        live.price_event(_payload(crash_bars=1))
 
-    event = live.combined_event(_payload())
+    event = live.price_event(_payload())
 
-    assert event["onset_ts"] == _payload()["markets"]["spot"][-2]["ts"]
-    assert set(event["markets"]) == {"spot"}
+    assert event["onset_ts"] == _payload()["markets"]["price"][-2]["ts"]
+    assert set(event["markets"]) == {"price"}
     assert event["severity"] == "extreme"
     assert {"price_zscore", "drawdown_4h", "return_2h"} <= set(event["triggers"])
+
+
+def test_derivatives_are_anchored_at_or_before_onset(monkeypatch):
+    onset = _payload()["markets"]["price"][-2]["ts"]
+    calls: list[tuple[str, dict]] = []
+
+    class Response:
+        def __init__(self, payload: list[dict]) -> None:
+            self.payload = payload
+
+        def raise_for_status(self) -> None:
+            pass
+
+        def json(self) -> list[dict]:
+            return self.payload
+
+    def get(url: str, *, params: dict, **_kwargs):
+        calls.append((url, params))
+        if url.endswith("/fundingRate"):
+            return Response(
+                [
+                    {"symbol": "BTCUSDT", "fundingTime": onset - 2 * 3_600_000, "fundingRate": "0.0004"},
+                    {"symbol": "BTCUSDT", "fundingTime": onset - 8 * 3_600_000, "fundingRate": "0.0002"},
+                    {"symbol": "BTCUSDT", "fundingTime": onset + 1, "fundingRate": "0.9"},
+                ]
+            )
+        return Response(
+            [
+                {"symbol": "BTCUSDT", "timestamp": onset, "sumOpenInterest": "110"},
+                {"symbol": "BTCUSDT", "timestamp": onset - 4 * 3_600_000, "sumOpenInterest": "100"},
+                {"symbol": "BTCUSDT", "timestamp": onset + 1, "sumOpenInterest": "999"},
+            ]
+        )
+
+    monkeypatch.setattr(live.requests, "get", get)
+
+    features, source = live.fetch_derivatives(onset)
+
+    assert features["funding_rate_current"] == pytest.approx(0.0004)
+    assert features["funding_rate_avg_4h"] == pytest.approx(0.0003)
+    assert features["oi_current"] == pytest.approx(110)
+    assert features["oi_change_4h"] == pytest.approx(0.10)
+    assert source["funding_time"] == onset - 2 * 3_600_000
+    assert source["oi_time"] == onset
+    assert all(params["endTime"] == onset for _, params in calls)
 
 
 def test_news_falls_back_to_public_api_and_rejects_post_onset_articles(monkeypatch):
@@ -119,7 +176,7 @@ def test_news_falls_back_to_public_api_and_rejects_post_onset_articles(monkeypat
 
 
 def test_live_news_ranking_uses_embedding_similarity(monkeypatch):
-    event = live.combined_event(_payload())
+    event = live.price_event(_payload())
     articles = [
         {"id": "weak", "title": "Weak", "description": "", "date_pub": "2026-01-01T00:00:00+00:00"},
         {"id": "strong", "title": "Strong", "description": "", "date_pub": "2026-01-01T00:00:00+00:00"},
@@ -170,7 +227,7 @@ def test_latest_news_is_cached_without_embedding_or_llm_calls(monkeypatch):
     assert calls == 1
 
 
-def test_live_analysis_is_news_only_and_cached(monkeypatch):
+def test_live_analysis_combines_derivatives_and_news_and_is_cached(monkeypatch):
     article = {
         "id": "abc",
         "title": "Bitcoin selloff follows policy shock",
@@ -186,13 +243,28 @@ def test_live_analysis_is_news_only_and_cached(monkeypatch):
         lambda *_args: ([article], {"url": "http://127.0.0.1:3000/api/news", "free_tier": False, "candidate_count": 1}),
     )
     monkeypatch.setattr(live, "rank_live_news", lambda _event, articles, *_args: articles)
+    monkeypatch.setattr(
+        live,
+        "fetch_derivatives",
+        lambda *_args: (
+            {
+                "funding_rate_current": 0.0001,
+                "funding_rate_avg_4h": 0.0001,
+                "oi_current": 100_000.0,
+                "oi_change_4h": 0.01,
+            },
+            {"url": live.BINANCE_FUTURES_API_URL, "funding_time": 1, "oi_time": 2},
+        ),
+    )
 
     class Client:
         calls = 0
         system_prompt = ""
+        user_prompt = ""
 
-        def classify(self, _prompt: str, reference: str, system_prompt: str) -> ClassificationResult:
+        def classify(self, prompt: str, reference: str, system_prompt: str) -> ClassificationResult:
             self.calls += 1
+            self.user_prompt = prompt
             self.system_prompt = system_prompt
             return ClassificationResult.from_dict(
                 {
@@ -221,7 +293,60 @@ def test_live_analysis_is_news_only_and_cached(monkeypatch):
 
     assert first["classification"] == "explained_news"
     assert first["articles"][0]["supporting"] is True
+    assert first["derivatives"]["funding_rate_current"] == pytest.approx(0.0001)
     assert first["cached"] is False
     assert second["cached"] is True
     assert client.calls == 1
+    assert "funding_rate_current  : 0.0100%" in client.user_prompt
     assert "untrusted data" in client.system_prompt
+
+
+def test_failed_llm_validation_is_not_retried_for_same_event(monkeypatch):
+    monkeypatch.setattr(
+        live,
+        "fetch_derivatives",
+        lambda *_args: (
+            {
+                "funding_rate_current": 0.0001,
+                "funding_rate_avg_4h": 0.0001,
+                "oi_current": 100_000.0,
+                "oi_change_4h": 0.01,
+            },
+            {"url": live.BINANCE_FUTURES_API_URL, "funding_time": 1, "oi_time": 2},
+        ),
+    )
+    monkeypatch.setattr(
+        live,
+        "fetch_live_news",
+        lambda *_args: ([], {"url": live.PUBLIC_NEWS_API_URL, "free_tier": True, "candidate_count": 0}),
+    )
+
+    class Client:
+        calls = 0
+
+        def classify(self, _prompt: str, reference: str, _system_prompt: str) -> ClassificationResult:
+            self.calls += 1
+            return ClassificationResult.from_dict(
+                {
+                    "event_reference": reference,
+                    "classification": "explained_news",
+                    "confidence": 0.9,
+                    "synthesis": {"reasons": ["Invalid uncited explanation."], "supporting_refs": ["news_missing"]},
+                    "rationale": "Invalid uncited explanation.",
+                },
+                reference,
+            )
+
+    client = Client()
+    service = live.LiveAnalysisService(
+        live.PUBLIC_NEWS_API_URL,
+        "https://llm.example/v1",
+        "key",
+        client=client,
+    )
+
+    for _ in range(2):
+        with pytest.raises(RuntimeError, match="unavailable supporting refs"):
+            service.analyse(_payload())
+
+    assert client.calls == 1
