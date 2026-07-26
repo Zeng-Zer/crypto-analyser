@@ -29,10 +29,11 @@ Controlled context comparison:
 | Data | Storage |
 |---|---|
 | OHLCV, funding, open interest | Monthly Parquet queried directly with DuckDB |
-| News and embeddings | PostgreSQL with pgvector |
+| Historical news and embeddings | PostgreSQL with pgvector |
+| Live news candidates | Configurable free-crypto-news HTTP API; transient embedding rank |
 | Pipeline intermediates and reports | Gitignored JSON under `data/` |
 
-This repository has no real-time ingestion or time-series serving database.
+Live bars stay browser-only and in-memory. Confirmed episodes go to a localhost bridge for current-news retrieval and structured LLM classification; this repository has no time-series serving database.
 
 ## Quickstart
 
@@ -73,11 +74,26 @@ Required environment variables: `DATABASE_URL`, `LLM_API_URL`, and `LLM_API_KEY`
 
 ### Interactive analyst workbench
 
+Historical replay needs only a static server:
+
 ```bash
 uv run python -m http.server 8000 --directory visuals
 ```
 
-Open `http://localhost:8000`. The page starts with Episode 01 and guides reviewers chronologically through all eight episodes: focused anomaly chart, onset-safe context, hybrid retrieval results with publisher links and archive fallbacks, structured LLM output, then a compact explanation check. The comparison records verdict changes across context modes; Ragas Faithfulness checks whether claims in the combined rationale follow from supplied context. It does not score verdict correctness or prove causality. Page embeds a committed historical snapshot, so GitHub Pages serves it without a backend. After generating new local pipeline artifacts, refresh it with `uv run python scripts/build_visual_data.py`.
+Live news RAG needs localhost bridge so LLM credentials never enter browser code:
+
+```bash
+# Works immediately; public free endpoint currently returns at most 3 candidates
+NEWS_API_URL=https://cryptocurrency.cv/api/news uv run crypto-analyser live
+
+# Better retrieval: run sibling free-crypto-news for full candidate results
+cd ../free-crypto-news && npm run dev
+cd ../crypto-analyser && uv run crypto-analyser live
+```
+
+Open `http://localhost:8000` for historical replay or `http://localhost:8000/live.html` for live BTCUSDT observation. Live mode backfills 24 hours of Binance spot and USD-M futures data, then consumes closed 5-minute klines directly in browser. Latest Bitcoin headlines load immediately and refresh every 90 seconds without embedding or LLM calls. At second flagged bar it submits one combined spot/futures event to localhost, filters Bitcoin news to 24 hours at or before onset, embedding-ranks five articles, and runs existing strict `news_only` classifier. Results are cached by event reference; bars are not persisted. `NEWS_API_URL` defaults to `http://127.0.0.1:3000/api/news` and falls back to public free endpoint when local sibling is unavailable.
+
+Historical replay starts with Episode 01 and guides reviewers chronologically through all eight episodes: focused anomaly chart, onset-safe context, hybrid retrieval results with publisher links and archive fallbacks, structured LLM output, then a compact explanation check. The comparison records verdict changes across context modes; Ragas Faithfulness checks whether claims in the combined rationale follow from supplied context. It does not score verdict correctness or prove causality. Page embeds a committed historical snapshot, so GitHub Pages serves it without a backend. After generating new local pipeline artifacts, refresh it with `uv run python scripts/build_visual_data.py`.
 
 Run browser tests after installing Chromium once:
 
@@ -101,7 +117,8 @@ src/crypto_analyser/
 ├── evaluation.py      # Direct + Ragas comparison
 ├── assets/            # Packaged prompts and database/JSON schemas
 ├── constants.py       # Project defaults
-└── llm_client.py
+├── llm_client.py
+└── live.py            # Local live RAG/LLM bridge
 
 data/                  # Gitignored parquet and generated JSON
 ```

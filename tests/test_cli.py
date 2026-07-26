@@ -58,6 +58,27 @@ def test_news_search_formats_results(monkeypatch, capsys):
     assert "[90.0%] UST depeg" in capsys.readouterr().out
 
 
+def test_live_command_routes_to_local_bridge(monkeypatch):
+    from crypto_analyser import live
+
+    calls = []
+    monkeypatch.setenv("LLM_API_URL", "https://llm.example/v1")
+    monkeypatch.setenv("LLM_API_KEY", "key")
+    monkeypatch.setattr(live, "serve_live", lambda *args: calls.append(args))
+
+    assert cli.main(["live", "--port", "8765", "--news-api-url", "https://news.example/api"]) == 0
+    assert calls == [
+        (
+            8765,
+            "https://news.example/api",
+            "https://llm.example/v1",
+            "key",
+            "qwen3-embedding",
+            "glm-5.2-short",
+        )
+    ]
+
+
 def test_evaluate_reports_missing_optional_dependencies(monkeypatch, capsys):
     from crypto_analyser import evaluation
 

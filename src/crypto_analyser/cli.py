@@ -107,6 +107,19 @@ def _embed_news(args: argparse.Namespace) -> None:
     print(f"Embedded {count} articles.")
 
 
+def _live(args: argparse.Namespace) -> None:
+    from crypto_analyser.live import serve_live
+
+    serve_live(
+        args.port,
+        args.news_api_url,
+        _env("LLM_API_URL"),
+        _env("LLM_API_KEY"),
+        args.embedding_model,
+        args.model,
+    )
+
+
 def _evaluate(args: argparse.Namespace) -> None:
     from crypto_analyser.evaluation import write_evaluation
 
@@ -128,8 +141,18 @@ def _evaluate(args: argparse.Namespace) -> None:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="crypto-analyser", description="Historical crypto anomaly analysis")
+    parser = argparse.ArgumentParser(prog="crypto-analyser", description="Historical and live crypto anomaly analysis")
     commands = parser.add_subparsers(dest="command", required=True)
+
+    live = commands.add_parser("live", help="Serve live Binance observation with news RAG")
+    live.add_argument("--port", type=int, default=8000)
+    live.add_argument(
+        "--news-api-url",
+        default=os.getenv("NEWS_API_URL", "http://127.0.0.1:3000/api/news"),
+    )
+    live.add_argument("--embedding-model", default=os.getenv("EMBEDDING_MODEL", DEFAULT_MODEL))
+    live.add_argument("--model", default=os.getenv("LLM_MODEL", LLM_MODEL))
+    live.set_defaults(handler=_live)
 
     run = commands.add_parser("run", help="Run historical anomaly analysis")
     run.add_argument("--symbol", default="LUNAUSDT")

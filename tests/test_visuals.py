@@ -82,6 +82,195 @@ def test_analysis_starts_with_first_episode(browser: Browser, workbench_url: str
     page.close()
 
 
+def test_live_workbench_uses_only_closed_spot_and_futures_bars(browser: Browser, workbench_url: str):
+    page = browser.new_page(viewport={"width": 1440, "height": 900})
+    errors: list[str] = []
+    sockets = {}
+    page.on("console", lambda message: errors.append(message.text) if message.type == "error" else None)
+    page.on("pageerror", lambda error: errors.append(str(error)))
+
+    start = 1_700_000_000_000
+
+    def klines(offset: float) -> str:
+        return json.dumps(
+            [
+                [
+                    start + index * 300_000,
+                    str(40_000 + offset + index),
+                    str(40_001 + offset + index),
+                    str(39_999 + offset + index),
+                    str(40_000 + offset + index),
+                    "1",
+                    start + (index + 1) * 300_000 - 1,
+                ]
+                for index in range(300)
+            ]
+        )
+
+    page.route(
+        "**/api/v3/klines?**",
+        lambda route: route.fulfill(status=200, content_type="application/json", body=klines(0)),
+    )
+    page.route(
+        "**/fapi/v1/klines?**",
+        lambda route: route.fulfill(status=200, content_type="application/json", body=klines(10)),
+    )
+    analysis_requests = []
+    ambient_requests = []
+
+    def latest_news(route):
+        ambient_requests.append(route.request.url)
+        route.fulfill(
+            status=200,
+            content_type="application/json",
+            body=json.dumps(
+                {
+                    "articles": [
+                        {
+                            "id": f"latest-{index}",
+                            "title": f"Latest Bitcoin headline {index}",
+                            "description": "Current market coverage.",
+                            "link": f"https://example.com/latest-{index}",
+                            "date_pub": "2023-11-16T02:00:00+00:00",
+                            "source": "Example",
+                        }
+                        for index in range(1, 6)
+                    ],
+                    "retrieval": {
+                        "url": "http://127.0.0.1:3000/api/news",
+                        "free_tier": False,
+                        "candidate_count": 20,
+                    },
+                    "cached": False,
+                }
+            ),
+        )
+
+    def analyse(route):
+        request = route.request.post_data_json
+        analysis_requests.append(request)
+        onset = request["markets"]["spot"][-2]["ts"]
+        route.fulfill(
+            status=200,
+            content_type="application/json",
+            body=json.dumps(
+                {
+                    "event_reference": f"BTCUSDT_{onset}",
+                    "onset_ts": onset,
+                    "severity": "extreme",
+                    "markets": ["spot"],
+                    "classification": "explained_news",
+                    "synthesis": {
+                        "reasons": ["A pre-onset policy shock provides an event-specific explanation."],
+                        "supporting_refs": ["news_abc"],
+                    },
+                    "articles": [
+                        {
+                            "id": "abc",
+                            "title": "Bitcoin selloff follows policy shock",
+                            "description": "Policy news preceded the move.",
+                            "link": "https://example.com/bitcoin",
+                            "date_pub": "2023-11-15T22:00:00+00:00",
+                            "source": "Example",
+                            "relevance_score": 0.91,
+                            "supporting": True,
+                        }
+                    ],
+                    "retrieval": {
+                        "url": "http://127.0.0.1:3000/api/news",
+                        "free_tier": False,
+                        "candidate_count": 20,
+                    },
+                    "cached": False,
+                }
+            ),
+        )
+
+    page.route("**/api/live-news", latest_news)
+    page.route("**/api/live-analysis", analyse)
+    page.route_web_socket(
+        "wss://stream.binance.com:9443/ws/btcusdt@kline_5m",
+        lambda socket: sockets.setdefault("spot", socket),
+    )
+    page.route_web_socket(
+        "wss://fstream.binance.com/ws/btcusdt@kline_5m",
+        lambda socket: sockets.setdefault("futures", socket),
+    )
+
+    page.goto(f"{workbench_url}/live.html")
+    expect(page.locator("#runtime-state")).to_have_text("Live")
+    expect(page.locator("#spot-state")).to_have_text("No anomaly")
+    expect(page.locator("#futures-state")).to_have_text("No anomaly")
+    expect(page.locator("#spot-connection")).to_contain_text("300 bars")
+    expect(page.locator("#ambient-status")).to_have_text("Updated · 90s")
+    expect(page.locator("#ambient-list .ambient-item")).to_have_count(5)
+    expect(page.locator("#ambient-list")).to_contain_text("Latest Bitcoin headline 5")
+    expect(page.locator("#analysis-status")).to_have_text("Waiting")
+    assert len(ambient_requests) == 1
+    assert not analysis_requests
+
+    missing_ts = start + 12 * 300_000
+    page.evaluate(
+        "timestamp => { sources.spot.bars = sources.spot.bars.filter(bar => bar.ts !== timestamp); render(); }",
+        missing_ts,
+    )
+    expect(page.locator("#spot-state")).to_have_text("Warming up · 287/288 bars")
+    assert page.evaluate("analysisPayload().markets.spot.length") == 287
+    assert not analysis_requests
+    page.evaluate(
+        "bar => { sources.spot.bars = mergeBars(sources.spot.bars, [bar]); render(); }",
+        {"ts": missing_ts, "close": 40_012, "closeTime": missing_ts + 299_999},
+    )
+    expect(page.locator("#spot-state")).to_have_text("No anomaly")
+
+    next_open = start + 300 * 300_000
+
+    def message(timestamp: int, close: int, closed: bool) -> str:
+        return json.dumps(
+            {
+                "e": "kline",
+                "s": "BTCUSDT",
+                "k": {
+                    "t": timestamp,
+                    "T": timestamp + 299_999,
+                    "s": "BTCUSDT",
+                    "i": "5m",
+                    "c": str(close),
+                    "x": closed,
+                },
+            }
+        )
+
+    sockets["spot"].send(message(next_open, 10_000, False))
+    expect(page.locator("#spot-connection")).to_contain_text("300 bars")
+    expect(page.locator("#spot-state")).to_have_text("No anomaly")
+
+    sockets["spot"].send(message(next_open, 10_000, True))
+    expect(page.locator("#spot-connection")).to_contain_text("301 bars")
+    expect(page.locator("#spot-state")).to_contain_text("Potential signal")
+
+    sockets["spot"].send(message(next_open + 300_000, 9_000, True))
+    sockets["futures"].send(message(next_open, 40_310, True))
+    sockets["futures"].send(message(next_open + 300_000, 40_311, True))
+    expect(page.locator("#spot-connection")).to_contain_text("302 bars")
+    expect(page.locator("#spot-state")).to_have_text("Episode active")
+    expect(page.locator("#bar-ledger")).to_contain_text("$9,000.00")
+    expect(page.locator("#futures-state")).to_have_text("No anomaly")
+    expect(page.locator("#analysis-status")).to_have_text("Analysed")
+    expect(page.locator(".analysis-verdict")).to_have_text("Explained by news")
+    expect(page.locator("#analysis-body")).to_contain_text("Bitcoin selloff follows policy shock")
+    expect(page.locator("#analysis-body")).to_contain_text("similarity 0.9100")
+    assert len(analysis_requests) == 1
+    assert len(analysis_requests[0]["markets"]["spot"]) == 302
+    assert len(analysis_requests[0]["markets"]["futures"]) == 302
+
+    page.set_viewport_size({"width": 390, "height": 844})
+    assert page.evaluate("document.documentElement.scrollWidth <= document.documentElement.clientWidth")
+
+    page.close()
+    assert not errors, f"Browser errors: {errors}"
+
+
 def test_rag_changed_episode_can_be_opened_directly(page: Page):
     expect(page.get_by_text("Replay", exact=True)).to_be_visible()
     expect(page.locator("header button")).to_have_count(0)
