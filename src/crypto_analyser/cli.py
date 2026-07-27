@@ -115,8 +115,50 @@ def _live(args: argparse.Namespace) -> None:
         args.news_api_url,
         _env("LLM_API_URL"),
         _env("LLM_API_KEY"),
+        _env("DATABASE_URL"),
         args.embedding_model,
         args.model,
+        args.judge_model,
+    )
+
+
+def _live_backfill(args: argparse.Namespace) -> None:
+    from crypto_analyser.live import run_live_backfill
+
+    result = run_live_backfill(
+        args.days,
+        args.news_api_url,
+        _env("LLM_API_URL"),
+        _env("LLM_API_KEY"),
+        _env("DATABASE_URL"),
+        args.embedding_model,
+        args.model,
+        args.judge_model,
+    )
+    print(
+        f"Detected {result['detected']}; completed {result['complete']}; "
+        f"failed {len(result['failed'])}; skipped existing {result['skipped_existing']}."
+    )
+
+
+def _live_event(args: argparse.Namespace) -> None:
+    from crypto_analyser.live import run_live_event
+
+    result = run_live_event(
+        args.start,
+        args.end,
+        args.news_file,
+        args.news_api_url,
+        _env("LLM_API_URL"),
+        _env("LLM_API_KEY"),
+        _env("DATABASE_URL"),
+        args.embedding_model,
+        args.model,
+        args.judge_model,
+    )
+    print(
+        f"Detected {result['detected']}; completed {result['complete']}; "
+        f"failed {len(result['failed'])}; skipped existing {result['skipped_existing']}."
     )
 
 
@@ -134,7 +176,7 @@ def _evaluate(args: argparse.Namespace) -> None:
             args.data_dir,
         )
     except ImportError as exc:
-        raise RuntimeError("evaluation dependencies missing; install crypto-analyser[evaluation]") from exc
+        raise RuntimeError(f"evaluation dependencies unavailable: {exc}") from exc
     except Exception as exc:
         raise RuntimeError(f"evaluation failed: {exc}") from exc
     print(path)
@@ -152,7 +194,32 @@ def build_parser() -> argparse.ArgumentParser:
     )
     live.add_argument("--embedding-model", default=os.getenv("EMBEDDING_MODEL", DEFAULT_MODEL))
     live.add_argument("--model", default=os.getenv("LLM_MODEL", LLM_MODEL))
+    live.add_argument("--judge-model", default=os.getenv("RAGAS_JUDGE_MODEL", "glm-5.2-short"))
     live.set_defaults(handler=_live)
+
+    live_backfill = commands.add_parser("live-backfill", help="Refill recent BTC episodes into live history")
+    live_backfill.add_argument("--days", type=int, default=5)
+    live_backfill.add_argument(
+        "--news-api-url",
+        default=os.getenv("NEWS_API_URL", "http://127.0.0.1:3000/api/news"),
+    )
+    live_backfill.add_argument("--embedding-model", default=os.getenv("EMBEDDING_MODEL", DEFAULT_MODEL))
+    live_backfill.add_argument("--model", default=os.getenv("LLM_MODEL", LLM_MODEL))
+    live_backfill.add_argument("--judge-model", default=os.getenv("RAGAS_JUDGE_MODEL", "glm-5.2-short"))
+    live_backfill.set_defaults(handler=_live_backfill)
+
+    live_event = commands.add_parser("live-event", help="Import an explicit BTC event window")
+    live_event.add_argument("--start", required=True)
+    live_event.add_argument("--end", required=True)
+    live_event.add_argument("--news-file", required=True, type=Path)
+    live_event.add_argument(
+        "--news-api-url",
+        default=os.getenv("NEWS_API_URL", "http://127.0.0.1:3000/api/news"),
+    )
+    live_event.add_argument("--embedding-model", default=os.getenv("EMBEDDING_MODEL", DEFAULT_MODEL))
+    live_event.add_argument("--model", default=os.getenv("LLM_MODEL", LLM_MODEL))
+    live_event.add_argument("--judge-model", default=os.getenv("RAGAS_JUDGE_MODEL", "glm-5.2-short"))
+    live_event.set_defaults(handler=_live_event)
 
     run = commands.add_parser("run", help="Run historical anomaly analysis")
     run.add_argument("--symbol", default="LUNAUSDT")

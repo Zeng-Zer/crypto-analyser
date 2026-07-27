@@ -1,0 +1,82 @@
+{
+  "event": "June CPI release window",
+  "window": {
+    "start": "2026-07-14T11:30:00Z",
+    "end": "2026-07-14T14:00:00Z"
+  },
+  "expectedOnset": "2026-07-14T12:30:00Z",
+  "corpus": {
+    "start": "2026-07-13T12:40:00Z",
+    "end": "2026-07-14T12:40:00Z",
+    "rule": "Non-exhaustive web-search corpus available by detector confirmation. Include balanced pre-release Bitcoin scenarios and the primary BLS release; reject sources published or modified after detection.",
+    "limitations": "The corpus is documented and mixed but not claimed to be an exhaustive web archive.",
+    "excluded": [
+      {
+        "link": "https://beincrypto.com/cpi-surprise-inflation-expected-crypto-outlook/",
+        "reason": "Published at 2026-07-14T12:38:00Z but updated at 2026-07-14T13:05:00Z, after detector confirmation."
+      },
+      {
+        "link": "https://coinpaper.com/33050/bitcoin-price-rallies-toward-64000-as-us-inflation-cools-to-35",
+        "reason": "Published at 2026-07-14T13:50:09.951Z, after detector confirmation."
+      },
+      {
+        "link": "https://news.bitcoin.com/cool-cpi-print-ignites-market-rebound-as-bitcoin-gold-and-stocks-rip-higher/",
+        "reason": "Published at 2026-07-14T14:15:57Z, after detector confirmation."
+      }
+    ]
+  },
+  "articles": [
+    {
+      "title": "US CPI is out tomorrow: why Tuesday's inflation reading is the most important data point of the year",
+      "description": "IG expected June headline CPI to cool while core inflation remained sticky. It explained that softer inflation typically lifts global risk appetite, while hotter inflation strengthens the dollar and pressures risk assets.",
+      "link": "https://www.ig.com/uk/trading-strategies/us-cpi-june-2026-preview-what-to-expect-tomorrow-260713",
+      "pubDate": "2026-07-13T14:01:34+01:00",
+      "dateModified": "2026-07-13T14:01:34+01:00",
+      "source": "IG"
+    },
+    {
+      "title": "BIT: June US CPI Data Emerges as Critical Catalyst for Bitcoin's Next Major Move",
+      "description": "BIT said a hotter June CPI could reinforce monetary tightening and pressure Bitcoin, while a softer reading could provide relief and trigger a short-term crypto rally.",
+      "link": "https://cryptorank.io/news/feed/810de-bit-us-cpi-bitcoin-direction-catalyst",
+      "pubDate": "2026-07-14T03:20:10Z",
+      "dateModified": "2026-07-14T03:20:10Z",
+      "source": "CryptoRank / BitcoinWorld"
+    },
+    {
+      "title": "Bitcoin Holds Near $62,000 Ahead of CPI Figures",
+      "description": "Cointribune described June CPI as a binary Bitcoin catalyst: a lower-than-expected figure could revive dovish Fed expectations and support a move toward $65,000, while a hot reading could trigger liquidations.",
+      "link": "https://www.cointribune.com/en/bitcoin-holds-near-62000-ahead-of-cpi-figures/",
+      "pubDate": "2026-07-14T11:15:00Z",
+      "dateModified": "2026-07-14T11:14:54Z",
+      "source": "Cointribune"
+    },
+    {
+      "title": "Will Bitcoin Price Jump 10% Today as U.S. CPI Data Looms?",
+      "description": "The Crypto Times said a significantly cooler core CPI could weaken expectations for further Fed tightening and support Bitcoin, while a hotter reading could cause the opposite reaction. It cautioned that correlation alone would not prove CPI caused a full rally.",
+      "link": "https://www.cryptotimes.io/2026/07/14/will-bitcoin-price-jump-10-today-as-u-s-cpi-data-looms/",
+      "pubDate": "2026-07-14T17:33:44+05:30",
+      "dateModified": "2026-07-14T17:54:15+05:30",
+      "source": "The Crypto Times"
+    },
+    {
+      "title": "Consumer Price Index - June 2026",
+      "description": "The U.S. Bureau of Labor Statistics reported at 8:30 a.m. ET that headline CPI fell 0.4% in June, its largest monthly decline since April 2020; annual CPI slowed to 3.5% and core CPI was unchanged monthly at 2.6% annually.",
+      "link": "https://www.bls.gov/news.release/archives/cpi_07142026.pdf",
+      "pubDate": "2026-07-14T08:30:00-04:00",
+      "dateModified": "2026-07-14T11:06:28Z",
+      "source": "U.S. Bureau of Labor Statistics"
+    },
+    {
+      "title": "Critical US Inflation Data Released: What Was Bitcoin's Initial Reaction?",
+      "description": "BitcoinSistemi reported headline and core CPI below expectations at 12:32 UTC. Its embedded Binance BTCUSDT chart showed a +0.81% 15-minute candle from $62,957.96 to $63,465.97 with a large volume spike immediately after the release.",
+      "link": "https://en.bitcoinsistemi.com/breaking-critical-us-inflation-data-released-what-was-bitcoin-s-btc-initial-reaction-3/",
+      "pubDate": "2026-07-14T12:32:11Z",
+      "dateModified": "2026-07-14T12:34:10Z",
+      "source": "BitcoinSistemi"
+    }
+  ],
+  "timestampEvidence": {
+    "url": "https://www.bls.gov/news.release/archives/cpi_07142026.pdf",
+    "note": "Publisher metadata supplied timestamps for the four previews and BitcoinSistemi report. The BLS PDF states an 8:30 a.m. ET embargo, equal to 12:30 UTC, and returned Last-Modified 2026-07-14T11:06:28Z with SHA-256 dd9288175bd38ef9c05b1e5d5ce03ea6c6032a1c2900355208905f78f94aea81."
+  }
+}

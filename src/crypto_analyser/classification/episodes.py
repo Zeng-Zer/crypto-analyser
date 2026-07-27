@@ -60,13 +60,15 @@ def _compact_percent(value: float) -> str:
 
 
 def _episode_vars(episode: dict, features: dict | None, meta: dict, event_reference: str) -> dict[str, Any]:
+    peak_z = episode.get("peak_z")
     return {
         "symbol": meta["symbol"],
         "start": meta["start"],
         "end": meta["end"],
         "onset_ts": episode["onset_ts"],
         "severity": episode["severity"],
-        "peak_z_abs": abs(episode["peak_z"]) if episode["peak_z"] is not None else None,
+        "direction": episode.get("direction") or ("crash" if peak_z is not None and peak_z < 0 else "spike"),
+        "peak_z": peak_z,
         "drawdown_onset_4h": episode.get("drawdown_onset_4h"),
         "return_onset_2h": episode.get("return_onset_2h"),
         "triggers": ", ".join(episode.get("onset_triggers", episode.get("triggers", ["price_zscore"]))),

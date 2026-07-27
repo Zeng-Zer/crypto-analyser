@@ -30,10 +30,12 @@ Controlled context comparison:
 |---|---|
 | OHLCV, funding, open interest | Monthly Parquet queried directly with DuckDB |
 | Historical news and embeddings | PostgreSQL with pgvector |
+| Live bars | Bounded backend memory; streamed read-only to viewers with SSE |
 | Live news candidates | Configurable free-crypto-news HTTP API; transient embedding rank |
+| Confirmed live episodes | PostgreSQL snapshots, LLM results, and Ragas Faithfulness evaluation |
 | Pipeline intermediates and reports | Gitignored JSON under `data/` |
 
-Live bars stay browser-only and in-memory. Confirmed episodes go to a localhost bridge for current-news retrieval and structured LLM classification; this repository has no time-series serving database.
+Live backend owns Binance ingestion, anomaly detection, news and market-context refreshes, RAG/LLM analysis, and episode persistence. Browser only renders server state and reads persisted history.
 
 ## Quickstart
 
@@ -66,7 +68,6 @@ uv run crypto-analyser news search --query 'Terra UST depeg'
 uv run crypto-analyser run --symbol LUNAUSDT --start 2022-05-07 --end 2022-05-11 --mode derivatives_only
 uv run crypto-analyser run --symbol LUNAUSDT --start 2022-05-07 --end 2022-05-11 --mode derivatives_rag --skip-download
 uv run crypto-analyser run --symbol LUNAUSDT --start 2022-05-07 --end 2022-05-11 --mode news_only --skip-download
-uv sync --locked --extra evaluation
 uv run crypto-analyser evaluate
 ```
 
@@ -83,15 +84,24 @@ uv run python -m http.server 8000 --directory visuals
 Live news RAG needs localhost bridge so LLM credentials never enter browser code:
 
 ```bash
-# Works immediately; public free endpoint currently returns at most 3 candidates
-NEWS_API_URL=https://cryptocurrency.cv/api/news uv run crypto-analyser live
-
-# Better retrieval: run sibling free-crypto-news for full candidate results
+# Terminal 1: full 24-hour paginated news source
 cd ../free-crypto-news && npm run dev
-cd ../crypto-analyser && uv run crypto-analyser live
+
+# Terminal 2: PostgreSQL-backed live observation and episode replay
+cd ../crypto-analyser
+docker compose up -d pgvector
+uv run crypto-analyser live
+
+# Optional recent-window refill
+uv run crypto-analyser live-backfill --days 5
+
+# Explicit event import with documented onset-safe corpus
+uv run crypto-analyser live-event \
+  --start 2026-07-14T11:30:00Z --end 2026-07-14T14:00:00Z \
+  --news-file events/june-cpi-release-2026-07-14.json
 ```
 
-Open `http://localhost:8000` for historical replay or `http://localhost:8000/live.html` for live BTCUSDT observation. Live mode charts absolute BTC price from closed Binance 5-minute bars and runs the historical detector on each update. Funding rate and 4-hour open-interest change refresh every 60 seconds; latest Bitcoin headlines refresh every 90 seconds. Neither refresh calls the LLM. At second flagged price bar, localhost recomputes the episode, freezes funding, OI, and news at onset, embedding-ranks five articles, then runs the existing derivatives + RAG classifier. Results are cached by event reference; bars are not persisted. `NEWS_API_URL` defaults to `http://127.0.0.1:3000/api/news` and falls back to public free endpoint when local sibling is unavailable.
+Open `http://localhost:8000` for historical replay or `http://localhost:8000/live.html` for live BTCUSDT observation. Live backend backfills and streams closed Binance 5-minute bars, runs historical detector on each update, and publishes read-only state to browsers over SSE. It refreshes funding rate and 4-hour open-interest change every 60 seconds and preceding-24-hour Bitcoin headlines every 90 seconds; ambient refresh does not call LLM. At the second qualifying anomalous bar, backend records the first anomalous bar as onset and the confirmation bar close as detection. Funding and OI stay anchored at onset; news may be published no later than detection. The backend embedding-ranks six articles, runs existing derivatives + RAG classifier once, then evaluates rationale with Ragas Faithfulness. Ragas score or evaluation error is stored in PostgreSQL but not shown in live replay. Pending, complete, and failed episodes persist across application and machine restarts while PostgreSQL volume remains intact. `live-backfill` applies the unchanged detector to the exact requested window plus a hidden 24-hour warm-up, then runs the same time-safe combined pipeline for each detected BTC episode. `live-event` applies that pipeline to an explicit UTC window and merges a documented timestamped source corpus from JSON; seed articles published or modified after detector confirmation are rejected. It can detect zero episodes. Existing event references are skipped, so reruns do not repeat LLM/Ragas spend. Select a viewer-local day on the live page to list compact episode summaries; each row deep-links the exact episode in `live-history.html`, where Previous/Next navigates that day. Replay shows onset, detection, source timing, and candidate-to-ranked counts. `NEWS_API_URL` defaults to sibling `free-crypto-news` at `http://127.0.0.1:3000/api/news`; public fallback remains limited to three sample articles.
 
 Historical replay starts with Episode 01 and guides reviewers chronologically through all eight episodes: focused anomaly chart, onset-safe context, hybrid retrieval results with publisher links and archive fallbacks, structured LLM output, then a compact explanation check. The comparison records verdict changes across context modes; Ragas Faithfulness checks whether claims in the combined rationale follow from supplied context. It does not score verdict correctness or prove causality. Page embeds a committed historical snapshot, so GitHub Pages serves it without a backend. After generating new local pipeline artifacts, refresh it with `uv run python scripts/build_visual_data.py`.
 
@@ -118,7 +128,7 @@ src/crypto_analyser/
 ├── assets/            # Packaged prompts and database/JSON schemas
 ├── constants.py       # Project defaults
 ├── llm_client.py
-└── live.py            # Local live RAG/LLM bridge
+└── live.py            # Backend live stream, detector, RAG/LLM, SSE, and history
 
 data/                  # Gitignored parquet and generated JSON
 ```

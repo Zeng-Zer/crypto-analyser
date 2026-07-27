@@ -4,6 +4,7 @@ import http.server
 import json
 import re
 import threading
+from datetime import datetime, timezone
 from functools import partial
 from pathlib import Path
 
@@ -82,233 +83,285 @@ def test_analysis_starts_with_first_episode(browser: Browser, workbench_url: str
     page.close()
 
 
-def test_live_workbench_streams_one_absolute_price_series(browser: Browser, workbench_url: str):
+def test_live_workbench_is_read_only_backend_stream_viewer(browser: Browser, workbench_url: str):
     page = browser.new_page(viewport={"width": 1440, "height": 900})
     errors: list[str] = []
-    sockets = {}
+    requests: list[str] = []
+    saved = False
     page.on("console", lambda message: errors.append(message.text) if message.type == "error" else None)
     page.on("pageerror", lambda error: errors.append(str(error)))
+    page.on("request", lambda request: requests.append(request.url))
+    page.add_init_script(
+        """
+        window.__liveEvents = [];
+        class ViewerEventSource {
+          constructor(url) { this.url = url; this.listeners = {}; window.__liveEvents.push(this); }
+          addEventListener(name, listener) { (this.listeners[name] ||= []).push(listener); }
+          emit(name, event) { (this.listeners[name] || []).forEach(listener => listener(event)); }
+          close() {}
+        }
+        window.EventSource = ViewerEventSource;
+        window.WebSocket = class { constructor() { throw new Error('viewer must not open WebSocket'); } };
+        window.__pushLiveState = state => window.__liveEvents[0].emit('message', {data: JSON.stringify(state)});
+        """
+    )
 
     start = 1_699_999_800_000
+    bars = [
+        {"ts": start + index * 300_000, "close": 40_000 + index, "closeTime": start + (index + 1) * 300_000 - 1}
+        for index in range(300)
+    ]
+    news = {
+        "articles": [
+            {
+                "id": f"latest-{index}",
+                "title": f"Latest Bitcoin headline {index}",
+                "description": "Current market coverage.",
+                "link": f"https://example.com/latest-{index}",
+                "date_pub": "2023-11-16T02:00:00+00:00",
+                "source": "Example",
+            }
+            for index in range(1, 13)
+        ],
+        "retrieval": {"url": "http://127.0.0.1:3000/api/news", "candidate_count": 12},
+        "cached": False,
+    }
+    activity = {
+        "funding_rate_current": 0.0001,
+        "funding_rate_avg_4h": 0.0001,
+        "oi_current": 100_000,
+        "oi_change_4h": 0.01,
+        "funding_breach": False,
+        "oi_breach": False,
+        "source": {"url": "https://fapi.binance.com"},
+        "cached": False,
+    }
 
-    def klines(offset: float) -> str:
-        return json.dumps(
-            [
-                [
-                    start + index * 300_000,
-                    str(40_000 + offset + index),
-                    str(40_001 + offset + index),
-                    str(39_999 + offset + index),
-                    str(40_000 + offset + index),
-                    "1",
-                    start + (index + 1) * 300_000 - 1,
-                ]
-                for index in range(300)
-            ]
-        )
+    def state(current_bars: list[dict], detector: dict, loading: bool = False) -> dict:
+        return {
+            "connected": True,
+            "ready": True,
+            "status": "Streaming",
+            "error": "",
+            "bars": current_bars,
+            "detector": detector,
+            "news": news,
+            "news_error": "",
+            "activity": activity,
+            "activity_error": "",
+            "analysis": {"loading": loading, "error": ""},
+            "revision": len(current_bars),
+        }
 
-    page.route(
-        "**/fapi/v1/klines?**",
-        lambda route: route.fulfill(status=200, content_type="application/json", body=klines(10)),
-    )
-    analysis_requests = []
-    ambient_requests = []
-    activity_requests = []
+    def history_days(route):
+        verdict = route.request.url.split("verdict=")[-1].split("&")[0]
+        counts = {"explained": 1, "unexplained": 1, "all": 3}
+        days = [{"day": "2023-11-16", "episode_count": counts[verdict]}] if saved else []
+        route.fulfill(status=200, content_type="application/json", body=json.dumps({"days": days}))
 
-    def latest_news(route):
-        ambient_requests.append(route.request.url)
-        route.fulfill(
-            status=200,
-            content_type="application/json",
-            body=json.dumps(
-                {
-                    "articles": [
-                        {
-                            "id": f"latest-{index}",
-                            "title": f"Latest Bitcoin headline {index}",
-                            "description": "Current market coverage.",
-                            "link": f"https://example.com/latest-{index}",
-                            "date_pub": "2023-11-16T02:00:00+00:00",
-                            "source": "Example",
-                        }
-                        for index in range(1, 6)
-                    ],
-                    "retrieval": {
-                        "url": "http://127.0.0.1:3000/api/news",
-                        "free_tier": False,
-                        "candidate_count": 20,
-                    },
-                    "cached": False,
-                }
-            ),
-        )
+    def history_episodes(route):
+        episodes = [
+            {
+                "event_reference": f"BTCUSDT_{next_open}",
+                "onset_ts": next_open,
+                "severity": "extreme",
+                "status": "complete",
+                "markets": {"price": {"close_onset": 10_000}},
+                "analysis": {"classification": "explained_news"},
+                "error": None,
+            },
+            {
+                "event_reference": f"BTCUSDT_{next_open + 300_000}",
+                "onset_ts": next_open + 300_000,
+                "severity": "high",
+                "status": "complete",
+                "markets": {"price": {"close_onset": 9_500}},
+                "analysis": {"classification": "unexplained"},
+                "error": None,
+            },
+            {
+                "event_reference": f"BTCUSDT_{next_open + 600_000}",
+                "onset_ts": next_open + 600_000,
+                "severity": "high",
+                "status": "failed",
+                "markets": {"price": {"close_onset": 9_000}},
+                "analysis": None,
+                "error": "upstream timeout",
+            },
+        ]
+        verdict = route.request.url.split("verdict=")[-1].split("&")[0]
+        if verdict == "explained":
+            episodes = [episodes[0]]
+        elif verdict == "unexplained":
+            episodes = [episodes[1]]
+        route.fulfill(status=200, content_type="application/json", body=json.dumps({"episodes": episodes}))
 
-    def latest_derivatives(route):
-        activity_requests.append(route.request.url)
-        route.fulfill(
-            status=200,
-            content_type="application/json",
-            body=json.dumps(
-                {
-                    "funding_rate_current": 0.0001,
-                    "funding_rate_avg_4h": 0.0001,
-                    "oi_current": 100_000,
-                    "oi_change_4h": 0.01,
-                    "funding_breach": False,
-                    "oi_breach": False,
-                    "source": {"url": "https://fapi.binance.com"},
-                    "cached": False,
-                }
-            ),
-        )
-
-    def analyse(route):
-        request = route.request.post_data_json
-        analysis_requests.append(request)
-        onset = request["markets"]["price"][-2]["ts"]
-        route.fulfill(
-            status=200,
-            content_type="application/json",
-            body=json.dumps(
-                {
-                    "event_reference": f"BTCUSDT_{onset}",
-                    "onset_ts": onset,
-                    "severity": "extreme",
-                    "markets": ["price"],
-                    "classification": "explained_news",
-                    "synthesis": {
-                        "reasons": ["A pre-onset policy shock provides an event-specific explanation."],
-                        "supporting_refs": ["news_abc"],
-                    },
-                    "derivatives": {
-                        "funding_rate_current": 0.0001,
-                        "funding_rate_avg_4h": 0.0001,
-                        "oi_current": 100_000,
-                        "oi_change_4h": 0.01,
-                        "funding_breach": False,
-                        "oi_breach": False,
-                        "source": {"url": "https://fapi.binance.com"},
-                    },
-                    "articles": [
-                        {
-                            "id": "abc",
-                            "title": "Bitcoin selloff follows policy shock",
-                            "description": "Policy news preceded the move.",
-                            "link": "https://example.com/bitcoin",
-                            "date_pub": "2023-11-15T22:00:00+00:00",
-                            "source": "Example",
-                            "relevance_score": 0.91,
-                            "supporting": True,
-                        }
-                    ],
-                    "retrieval": {
-                        "url": "http://127.0.0.1:3000/api/news",
-                        "free_tier": False,
-                        "candidate_count": 20,
-                    },
-                    "cached": False,
-                }
-            ),
-        )
-
-    page.route("**/api/live-news", latest_news)
-    page.route("**/api/live-derivatives", latest_derivatives)
-    page.route("**/api/live-analysis", analyse)
-    page.route_web_socket(
-        "wss://fstream.binance.com/ws/btcusdt@kline_5m",
-        lambda socket: sockets.setdefault("price", socket),
-    )
-
+    page.route("**/api/live-history/days?**", history_days)
+    page.route("**/api/live-history/episodes?**", history_episodes)
     page.goto(f"{workbench_url}/live.html")
-    assert page.evaluate(
-        "timestamp => validBar(timestamp, 40000, timestamp + 299999)",
-        start + 1,
-    ) is None
+    assert page.evaluate("__liveEvents[0].url") == "/api/live-stream"
+
+    clear = {
+        "kind": "clear",
+        "label": "No anomaly",
+        "reading": {"close": bars[-1]["close"], "z": 1.2, "drawdown": 0, "change": 0, "triggers": []},
+        "onsetTs": None,
+    }
+    page.evaluate("__pushLiveState", state(bars, clear))
     expect(page.locator("#runtime-state")).to_have_text("Live")
     expect(page.locator("#price-state")).to_have_text("No anomaly")
     expect(page.locator("#feed-status")).to_have_text("Streaming · 300 bars")
-    expect(page.locator("#chart-heading")).to_have_text("BTC price · trailing 24h")
-    expect(page.locator("#market-chart text").filter(has_text="$")).to_have_count(5)
-    expect(page.locator("body")).not_to_contain_text("Spot")
-    expect(page.locator("body")).not_to_contain_text("Futures")
+    expect(page.locator("#market-chart text").filter(has_text="$")) .to_have_count(5)
     expect(page.locator("#activity-state")).to_have_text("Normal")
     expect(page.locator("#activity-metrics")).to_contain_text("0.0100%")
     expect(page.locator("#activity-metrics")).to_contain_text("+1.00%")
-    expect(page.locator("#ambient-status")).to_have_text("Updated · 90s")
+    expect(page.locator("#ambient-status")).to_have_text("12 headlines · 90s")
     expect(page.locator("#ambient-list .ambient-item")).to_have_count(5)
-    expect(page.locator("#ambient-list")).to_contain_text("Latest Bitcoin headline 5")
-    expect(page.locator("#analysis-status")).to_have_text("Waiting")
-    assert len(ambient_requests) == 1
-    assert len(activity_requests) == 1
-    assert not analysis_requests
-
-    missing_ts = start + 12 * 300_000
-    page.evaluate(
-        "timestamp => { source.bars = source.bars.filter(bar => bar.ts !== timestamp); render(); }",
-        missing_ts,
-    )
-    expect(page.locator("#price-state")).to_have_text("Warming up · 287/288 bars")
-    assert page.evaluate("analysisPayload().markets.price.length") == 287
-    assert not analysis_requests
-    page.evaluate(
-        "bar => { source.bars = mergeBars(source.bars, [bar]); render(); }",
-        {"ts": missing_ts, "close": 40_022, "closeTime": missing_ts + 299_999},
-    )
-    expect(page.locator("#price-state")).to_have_text("No anomaly")
+    expect(page.locator("#news-position")).to_have_text("1 of 3")
+    page.locator("#news-next").click()
+    expect(page.locator("#ambient-list")).to_contain_text("Latest Bitcoin headline 10")
+    expect(page.locator("#history-verdict")).to_have_value("explained")
+    expect(page.locator("#history-status")).to_have_text("No explained anomaly")
 
     next_open = start + 300 * 300_000
-
-    def message(timestamp: int, close: int, closed: bool) -> str:
-        return json.dumps(
-            {
-                "e": "kline",
-                "s": "BTCUSDT",
-                "k": {
-                    "t": timestamp,
-                    "T": timestamp + 299_999,
-                    "s": "BTCUSDT",
-                    "i": "5m",
-                    "c": str(close),
-                    "x": closed,
-                },
-            }
-        )
-
-    sockets["price"].send(message(next_open, 10_000, False))
-    expect(page.locator("#feed-status")).to_have_text("Streaming · 300 bars")
-    expect(page.locator("#analysis-status")).to_have_text("Waiting")
-
-    sockets["price"].send(message(next_open, 10_000, True))
+    potential_bars = [*bars, {"ts": next_open, "close": 10_000, "closeTime": next_open + 299_999}]
+    potential = {
+        "kind": "potential",
+        "label": "Potential signal · needs second flagged bar",
+        "reading": {"close": 10_000, "z": -12, "drawdown": -0.75, "change": -0.75, "triggers": ["Z-score"]},
+        "onsetTs": next_open,
+    }
+    page.evaluate("__pushLiveState", state(potential_bars, potential))
     expect(page.locator("#price-state")).to_contain_text("Potential signal")
-    sockets["price"].send(message(next_open + 300_000, 9_000, True))
+
+    active_bars = [
+        *potential_bars,
+        {"ts": next_open + 300_000, "close": 9_000, "closeTime": next_open + 599_999},
+    ]
+    active = {
+        "kind": "active",
+        "label": "Episode active",
+        "reading": {"close": 9_000, "z": -10, "drawdown": -0.78, "change": -0.78, "triggers": ["Z-score"]},
+        "onsetTs": next_open,
+    }
+    page.evaluate("__pushLiveState", state(active_bars, active, loading=True))
     expect(page.locator("#price-state")).to_have_text("Episode active")
+    expect(page.locator("#history-status")).to_have_text("Analysing episode")
     expect(page.locator("#market-chart .episode-band")).to_have_count(1)
     expect(page.locator("#market-chart .episode-start-marker")).to_have_count(1)
     expect(page.locator("#market-chart .episode-start-label")).to_have_text("EPISODE START")
-    assert page.evaluate(
-        """() => {
-          const box = document.querySelector('.episode-start-label').getBBox();
-          return box.x >= 0 && box.x + box.width <= 1000;
-        }"""
-    )
-    expect(page.locator("#analysis-status")).to_have_text("Analysed")
-    expect(page.locator(".analysis-verdict")).to_have_text("Explained by news")
-    expected_meta = page.evaluate(
-        "timestamp => `Price + market activity + news · detected at ${fullFormat.format(new Date(timestamp))}`",
-        next_open,
-    )
-    expect(page.locator(".analysis-meta")).to_have_text(expected_meta)
-    expect(page.locator("#analysis-body")).to_contain_text("Bitcoin selloff follows policy shock")
-    expect(page.locator("#analysis-body")).to_contain_text("similarity 0.9100")
-    assert len(analysis_requests) == 1
-    assert set(analysis_requests[0]["markets"]) == {"price"}
-    assert len(analysis_requests[0]["markets"]["price"]) == 302
 
+    saved = True
+    page.evaluate("__pushLiveState", state(active_bars, active))
+    expect(page.locator("#history-status")).to_have_text("1 explained")
+    expect(page.locator("#history-day")).to_have_value("2023-11-16")
+    summaries = page.locator("#history-list .history-row")
+    expect(summaries).to_have_count(1)
+    expect(summaries.nth(0)).to_contain_text("$10,000.00")
+    expect(summaries.nth(0)).to_contain_text("extreme")
+    expect(summaries.nth(0)).to_contain_text("Explained by news")
+    expect(summaries.nth(0)).to_have_attribute("href", re.compile(rf"event=BTCUSDT_{next_open}"))
+
+    page.locator("#history-verdict").select_option("unexplained")
+    expect(page.locator("#history-status")).to_have_text("1 unexplained")
+    expect(summaries).to_have_count(1)
+    expect(summaries.nth(0)).to_contain_text("Market normal · no causal news")
+
+    page.locator("#history-verdict").select_option("all")
+    expect(page.locator("#history-status")).to_have_text("3 saved")
+    expect(summaries).to_have_count(3)
+    expect(summaries.nth(2)).to_contain_text("$9,000.00")
+    expect(summaries.nth(2)).to_contain_text("high")
+    expect(summaries.nth(2)).to_contain_text("Analysis failed")
+
+    forbidden = ("binance.com", "/api/live-analysis", "/api/live-news", "/api/live-derivatives")
+    assert not [url for url in requests if any(value in url for value in forbidden)]
+    script = (ROOT / "visuals" / "live.html").read_text()
+    assert "WebSocket" not in script
+    assert "/api/live-analysis" not in script
     page.set_viewport_size({"width": 390, "height": 844})
     assert page.evaluate("document.documentElement.scrollWidth <= document.documentElement.clientWidth")
 
     page.close()
     assert not errors, f"Browser errors: {errors}"
+
+def test_live_history_replays_complete_and_failed_episodes(browser: Browser, workbench_url: str):
+    page = browser.new_page(viewport={"width": 1440, "height": 900})
+    start = 1_699_999_800_000
+    bars = [
+        {"ts": start + index * 300_000, "close": 40_000 + index, "closeTime": start + (index + 1) * 300_000 - 1}
+        for index in range(300)
+    ]
+    onset = bars[-2]["ts"]
+    snapshot = {
+        "event_reference": f"BTCUSDT_{onset}",
+        "symbol": "BTCUSDT",
+        "onset_ts": onset,
+        "detected_ts": onset + 600_000,
+        "severity": "high",
+        "triggers": ["price_zscore"],
+        "markets": {
+            "price": {
+                "onset_ts": onset,
+                "close_onset": bars[-2]["close"],
+                "duration_bars": 2,
+                "onset_triggers": ["price_zscore"],
+            }
+        },
+        "bars": bars,
+    }
+    analysis = {
+        "classification": "explained_news",
+        "derivatives": {"funding_rate_current": 0.0001, "oi_change_4h": 0.01},
+        "retrieval": {"candidate_count": 6},
+        "articles": [
+            {
+                "title": "Bitcoin policy shock",
+                "link": "https://example.com/news",
+                "date_pub": datetime.fromtimestamp((onset + 300_000) / 1000, tz=timezone.utc).isoformat(),
+                "relevance_score": 0.91,
+                "supporting": True,
+            }
+        ],
+        "synthesis": {"reasons": ["Policy news preceded detection."]},
+    }
+    episodes = [
+        {**snapshot, "status": "complete", "analysis": analysis, "error": None},
+        {
+            **snapshot,
+            "event_reference": f"BTCUSDT_{onset + 300_000}",
+            "onset_ts": onset + 300_000,
+            "status": "failed",
+            "analysis": None,
+            "error": "live RAG/LLM failed: upstream timeout",
+        },
+    ]
+    page.route(
+        "**/api/live-history/episodes?**",
+        lambda route: route.fulfill(
+            status=200, content_type="application/json", body=json.dumps({"episodes": episodes})
+        ),
+    )
+
+    page.goto(f"{workbench_url}/live-history.html?day=2023-11-16&timezone=Europe%2FParis")
+
+    expect(page.locator("#episode-title")).to_have_text("Episode 01")
+    expect(page.locator("#episode-position")).to_have_text("1 of 2")
+    expect(page.locator("#episode-status")).to_have_text("Complete")
+    assert page.locator("#onset-at").inner_text() != page.locator("#detected-at").inner_text()
+    expect(page.locator(".verdict")).to_have_text("Explained by news")
+    expect(page.locator("#news-body")).to_contain_text("6 pre-detection candidates · top 1")
+    expect(page.locator("#news-body")).to_contain_text("5 min after onset · before detection")
+    expect(page.locator("#news-body")).to_contain_text("Bitcoin policy shock")
+    expect(page.locator("#price-chart .episode-band")).to_have_count(1)
+    page.get_by_role("button", name="Next").click()
+    expect(page.locator("#episode-title")).to_have_text("Episode 02")
+    expect(page.locator("#episode-status")).to_have_text("Failed")
+    expect(page.locator("#llm-body")).to_contain_text("upstream timeout")
+    page.goto(f"{workbench_url}/live-history.html?day=2023-11-16&timezone=Invalid%2FZone")
+    expect(page.locator("#episode-title")).to_have_text("Episode 01")
+    assert page.evaluate("zone === Intl.DateTimeFormat().resolvedOptions().timeZone")
+    page.close()
 
 
 def test_rag_changed_episode_can_be_opened_directly(page: Page):

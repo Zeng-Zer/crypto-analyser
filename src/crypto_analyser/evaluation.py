@@ -14,6 +14,28 @@ from crypto_analyser.constants import FUNDING_RATE_THRESHOLD, OI_CHANGE_THRESHOL
 MODES = ("derivatives_only", "derivatives_rag", "news_only")
 
 
+class FaithfulnessScorer:
+    """Score one response against supplied contexts with RAGAS Faithfulness."""
+
+    def __init__(self, judge_model: str, api_url: str, api_key: str) -> None:
+        from openai import AsyncOpenAI
+        from ragas.llms import llm_factory
+        from ragas.metrics.collections import Faithfulness
+
+        client = AsyncOpenAI(api_key=api_key, base_url=api_url)
+        self.metric = Faithfulness(llm_factory(judge_model, client=client, max_tokens=4096))
+
+    def __call__(self, question: str, response: str, contexts: list[str]) -> float:
+        value = self.metric.score(
+            user_input=question,
+            response=response,
+            retrieved_contexts=contexts,
+        ).value
+        if not isinstance(value, (int, float)) or not 0 <= value <= 1:
+            raise ValueError("RAGAS Faithfulness must return a score between 0 and 1")
+        return float(value)
+
+
 def _load(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
@@ -114,13 +136,8 @@ def evaluate(
     api_key: str,
     data_dir: Path | None = None,
 ) -> dict[str, Any]:
-    from openai import AsyncOpenAI
-    from ragas.llms import llm_factory
-    from ragas.metrics.collections import Faithfulness
-
     root = data_dir or data_root()
-    client = AsyncOpenAI(api_key=api_key, base_url=api_url)
-    faithfulness = Faithfulness(llm_factory(judge_model, client=client, max_tokens=4096))
+    faithfulness = FaithfulnessScorer(judge_model, api_url, api_key)
     results: dict[str, dict[str, Any]] = {}
     for mode in MODES:
         summary = _load(root / "reports" / mode / f"{symbol}_{start}_{end}_summary.json")
@@ -136,11 +153,11 @@ def evaluate(
                     for article in rag["articles"]
                 ]
             if mode == "derivatives_rag":
-                faith = faithfulness.score(
-                    user_input=_question(symbol),
-                    response=classification["rationale"],
-                    retrieved_contexts=[_episode_context(episode), *news_contexts],
-                ).value
+                faith = faithfulness(
+                    _question(symbol),
+                    classification["rationale"],
+                    [_episode_context(episode), *news_contexts],
+                )
             episodes.append(
                 {
                     "onset_ts": episode["onset_ts"],

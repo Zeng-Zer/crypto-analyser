@@ -64,6 +64,7 @@ def test_live_command_routes_to_local_bridge(monkeypatch):
     calls = []
     monkeypatch.setenv("LLM_API_URL", "https://llm.example/v1")
     monkeypatch.setenv("LLM_API_KEY", "key")
+    monkeypatch.setenv("DATABASE_URL", "postgresql://db")
     monkeypatch.setattr(live, "serve_live", lambda *args: calls.append(args))
 
     assert cli.main(["live", "--port", "8765", "--news-api-url", "https://news.example/api"]) == 0
@@ -73,10 +74,86 @@ def test_live_command_routes_to_local_bridge(monkeypatch):
             "https://news.example/api",
             "https://llm.example/v1",
             "key",
+            "postgresql://db",
             "qwen3-embedding",
+            "glm-5.2-short",
             "glm-5.2-short",
         )
     ]
+
+
+def test_live_backfill_routes_to_recent_combined_pipeline(monkeypatch, capsys):
+    from crypto_analyser import live
+
+    calls = []
+    monkeypatch.setenv("LLM_API_URL", "https://llm.example/v1")
+    monkeypatch.setenv("LLM_API_KEY", "key")
+    monkeypatch.setenv("DATABASE_URL", "postgresql://db")
+    monkeypatch.setattr(
+        live,
+        "run_live_backfill",
+        lambda *args: calls.append(args)
+        or {"detected": 2, "complete": 1, "failed": [], "skipped_existing": 1},
+    )
+
+    assert cli.main(["live-backfill", "--days", "5"]) == 0
+    assert calls == [
+        (
+            5,
+            "http://127.0.0.1:3000/api/news",
+            "https://llm.example/v1",
+            "key",
+            "postgresql://db",
+            "qwen3-embedding",
+            "glm-5.2-short",
+            "glm-5.2-short",
+        )
+    ]
+    assert capsys.readouterr().out.strip() == "Detected 2; completed 1; failed 0; skipped existing 1."
+
+
+def test_live_event_routes_to_explicit_window(monkeypatch, tmp_path, capsys):
+    from crypto_analyser import live
+
+    news_file = tmp_path / "event.json"
+    news_file.write_text('{"articles": []}')
+    calls = []
+    monkeypatch.setenv("LLM_API_URL", "https://llm.example/v1")
+    monkeypatch.setenv("LLM_API_KEY", "key")
+    monkeypatch.setenv("DATABASE_URL", "postgresql://db")
+    monkeypatch.setattr(
+        live,
+        "run_live_event",
+        lambda *args: calls.append(args)
+        or {"detected": 1, "complete": 1, "failed": [], "skipped_existing": 0},
+    )
+
+    assert cli.main(
+        [
+            "live-event",
+            "--start",
+            "2026-07-06T11:00:00Z",
+            "--end",
+            "2026-07-06T14:00:00Z",
+            "--news-file",
+            str(news_file),
+        ]
+    ) == 0
+    assert calls == [
+        (
+            "2026-07-06T11:00:00Z",
+            "2026-07-06T14:00:00Z",
+            news_file,
+            "http://127.0.0.1:3000/api/news",
+            "https://llm.example/v1",
+            "key",
+            "postgresql://db",
+            "qwen3-embedding",
+            "glm-5.2-short",
+            "glm-5.2-short",
+        )
+    ]
+    assert capsys.readouterr().out.strip() == "Detected 1; completed 1; failed 0; skipped existing 0."
 
 
 def test_evaluate_reports_missing_optional_dependencies(monkeypatch, capsys):
@@ -91,7 +168,7 @@ def test_evaluate_reports_missing_optional_dependencies(monkeypatch, capsys):
 
     monkeypatch.setattr(evaluation, "write_evaluation", missing)
     assert cli.main(["evaluate"]) == 1
-    assert "install crypto-analyser[evaluation]" in capsys.readouterr().err
+    assert "evaluation dependencies unavailable: ragas" in capsys.readouterr().err
 
 
 def test_missing_environment_returns_nonzero(monkeypatch, capsys):
