@@ -159,15 +159,26 @@ class LiveEpisodeStore:
         finally:
             connection.close()
 
-    def episodes(self, start: datetime, end: datetime, verdict: str = "all") -> list[dict[str, Any]]:
+    def episodes(
+        self,
+        start: datetime | None,
+        end: datetime | None,
+        verdict: str = "all",
+        *,
+        timezone_name: str = "UTC",
+        newest_first: bool = False,
+    ) -> list[dict[str, Any]]:
+        # ponytail: unpaginated showcase history; add cursor pagination when payload size becomes material.
         connection = self._connect()
         try:
             with connection.cursor(cursor_factory=RealDictCursor) as cursor:
                 cursor.execute(
                     """
-                    SELECT event_reference, status, snapshot, analysis, error
+                    SELECT event_reference, status, snapshot, analysis, error,
+                           (detected_at AT TIME ZONE %s)::date::text AS viewer_day
                     FROM live_episodes
-                    WHERE detected_at >= %s AND detected_at < %s
+                    WHERE detected_at >= COALESCE(%s, '-infinity'::timestamptz)
+                      AND detected_at < COALESCE(%s, 'infinity'::timestamptz)
                       AND CASE %s
                           WHEN 'all' THEN TRUE
                           WHEN 'explained' THEN status = 'complete'
@@ -177,13 +188,15 @@ class LiveEpisodeStore:
                       END
                     ORDER BY detected_at
                     """,
-                    (start, end, verdict),
+                    (timezone_name, start, end, verdict),
                 )
                 episodes = []
                 for row in cursor.fetchall():
                     item = dict(row)
                     snapshot = item.pop("snapshot")
                     episodes.append({**snapshot, **item})
+                if newest_first:
+                    episodes.reverse()
                 return episodes
         finally:
             connection.close()
@@ -834,6 +847,7 @@ class LiveAnalysisService:
             "cutoff": cutoff.isoformat(),
             "seed_candidate_count": len(seeded),
             "candidate_count": len(combined),
+            "ranked_candidate_count": min(len(combined), RAG_CANDIDATES),
         }
 
     def analyse_claimed(self, event: dict[str, Any]) -> dict[str, Any]:
@@ -1347,10 +1361,24 @@ class _LiveHandler(SimpleHTTPRequestHandler):
             return
         if parsed.path == "/api/live-history/episodes":
             try:
-                start, end = _history_range(query.get("day", [""])[0], query.get("timezone", [""])[0])
+                day = query.get("day", [""])[0]
+                timezone_name = query.get("timezone", [""])[0]
+                ZoneInfo(timezone_name)
+                start, end = _history_range(day, timezone_name) if day else (None, None)
                 verdict = _history_verdict(query.get("verdict", ["all"])[0])
-                self._json(200, {"episodes": self.server.episode_store.episodes(start, end, verdict)})
-            except ValueError as exc:
+                self._json(
+                    200,
+                    {
+                        "episodes": self.server.episode_store.episodes(
+                            start,
+                            end,
+                            verdict,
+                            timezone_name=timezone_name,
+                            newest_first=not day,
+                        )
+                    },
+                )
+            except (ValueError, ZoneInfoNotFoundError) as exc:
                 self._json(400, {"error": str(exc)})
             except psycopg2.Error as exc:
                 self._json(502, {"error": str(exc)})

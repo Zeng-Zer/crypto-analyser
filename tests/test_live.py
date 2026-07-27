@@ -554,6 +554,7 @@ def test_seed_news_is_detection_safe_and_merged_for_explicit_event(monkeypatch):
     assert source["cutoff_ts"] == event["detected_ts"]
     assert source["seed_candidate_count"] == 2
     assert source["candidate_count"] == 2
+    assert source["ranked_candidate_count"] == 2
 
 
 def test_explicit_event_requires_aware_times_and_matching_news_window(tmp_path):

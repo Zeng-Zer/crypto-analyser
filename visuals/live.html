@@ -13,7 +13,7 @@
     :root {
       --color-primary:#a33d2d; --color-background:#f3efe6; --color-surface:#fbf8f1; --color-surface-strong:#fff;
       --color-ink:#171916; --color-ink-muted:#5b605a; --color-rule:#b9b5aa; --color-rule-light:#ded9ce;
-      --color-anomaly:#a33d2d; --color-derivatives:#245d78; --color-news:#556b43; --color-warning:#8b641d; --color-on-dark:#fffaf0;
+      --color-anomaly:#a33d2d; --color-derivatives:#245d78; --color-derivatives-pale:#dce8ed; --color-news:#556b43; --color-news-pale:#e2e8da; --color-warning:#8b641d; --color-on-dark:#fffaf0;
       --font-display:"Newsreader",Georgia,serif; --font-body:"Source Sans 3",Arial,sans-serif; --font-data:"IBM Plex Mono",monospace;
     }
     * { box-sizing:border-box; }
@@ -99,14 +99,31 @@
     .history-body { display:flex; align-items:center; gap:18px; padding:9px 15px; }
     .history-field { display:flex; align-items:center; gap:8px; color:var(--color-ink-muted); font:500 11px/1.2 var(--font-data); letter-spacing:.06em; text-transform:uppercase; }
     .history-field select { width:230px; min-height:34px; border:1px solid var(--color-ink); border-radius:2px; background:var(--color-surface-strong); padding:0 9px; color:var(--color-ink); font:500 13px/1 var(--font-data); }
-    .history-list { border-top:1px solid var(--color-rule); }
-    .history-row { position:relative; display:grid; grid-template-columns:90px 145px 100px minmax(0,1fr) 18px; align-items:center; min-height:48px; border-top:1px solid var(--color-rule); padding:0 15px; color:inherit; text-decoration:none; }
-    .history-row:first-child { border-top:0; }
-    .history-row:hover { background:var(--color-rule-light); }
-    .history-cell { min-width:0; overflow:hidden; font:500 12px/1.3 var(--font-data); text-overflow:ellipsis; text-transform:uppercase; white-space:nowrap; }
-    .history-cell::before { content:attr(data-label); display:none; color:var(--color-ink-muted); font-size:10px; letter-spacing:.06em; }
-    .history-verdict { font-family:var(--font-body); font-size:14px; text-transform:none; }
-    .history-arrow { color:var(--color-ink-muted); font:500 14px/1 var(--font-data); text-align:right; }
+    .history-list { display:grid; gap:10px; border-top:1px solid var(--color-rule); padding:12px; }
+    .history-divider { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:12px; margin:3px 0; color:var(--color-ink-muted); font:500 10px/1 var(--font-data); letter-spacing:.06em; }
+    .history-divider::before, .history-divider::after { height:1px; background:var(--color-rule); content:""; }
+    .history-card { display:grid; grid-template-columns:minmax(180px,.8fr) minmax(280px,1.35fr) minmax(190px,.75fr) 132px; align-items:stretch; min-height:132px; border:1px solid var(--color-rule); background:var(--color-surface-strong); color:inherit; text-decoration:none; }
+    .history-card:hover { border-color:var(--color-ink); }
+    .history-summary, .history-chart, .history-move, .history-action { min-width:0; padding:15px; }
+    .history-chart, .history-move, .history-action { border-left:1px solid var(--color-rule-light); }
+    .history-kicker, .history-chart-label, .history-move span { display:block; color:var(--color-ink-muted); font:500 10px/1.3 var(--font-data); letter-spacing:.06em; text-transform:uppercase; }
+    .history-time { display:block; margin-top:5px; font:500 25px/1 var(--font-display); }
+    .history-meta { display:block; margin-top:8px; font:500 11px/1.3 var(--font-data); text-transform:uppercase; }
+    .history-card-verdict { display:block; width:max-content; max-width:100%; margin-top:10px; border-left:3px solid currentColor; padding:4px 7px; font:500 18px/1.15 var(--font-display); }
+    .history-card-verdict.news { background:var(--color-news-pale); color:var(--color-news); }
+    .history-card-verdict.derivatives { background:var(--color-derivatives-pale); color:var(--color-derivatives); }
+    .history-card-verdict.failed { color:var(--color-anomaly); }
+    .history-card-verdict.pending { color:var(--color-warning); }
+    .history-spark { display:block; width:100%; height:70px; margin-top:6px; overflow:visible; }
+    .history-spark-grid { stroke:var(--color-rule-light); stroke-width:1; vector-effect:non-scaling-stroke; }
+    .history-spark-line { fill:none; stroke:var(--color-ink); stroke-width:2; vector-effect:non-scaling-stroke; }
+    .history-spark-dot { fill:var(--color-anomaly); stroke:var(--color-surface-strong); stroke-width:2; vector-effect:non-scaling-stroke; }
+    .history-spark-empty { display:grid; place-items:center; height:70px; margin-top:6px; color:var(--color-ink-muted); font-size:13px; }
+    .history-spark-caption { display:flex; justify-content:space-between; color:var(--color-ink-muted); font:500 10px/1 var(--font-data); text-transform:uppercase; }
+    .history-move { display:flex; flex-direction:column; justify-content:center; }
+    .history-move strong { display:block; margin-top:7px; font:500 30px/1 var(--font-display); }
+    .history-move small { display:block; margin-top:8px; color:var(--color-ink-muted); font:500 11px/1.35 var(--font-data); }
+    .history-action { display:flex; align-self:center; align-items:center; justify-content:center; min-height:40px; margin:15px; border:1px solid var(--color-ink); background:var(--color-ink); padding:0 11px; color:var(--color-on-dark); font:500 11px/1 var(--font-data); text-align:center; text-transform:uppercase; white-space:nowrap; }
     .history-empty { padding:15px; color:var(--color-ink-muted); }
     .analysis-status { color:var(--color-ink-muted); font:500 11px/1.3 var(--font-data); letter-spacing:.06em; text-transform:uppercase; }
     .analysis-status.ready { color:var(--color-news); }
@@ -121,10 +138,10 @@
       .history-body { align-items:stretch; flex-direction:column; gap:8px; }
       .history-field { width:100%; }
       .history-field select { width:auto; flex:1; }
-      .history-row { grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px 16px; padding:12px 38px 12px 15px; }
-      .history-cell { white-space:normal; }
-      .history-cell::before { display:block; margin-bottom:2px; }
-      .history-arrow { position:absolute; right:15px; top:50%; transform:translateY(-50%); }
+      .history-card { grid-template-columns:1fr 1fr; }
+      .history-chart { grid-column:1/-1; grid-row:2; border-top:1px solid var(--color-rule-light); border-left:0; }
+      .history-move { border-left:1px solid var(--color-rule-light); }
+      .history-action { grid-column:1/-1; justify-self:end; border:1px solid var(--color-ink); }
     }
     @media (max-width:620px) {
       .shell { flex-wrap:wrap; }
@@ -141,6 +158,9 @@
       .metric-grid, .ambient-grid { grid-template-columns:1fr; }
       .ambient-item { border-top:1px solid var(--color-rule); border-left:0; }
       .ambient-item:first-child { border-top:0; }
+      .history-card { grid-template-columns:1fr; }
+      .history-chart, .history-move { grid-column:auto; grid-row:auto; border-top:1px solid var(--color-rule-light); border-left:0; }
+      .history-action { grid-column:auto; grid-row:auto; justify-self:stretch; border:1px solid var(--color-ink); }
     }
     @media (prefers-reduced-motion:reduce) { * { scroll-behavior:auto!important; transition:none!important; } }
   </style>
@@ -179,7 +199,7 @@
 
   <section class="ambient-news" aria-labelledby="ambient-title"><header class="section-head"><h2 id="ambient-title">Bitcoin news · past 24h</h2><span class="analysis-status" id="ambient-status">Loading</span></header><div id="ambient-list" class="ambient-state">Fetching latest headlines. No LLM call.</div><div class="news-pages" id="news-pages" hidden><button id="news-previous" type="button">← Previous</button><span id="news-position"></span><button id="news-next" type="button">Next →</button></div></section>
 
-  <section class="episode-history" aria-labelledby="history-title"><header class="section-head"><h2 id="history-title">Price anomaly history</h2><span class="analysis-status" id="history-status">Loading</span></header><div class="history-body"><label class="history-field">Result<select id="history-verdict"><option value="explained" selected>Explained</option><option value="unexplained">Unexplained</option><option value="all">All</option></select></label><label class="history-field">Day<select id="history-day" disabled><option>No matching anomaly</option></select></label></div><div class="history-list" id="history-list" aria-live="polite"><div class="history-empty">Loading explained anomalies.</div></div><p class="error-detail chart-error" id="history-error" role="alert"></p></section>
+  <section class="episode-history" aria-labelledby="history-title"><header class="section-head"><h2 id="history-title">Price anomaly history</h2><span class="analysis-status" id="history-status">Loading</span></header><div class="history-body"><label class="history-field">Result<select id="history-verdict"><option value="explained" selected>Explained</option><option value="unexplained">Unexplained</option><option value="all">All</option></select></label><label class="history-field">Date<select id="history-day" disabled><option value="">All dates · newest first</option></select></label></div><div class="history-list" id="history-list" aria-live="polite"><div class="history-empty">Loading explained anomalies.</div></div><p class="error-detail chart-error" id="history-error" role="alert"></p></section>
 </main>
 <script>
 const INTERVAL_MS=300000,WINDOW_BARS=288,CHART_BARS=288;
@@ -192,9 +212,14 @@ const history={loading:false,days:[],error:'',episodes:[],episodesLoading:false,
 const activity={loading:true,result:null,error:''};
 const zone=Intl.DateTimeFormat().resolvedOptions().timeZone;
 const dateFormat=new Intl.DateTimeFormat('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+const historyDayFormat=new Intl.DateTimeFormat('en-GB',{timeZone:'UTC',day:'2-digit',month:'short',year:'numeric'});
+const localDayFormat=new Intl.DateTimeFormat('en-GB',{timeZone:zone,year:'numeric',month:'2-digit',day:'2-digit'});
 const timeFormat=new Intl.DateTimeFormat('en-GB',{hour:'2-digit',minute:'2-digit'});
 const fullFormat=new Intl.DateTimeFormat('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit'});
 const fmtDate=timestamp=>dateFormat.format(new Date(timestamp));
+const localDay=timestamp=>{const parts=Object.fromEntries(localDayFormat.formatToParts(new Date(timestamp)).map(part=>[part.type,part.value]));return `${parts.year}-${parts.month}-${parts.day}`;};
+const adjacentDay=(day,offset)=>{const [year,month,date]=day.split('-').map(Number);return new Date(Date.UTC(year,month-1,date+offset)).toISOString().slice(0,10);};
+function historyDayLabel(day){const today=localDay(Date.now());if(day===today)return 'Today';if(day===adjacentDay(today,-1))return 'Yesterday';const [year,month,date]=day.split('-').map(Number);return historyDayFormat.format(new Date(Date.UTC(year,month-1,date)));}
 const fmtFull=timestamp=>`${fullFormat.format(new Date(timestamp))} ${zone}`;
 const fmtPrice=value=>value==null?'Unavailable':value>=1000?`$${value.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}`:`$${value.toFixed(4)}`;
 const fmtPercent=value=>value==null?'Unavailable':`${value>=0?'+':''}${(value*100).toFixed(2)}%`;
@@ -255,34 +280,42 @@ function episodeVerdict(episode){
   if(episode.status!=='complete'||!episode.analysis)return 'Analysis pending';
   return verdictLabels[episode.analysis.classification]||episode.analysis.classification;
 }
+function historySparkline(episode){
+  const bars=(episode.bars||[]).filter(bar=>Number.isFinite(bar.ts)&&Number.isFinite(bar.close)&&bar.ts<=episode.onset_ts).slice(-12);
+  if(bars.length<2)return '<div class="history-spark-empty">Price window unavailable</div>';
+  const W=320,H=70,top=6,bottom=62,values=bars.map(bar=>bar.close),low=Math.min(...values),high=Math.max(...values),range=Math.max(high-low,Math.abs(high)*.001),x=index=>2+index/(bars.length-1)*(W-4),y=value=>bottom-(value-low)/range*(bottom-top),path=bars.map((bar,index)=>`${index?'L':'M'}${x(index).toFixed(2)},${y(bar.close).toFixed(2)}`).join(' '),last=bars.at(-1);
+  return `<svg class="history-spark" viewBox="0 0 ${W} ${H}" role="img" aria-label="BTC price over ${bars.length} closed bars ending when the anomaly began"><title>BTC price over ${bars.length} closed bars ending when the anomaly began</title><line class="history-spark-grid" x1="2" x2="${W-2}" y1="${top}" y2="${top}"></line><line class="history-spark-grid" x1="2" x2="${W-2}" y1="${bottom}" y2="${bottom}"></line><path class="history-spark-line" d="${path}"></path><circle class="history-spark-dot" cx="${x(bars.length-1).toFixed(2)}" cy="${y(last.close).toFixed(2)}" r="5"></circle></svg>`;
+}
 function renderEpisodeSummaries(){
   const list=$('#history-list');
   if(!history.days.length){list.innerHTML=`<div class="history-empty">${history.verdict==='all'?'No saved anomaly found.':`No ${esc(history.verdict)} anomaly found.`}</div>`;return;}
   if(history.episodesLoading){list.innerHTML='<div class="history-empty">Loading selected day.</div>';return;}
   if(history.episodesError){list.innerHTML=`<div class="history-empty">${esc(history.episodesError)}</div>`;return;}
   if(!history.episodes.length){list.innerHTML='<div class="history-empty">No matching anomaly saved for selected day.</div>';return;}
-  const day=$('#history-day').value;
-  list.innerHTML=history.episodes.map(episode=>{
-const price=episode.markets?.price?.close_onset,verdict=episodeVerdict(episode),href=`live-history.html?${new URLSearchParams({day,timezone:zone,event:episode.event_reference})}`;
-return `<a class="history-row" href="${esc(href)}" aria-label="Open ${esc(timeFormat.format(new Date(episode.onset_ts)))} episode replay"><span class="history-cell" data-label="Onset">${esc(timeFormat.format(new Date(episode.onset_ts)))}</span><span class="history-cell" data-label="Price">${esc(fmtPrice(price))}</span><span class="history-cell" data-label="Severity">${esc(episode.severity)}</span><span class="history-cell history-verdict" data-label="Verdict">${esc(verdict)}</span><span class="history-arrow" aria-hidden="true">→</span></a>`;
+  const selectedDay=$('#history-day').value;
+  let previousDay='';list.innerHTML=history.episodes.map(episode=>{
+const market=episode.markets?.price||{},price=market.close_onset,baseline=market.baseline_close,move=Number.isFinite(price)&&Number.isFinite(baseline)&&baseline>0?price/baseline-1:null,verdict=episodeVerdict(episode),classification=episode.analysis?.classification,verdictClass=episode.status==='failed'?'failed':episode.status!=='complete'?'pending':classification==='explained_news'?'news':classification==='explained_derivatives'?'derivatives':'',timestamp=episode.detected_ts||market.detected_ts||episode.onset_ts;
+const viewerDay=episode.viewer_day||localDay(timestamp),divider=!selectedDay&&viewerDay!==previousDay?`<div class="history-divider" role="separator"><span>${esc(historyDayLabel(viewerDay))}</span></div>`:'';previousDay=viewerDay;const displayTime=timeFormat.format(new Date(episode.onset_ts)),href=`index.html?${new URLSearchParams({source:'live',day:viewerDay,timezone:zone,event:episode.event_reference})}`;
+return `${divider}<a class="history-card" href="${esc(href)}" aria-label="Open ${esc(displayTime)} anomaly replay"><span class="history-summary"><span class="history-kicker">Anomaly began</span><strong class="history-time">${esc(displayTime)}</strong><span class="history-meta">${esc(episode.severity)} severity</span><span class="history-card-verdict ${verdictClass}">${esc(verdict)}</span></span><span class="history-chart"><span class="history-chart-label">Price before anomaly</span>${historySparkline(episode)}<span class="history-spark-caption"><span>Up to 12 closed bars</span><span>Start</span></span></span><span class="history-move"><span>Price change</span><strong>${move==null?'Unavailable':`${move>=0?'+':''}${(move*100).toFixed(2)}%`}</strong><small>${esc(fmtPrice(baseline))} → ${esc(fmtPrice(price))}</small></span><span class="history-action">Open replay →</span></a>`;
   }).join('');
 }
 function renderHistory(){
   const status=$('#history-status'),select=$('#history-day');status.className='analysis-status';
   if(history.loading&&!history.days.length){status.textContent='Loading';$('#history-list').innerHTML=`<div class="history-empty">Loading ${esc(history.verdict)} anomalies.</div>`;return;}
   if(history.error&&!history.days.length){status.textContent='Failed';status.classList.add('error');$('#history-error').textContent=history.error;return;}
-  const current=select.value;select.innerHTML=history.days.length?history.days.map(item=>`<option value="${esc(item.day)}">${esc(item.day)} · ${item.episode_count} episode${item.episode_count===1?'':'s'}</option>`).join(''):'<option>No matching anomaly</option>';
-  if(history.days.some(item=>item.day===current))select.value=current;
+  const current=select.value;select.innerHTML=history.days.length?`<option value="">All dates · newest first</option>${history.days.map(item=>`<option value="${esc(item.day)}">${esc(item.day)} · ${item.episode_count} episode${item.episode_count===1?'':'s'}</option>`).join('')}`:'<option>No matching anomaly</option>';
+  if(!current||history.days.some(item=>item.day===current))select.value=current;
   select.disabled=!history.days.length;
   const count=history.days.reduce((sum,item)=>sum+item.episode_count,0);status.textContent=analysis.loading?'Analysing episode':history.days.length?history.verdict==='all'?`${count} saved`:`${count} ${history.verdict}`:history.verdict==='all'?'No saved anomaly':`No ${history.verdict} anomaly`;status.classList.toggle('ready',history.days.length>0);status.classList.toggle('error',Boolean(analysis.error));$('#history-error').textContent=analysis.error||history.error||history.episodesError;
   renderEpisodeSummaries();
 }
 async function refreshEpisodeSummaries(day=$('#history-day').value){
-  const verdict=history.verdict,key=`${verdict}:${day}`;
-  if(!day||history.episodesLoading&&history.episodeDay===key)return;
+  const verdict=history.verdict,key=`${verdict}:${day||'all'}`;
+  if(history.episodesLoading&&history.episodeDay===key)return;
   history.episodeDay=key;history.episodesLoading=true;history.episodesError='';renderEpisodeSummaries();
   try{
-    const response=await fetch(`/api/live-history/episodes?${new URLSearchParams({day,timezone:zone,verdict})}`,{cache:'no-store'}),payload=await response.json().catch(()=>({error:`HTTP ${response.status}`}));
+    const query={timezone:zone,verdict};if(day)query.day=day;
+    const response=await fetch(`/api/live-history/episodes?${new URLSearchParams(query)}`,{cache:'no-store'}),payload=await response.json().catch(()=>({error:`HTTP ${response.status}`}));
     if(!response.ok)throw new Error(payload.error||`HTTP ${response.status}`);
     if(history.episodeDay===key)history.episodes=payload.episodes;
   }catch(error){if(history.episodeDay===key){history.episodes=[];history.episodesError=`Selected day unavailable: ${error.message}`;}}
@@ -338,7 +371,7 @@ function drawChart(){
 $('#reconnect').addEventListener('click',()=>location.reload());
 $('#news-previous').addEventListener('click',()=>{if(ambient.page>0){ambient.page--;renderAmbient();}});
 $('#news-next').addEventListener('click',()=>{if(ambient.result&&ambient.page<Math.ceil(ambient.result.articles.length/5)-1){ambient.page++;renderAmbient();}});
-$('#history-verdict').addEventListener('change',event=>{Object.assign(history,{verdict:event.target.value,days:[],episodes:[],episodesLoading:false,episodeDay:'',error:'',episodesError:''});void refreshHistory();});
+$('#history-verdict').addEventListener('change',event=>{$('#history-day').value='';Object.assign(history,{verdict:event.target.value,days:[],episodes:[],episodesLoading:false,episodeDay:'',error:'',episodesError:''});void refreshHistory();});
 $('#history-day').addEventListener('change',event=>{history.episodes=[];history.episodesError='';void refreshEpisodeSummaries(event.target.value);});
 addEventListener('resize',drawChart);
 connect();
