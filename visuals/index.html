@@ -38,6 +38,15 @@
     .github-link svg { width:17px; height:17px; fill:currentColor; }
     .github-link:hover .github-label { text-decoration:underline; text-underline-offset:3px; }
     main { max-width:1480px; margin:0 auto; padding:22px 18px 24px; }
+    .replay-back, .replay-back:visited { display:flex; width:max-content; min-height:34px; align-items:center; margin-bottom:9px; border:1px solid var(--color-rule); background:var(--color-surface); padding:0 10px; color:var(--color-ink); font:600 11px/1 var(--font-data); letter-spacing:.04em; text-decoration:none; text-transform:uppercase; }
+    .replay-back:hover { background:var(--color-rule-light); }
+    .replay-back[hidden] { display:none; }
+    .live-banner { display:flex; justify-content:space-between; align-items:center; gap:18px; margin-bottom:15px; border:1px solid var(--color-rule); background:var(--color-news-pale); padding:7px 10px; color:var(--color-ink); text-decoration:none; transition:background-color .15s,border-color .15s; }
+    .live-banner[hidden] { display:none; }
+    .live-banner strong { margin-left:9px; font:500 14px/1.25 var(--font-body); }
+    .live-banner-action { flex:none; font:600 11px/1.3 var(--font-data); letter-spacing:.05em; text-transform:uppercase; }
+    .live-banner:hover { border-color:var(--color-news); background:var(--color-surface); }
+    .live-banner:hover .live-banner-action { text-decoration:underline; text-underline-offset:3px; }
     .episode-nav { display:flex; justify-content:space-between; align-items:end; gap:24px; margin-bottom:15px; }
     .episode-nav h1 { margin:4px 0 0; font:500 36px/1 var(--font-display); letter-spacing:-.02em; }
     .episode-controls { display:flex; align-items:center; border:1px solid var(--color-rule); background:var(--color-surface); }
@@ -45,8 +54,8 @@
     .episode-controls > button + *, .episode-controls > * + button { border-left:1px solid var(--color-rule); }
     .episode-position { min-width:96px; padding:0 13px; font:500 12px/40px var(--font-data); text-align:center; }
     .episode-controls button:hover:not(:disabled) { background:var(--color-rule-light); }
-    .anomaly-card { border:1px solid var(--color-ink); background:var(--color-surface); }
-    .anomaly-head { display:flex; justify-content:space-between; align-items:center; gap:18px; padding:12px 15px; border-bottom:1px solid var(--color-rule); }
+    .anomaly-card { display:flex; flex-direction:column; background:transparent; }
+    .anomaly-head { display:flex; justify-content:space-between; align-items:center; gap:18px; border:1px solid var(--color-ink); background:var(--color-surface); padding:12px 15px; }
     .step-title { display:flex; align-items:baseline; gap:9px; }
     .step-title h2 { margin:0; font:500 20px/1.1 var(--font-display); }
     .step-no { color:var(--color-anomaly); font:600 12px/1 var(--font-data); }
@@ -54,13 +63,12 @@
     .episode-status.complete { border-color:var(--color-news); color:var(--color-news); }
     .episode-status.failed { background:var(--color-anomaly); color:var(--color-on-dark); }
     .episode-status.pending { border-color:var(--color-warning); color:var(--color-warning); }
-    .anomaly-stats { display:grid; grid-template-columns:repeat(3,1fr); border-bottom:1px solid var(--color-rule-light); }
+    .anomaly-stats { order:-1; display:grid; grid-template-columns:repeat(3,1fr); gap:1px; margin-bottom:12px; border:1px solid var(--color-rule); background:var(--color-rule); }
     .anomaly-stats.live { grid-template-columns:repeat(5,1fr); }
-    .stat { min-width:0; padding:9px 13px; border-left:1px solid var(--color-rule-light); }
-    .stat:first-child { border-left:0; }
+    .stat { min-width:0; background:var(--color-surface); padding:9px 13px; }
     .stat span { display:block; color:var(--color-ink-muted); font:500 12px/1.3 var(--font-data); letter-spacing:.06em; text-transform:uppercase; }
     .stat strong { display:block; overflow:hidden; margin-top:4px; font:500 14px/1.3 var(--font-data); text-overflow:ellipsis; white-space:nowrap; }
-    .chart-wrap { position:relative; height:clamp(340px,calc(100vh - 695px),620px); }
+    .chart-wrap { position:relative; height:clamp(340px,calc(100vh - 695px),620px); border:1px solid var(--color-ink); border-top:0; background:var(--color-surface); }
     #price-chart { display:block; width:100%; height:100%; }
     .tooltip { position:absolute; z-index:3; min-width:155px; pointer-events:none; opacity:0; transform:translate(12px,-50%); border:1px solid var(--color-ink); background:var(--color-surface-strong); padding:8px 10px; font:500 12px/1.5 var(--font-data); }
     .tooltip.align-left { transform:translate(calc(-100% - 12px),-50%); }
@@ -154,6 +162,8 @@
       .github-link { padding:0 14px; }
       .github-label { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; }
       main { padding:16px 12px 18px; }
+      .live-banner { align-items:start; flex-direction:column; gap:5px; }
+      .live-banner strong { display:block; margin:2px 0 0; }
       .episode-nav { align-items:start; flex-direction:column; }
       .episode-nav h1 { font-size:36px; }
       .episode-controls { width:100%; }
@@ -162,7 +172,7 @@
       .anomaly-head { align-items:start; }
       .anomaly-stats { grid-template-columns:1fr 1fr; }
       .anomaly-stats.live { grid-template-columns:1fr 1fr; }
-      .stat:last-child { grid-column:span 2; border-top:1px solid var(--color-rule-light); border-left:0; }
+      .stat:last-child { grid-column:span 2; }
       .chart-wrap { height:300px; }
     }
     @media (prefers-reduced-motion:reduce) { * { scroll-behavior:auto!important; transition:none!important; } }
@@ -179,9 +189,10 @@
 </header>
 <main id="story" tabindex="-1">
   <section class="episode-nav" aria-label="Episode navigation">
-    <div><span class="label" id="replay-source">Historical anomaly story</span><h1 id="episode-title"></h1></div>
+    <div><a class="replay-back" id="replay-back" href="live.html" hidden>← Back</a><span class="label" id="replay-source">Historical anomaly story</span><h1 id="episode-title"></h1></div>
     <div class="episode-controls"><button id="previous-episode" type="button">← Previous</button><span class="episode-position" id="episode-position"></span><button id="next-episode" type="button">Next →</button></div>
   </section>
+  <a class="live-banner" id="live-banner" href="live.html"><span><span class="label">Live BTCUSDT detection</span><strong>Watch closed 5-minute signals</strong></span><span class="live-banner-action">Open live →</span></a>
 
   <section class="anomaly-card" aria-labelledby="anomaly-title">
     <header class="anomaly-head"><div class="step-title"><span class="step-no">01</span><h2 id="anomaly-title">Anomaly detected</h2></div><span class="trigger-badge" id="trigger-badge"></span><span class="episode-status" id="episode-status" hidden></span></header>
@@ -245,14 +256,15 @@ if(selected<0)selected=0;
 
 function normalizeLiveEpisode(item){
   const analysis=item.analysis||null,market=item.markets?.price||{},onset=item.onset_ts,detected=item.detected_ts||market.detected_ts||null;
-  const articles=(analysis?.articles||[]).map(article=>({id:article.id,title:article.title||'Untitled article',url:safeUrl(article.link),archive_url:null,published:article.date_pub,published_ts:Date.parse(article.date_pub),age_minutes:Number.isFinite(Date.parse(article.date_pub))?Math.round((onset-Date.parse(article.date_pub))/60000):null,rrf_score:article.relevance_score,supporting:Boolean(article.supporting)}));
+  const articles=(analysis?.articles||[]).map(article=>({id:article.id,title:article.title||'Untitled article',url:safeUrl(article.link),archive_url:null,published:article.date_pub,published_ts:Date.parse(article.date_pub),age_minutes:detected&&Number.isFinite(Date.parse(article.date_pub))?Math.round((detected-Date.parse(article.date_pub))/60000):null,rrf_score:article.rrf_score,similarity_score:article.relevance_score,supporting:Boolean(article.supporting)}));
   const synthesis=analysis?.synthesis||{reasons:[] ,supporting_refs:[]};
   const verdict={verdict:analysis?.classification||'insufficient_data',synthesis};
+  const verdicts=analysis?.verdicts?Object.fromEntries(Object.entries(analysis.verdicts).map(([mode,result])=>[mode,{verdict:result.classification,synthesis:result.synthesis}])):{[combinedMode]:verdict};
   return {
-    live:true,status:item.status||'pending',error:item.error||'',event_reference:item.event_reference,onset_ts:onset,detected_ts:detected,severity:item.severity||'Unavailable',
+    live:true,status:item.status||'pending',error:item.error||'',event_reference:item.event_reference,onset_ts:onset,detected_ts:detected,severity:item.severity||'Unavailable',peak_z:market.peak_z,
     close_onset:market.close_onset,duration_bars:market.duration_bars||0,onset_triggers:market.onset_triggers||item.triggers||[],features:{
       funding_rate_current:analysis?.derivatives?.funding_rate_current,oi_change_4h:analysis?.derivatives?.oi_change_4h,oi_current:analysis?.derivatives?.oi_current,source_ts:{}
-    },news:articles,candidate_count:analysis?.retrieval?.candidate_count??articles.length,ranked_candidate_count:analysis?.retrieval?.ranked_candidate_count??Math.min(analysis?.retrieval?.candidate_count??articles.length,20),verdicts:{[combinedMode]:verdict},bars:(item.bars||[]).map(bar=>({ts:Number.isFinite(bar.closeTime)?bar.closeTime+1:bar.ts+300000,close:bar.close}))
+    },news:articles,ranking:analysis?.retrieval?.ranking||'embedding',candidate_count:analysis?.retrieval?.candidate_count??articles.length,ranked_candidate_count:analysis?.retrieval?.ranked_candidate_count??Math.min(analysis?.retrieval?.candidate_count??articles.length,20),verdicts,faithfulness:analysis?.ragas?.score,faithfulness_error:analysis?.ragas?.error||'',bars:(item.bars||[]).map(bar=>({ts:Number.isFinite(bar.closeTime)?bar.closeTime+1:bar.ts+300000,close:bar.close}))
   };
 }
 async function loadLiveReplay(){
@@ -264,29 +276,25 @@ async function loadLiveReplay(){
   if(!episodes.length)throw new Error(`No episode saved for ${day}`);
   atlas={meta:{symbol:'BTCUSDT',bar_interval_minutes:5,snapshot_end_ts:Math.max(...episodes.flatMap(episode=>episode.bars.map(bar=>bar.ts))),thresholds:{funding_rate:.0005,oi_change_4h:.1}},episodes};
   selected=Math.max(0,episodes.findIndex(episode=>episode.event_reference===params.get('event')));
+  $('#live-banner').hidden=true;
+  $('#replay-back').hidden=false;
   $('#replay-day').innerHTML=`<span><span class="label">Symbol</span><strong>BTCUSDT</strong></span><span><span class="label">Day</span><strong>${esc(day)}</strong></span>`;
   $('#replay-source').textContent='BTC live history';$('.live-link').textContent='Live BTCUSDT →';$('.live-link').href='live.html';
 }
 
 function signalState(value,threshold){return Number.isFinite(value)&&Math.abs(value)>=threshold?'Breach':'Normal';}
-function liveArticleTiming(article,episode){
-  const published=article.published_ts;if(!Number.isFinite(published))return 'Publication time unavailable';
-  const label=`Published ${dateFormat.format(new Date(published))}`,delta=published-episode.onset_ts;
-  if(delta<0)return `${label} · before onset`;if(delta===0)return `${label} · at onset`;
-  if(!episode.detected_ts)return `${label} · ${Math.ceil(delta/60000)} min after onset · detection unavailable`;
-  return published<=episode.detected_ts?`${label} · ${Math.ceil(delta/60000)} min after onset · before detection`:`${label} · after detection`;
-}
 function renderStory(){
   const episode=atlas.episodes[selected],features=episode.features,verdict=episode.verdicts[combinedMode],supportingRefs=new Set(verdict.synthesis.supporting_refs),isLive=Boolean(episode.live),hasAnalysis=isLive&&episode.status==='complete';
-  $('#episode-title').textContent=`Episode ${String(selected+1).padStart(2,'0')}`;
+  $('#episode-title').textContent=atlas.meta.symbol;
   $('#episode-position').textContent=`${selected+1} of ${atlas.episodes.length}`;
   if(isLive)history.replaceState(null,'',`?${new URLSearchParams({source:'live',day:params.get('day'),timezone:zone,event:episode.event_reference})}`);
   $('#previous-episode').disabled=selected===0;$('#next-episode').disabled=selected===atlas.episodes.length-1;
   const trigger=isLive?(episode.onset_triggers[0]||'price anomaly').replaceAll('_',' '):triggerLabel(episode);
-  $('#trigger-badge').textContent=trigger;$('#onset-label').textContent=isLive?'Episode onset':'Signal detected';$('#onset').textContent=fmtFull(episode.onset_ts);$('#close').textContent=fmtPrice(episode.close_onset);$('#duration').textContent=episode.duration_bars?`${episode.duration_bars*atlas.meta.bar_interval_minutes} min`:'Unavailable';
-  $('#anomaly-stats').classList.toggle('live',isLive);$('#detected-stat').hidden=$('#severity-stat').hidden=!isLive;if(isLive){$('#detected').textContent=episode.detected_ts?fmtFull(episode.detected_ts):'Unavailable';$('#severity').textContent=episode.severity;}
+  $('#trigger-badge').hidden=isLive;$('#trigger-badge').textContent=trigger;$('#onset-label').textContent=isLive?'Episode onset':'Signal detected';$('#onset').textContent=fmtFull(episode.onset_ts);$('#close').textContent=fmtPrice(episode.close_onset);$('#duration').textContent=episode.duration_bars?`${episode.duration_bars*atlas.meta.bar_interval_minutes} min`:'Unavailable';
+  $('#anomaly-stats').classList.toggle('live',isLive);$('#detected-stat').hidden=$('#severity-stat').hidden=!isLive;if(isLive){$('#detected').textContent=episode.detected_ts?fmtFull(episode.detected_ts):'Unavailable';$('#severity').textContent=`${episode.severity}${Number.isFinite(episode.peak_z)?` · Z ${episode.peak_z>=0?'+':''}${episode.peak_z.toFixed(2)}`:''}`;}
   $('#episode-status').hidden=!isLive;if(isLive){$('#episode-status').className=`episode-status ${episode.status}`;$('#episode-status').textContent=episode.status[0].toUpperCase()+episode.status.slice(1);}
-  $('#comparison-news').hidden=$('#comparison-inputs').hidden=$('#faithfulness-cell').hidden=isLive;$('#explanation-check').hidden=isLive;
+  const hasExplanation=Boolean(episode.verdicts.derivatives_only&&episode.verdicts.news_only);
+  $('#comparison-news').hidden=$('#comparison-inputs').hidden=$('#faithfulness-cell').hidden=!hasExplanation;$('#explanation-check').hidden=!hasExplanation;
 
   const hasMarket=Number.isFinite(features.funding_rate_current)&&Number.isFinite(features.oi_change_4h),fundingState=signalState(features.funding_rate_current,atlas.meta.thresholds.funding_rate),oiState=signalState(features.oi_change_4h,atlas.meta.thresholds.oi_change_4h),normal=hasMarket&&fundingState==='Normal'&&oiState==='Normal';
   $('#context-state').className=`context-state ${normal?'normal':'breach'}`;$('#context-state').textContent=!hasMarket?'Market activity unavailable':normal?'Market activity normal':'Market activity unusual';
@@ -296,12 +304,11 @@ function renderStory(){
   $('#context-details').innerHTML=isLive?`<div class="detail-row"><span>OI contracts</span><strong>${Number.isFinite(features.oi_current)?features.oi_current.toLocaleString('en-US'):'Unavailable'}</strong></div>`:`<div class="detail-row"><span>Funding observed</span><strong>${fmtFull(features.source_ts.funding)}</strong></div><div class="detail-row"><span>OI observed</span><strong>${fmtFull(features.source_ts.open_interest)}</strong></div><div class="detail-row"><span>OI contracts</span><strong>${features.oi_current.toLocaleString('en-US')}</strong></div><div class="detail-row"><span>Funding precise</span><strong>${(features.funding_rate_current*100).toFixed(6)}%</strong></div><div class="detail-row"><span>OI 4h precise</span><strong>${(features.oi_change_4h*100).toFixed(6)}%</strong></div>`;
 
   const validAges=episode.news.map(article=>article.age_minutes).filter(Number.isFinite),latestAge=validAges.length?Math.min(...validAges):null;
-  $('#rag-summary').innerHTML=isLive?`<span>${episode.candidate_count} pre-detection candidates · ${episode.ranked_candidate_count} embedding-ranked · top ${episode.news.length} shown</span><small>Sources are ranked from context available when the detector confirmed the episode.</small>`:episode.news.length?`<span>${latestAge==null?'Retrieved news is available.':`Nearest article was ${elapsed(Math.abs(latestAge))} ${latestAge>=0?'before detection':'after detection'}.`}</span><small>RRF combines semantic and keyword ranking</small>`:'No relevant article was retrieved before detection.';
-  $('#news-list').innerHTML=episode.news.length?episode.news.map((article,index)=>{const supporting=article.supporting||supportingRefs.has(`news_${article.id}`),title=article.url?`<a href="${esc(article.url)}" target="_blank" rel="noopener noreferrer" aria-label="${esc(article.title)} — open publisher source">${esc(article.title)} ↗</a>`:esc(article.title),archive=article.archive_url?`<div class="archive-row"><a class="archive-link" href="${esc(article.archive_url)}" target="_blank" rel="noopener noreferrer">Archive ↗</a></div>`:'';const score=Number.isFinite(article.rrf_score)?article.rrf_score.toFixed(4):'Unavailable',timing=isLive?`<div class="news-meta">${esc(liveArticleTiming(article,episode))}</div>`:article.age_minutes==null?'':` · ${elapsed(Math.abs(article.age_minutes))} ${article.age_minutes>=0?'before detection':'after detection'}`;return `<article class="news-item ${supporting?'supporting':''}" ${supporting?`aria-label="${esc(article.title)}, supports verdict"`:''}><div class="news-meta">Relevance ${index+1} of ${episode.news.length} · ${isLive?'similarity':'RRF'} ${score}${isLive?'':timing}</div>${isLive?timing:''}<div class="news-title">${title}</div>${archive}</article>`;}).join(''):'<div class="news-item">No result before detection</div>';
+  $('#rag-summary').innerHTML=episode.news.length?`<span>${latestAge==null?'Retrieved news is available.':`Nearest article was ${elapsed(Math.abs(latestAge))} ${latestAge>=0?'before detection':'after detection'}.`}</span><small>RRF combines semantic and keyword ranking</small>`:'No relevant article was retrieved before detection.';
+  $('#news-list').innerHTML=episode.news.length?episode.news.map((article,index)=>{const supporting=article.supporting||supportingRefs.has(`news_${article.id}`),title=article.url?`<a href="${esc(article.url)}" target="_blank" rel="noopener noreferrer" aria-label="${esc(article.title)} — open publisher source">${esc(article.title)} ↗</a>`:esc(article.title),archive=article.archive_url?`<div class="archive-row"><a class="archive-link" href="${esc(article.archive_url)}" target="_blank" rel="noopener noreferrer">Archive ↗</a></div>`:'',isRrf=Number.isFinite(article.rrf_score),score=isRrf?article.rrf_score:article.similarity_score,timing=article.age_minutes==null?'':` · ${elapsed(Math.abs(article.age_minutes))} ${article.age_minutes>=0?'before detection':'after detection'}`;return `<article class="news-item ${supporting?'supporting':''}" ${supporting?`aria-label="${esc(article.title)}, supports verdict"`:''}><div class="news-meta">Relevance ${index+1} of ${episode.news.length} · ${isRrf?'RRF':'similarity'} ${Number.isFinite(score)?score.toFixed(4):'Unavailable'}${timing}</div><div class="news-title">${title}</div>${archive}</article>`;}).join(''):'<div class="news-item">No result before detection</div>';
   const verdictLabel=isLive&&verdict.verdict==='unexplained'?'Market normal · no causal news':verdictLabels[verdict.verdict];$('#verdict').className=`verdict ${verdictClass(verdict.verdict)}`;$('#verdict').textContent=hasAnalysis||!isLive?verdictLabel:episode.status==='failed'?'Analysis failed':'Analysis pending';
   $('#reason-list').innerHTML=hasAnalysis||!isLive?verdict.synthesis.reasons.map(reason=>`<li>${esc(isLive?reason:readerReason(reason))}</li>`).join(''):`<li>${esc(episode.error||'Analysis is queued.')}</li>`;
-  if(!isLive){const market=episode.verdicts.derivatives_only,news=episode.verdicts.news_only,changed=market.verdict!==verdict.verdict,marketExplains=market.verdict==='explained_derivatives',newsExplains=news.verdict==='explained_news',combined=combinedOutcomes[verdict.verdict];$('#check-answer').textContent=changed?'Yes — news changed the result.':'No — result stayed the same.';$('#check-detail').textContent=changed?'The classifier found no supported explanation from market activity alone; adding news changed its verdict.':verdict.verdict==='explained_derivatives'?'Adding news did not change the classifier verdict.':'Adding news did not change the classifier verdict.';$('#context-results').innerHTML=`<div class="check-row"><span>Market activity alone</span><strong class="${marketExplains?'derivatives':'unexplained'}">${marketExplains?'Yes':'No'}</strong></div><div class="check-row"><span>News alone</span><strong class="${newsExplains?'news':'unexplained'}">${newsExplains?'Yes':'No'}</strong></div><div class="check-row"><span>With both</span><strong class="${combined.className}">${combined.label}</strong></div>`;$('#context-rule').textContent=verdict.verdict==='explained_derivatives'?'A funding or open-interest threshold breach made the classifier retain market activity.':verdict.verdict==='explained_news'?'Market activity stayed within its limits; the classifier selected news published before detection.':verdict.verdict==='unexplained'?'The classifier found no supported explanation in either input.':'Required market activity data was missing.';}
-  if(!isLive){const percent=Math.round(episode.faithfulness*100);$('#faithfulness-score').textContent=`${percent}%`;$('#faithfulness-bar').style.width=`${percent}%`;$('#faithfulness-meter').setAttribute('aria-valuenow',percent);$('#faithfulness-meter').setAttribute('aria-valuemin','0');$('#faithfulness-meter').setAttribute('aria-valuemax','100');$('#faithfulness-meaning').textContent=`${percent}% of claims were directly backed by supplied market data and news.`;$('#faithfulness-unbacked').textContent=`${100-percent}% were not directly backed by those inputs.`;}
+  if(hasExplanation){const market=episode.verdicts.derivatives_only,news=episode.verdicts.news_only,changed=market.verdict!==verdict.verdict,marketExplains=market.verdict==='explained_derivatives',newsExplains=news.verdict==='explained_news',combined=combinedOutcomes[verdict.verdict];$('#check-answer').textContent=changed?'Yes — news changed the result.':'No — result stayed the same.';$('#check-detail').textContent=changed?'The classifier found no supported explanation from market activity alone; adding news changed its verdict.':'Adding news did not change the classifier verdict.';$('#context-results').innerHTML=`<div class="check-row"><span>Market activity alone</span><strong class="${marketExplains?'derivatives':'unexplained'}">${marketExplains?'Yes':'No'}</strong></div><div class="check-row"><span>News alone</span><strong class="${newsExplains?'news':'unexplained'}">${newsExplains?'Yes':'No'}</strong></div><div class="check-row"><span>With both</span><strong class="${combined.className}">${combined.label}</strong></div>`;$('#context-rule').textContent=verdict.verdict==='explained_derivatives'?'A funding or open-interest threshold breach made the classifier retain market activity.':verdict.verdict==='explained_news'?'Market activity stayed within its limits; the classifier selected news published before detection.':verdict.verdict==='unexplained'?'The classifier found no supported explanation in either input.':'Required market activity data was missing.';if(Number.isFinite(episode.faithfulness)){const percent=Math.round(episode.faithfulness*100);$('#faithfulness-score').textContent=`${percent}%`;$('#faithfulness-bar').style.width=`${percent}%`;$('#faithfulness-meter').setAttribute('aria-valuenow',percent);$('#faithfulness-meter').setAttribute('aria-valuemin','0');$('#faithfulness-meter').setAttribute('aria-valuemax','100');$('#faithfulness-meaning').textContent=`${percent}% of claims were directly backed by supplied market data and news.`;$('#faithfulness-unbacked').textContent=`${100-percent}% were not directly backed by those inputs.`;}else{$('#faithfulness-score').textContent='Unavailable';$('#faithfulness-bar').style.width='0';$('#faithfulness-meter').removeAttribute('aria-valuenow');$('#faithfulness-meaning').textContent=episode.faithfulness_error||'Ragas Faithfulness was not calculated.';$('#faithfulness-unbacked').textContent='';}}
   drawChart();
 }
 
@@ -322,6 +329,7 @@ function drawChart(){
 }
 $('#previous-episode').addEventListener('click',()=>{if(selected>0){selected--;renderStory();scrollTo({top:0,behavior:'smooth'});}});
 $('#next-episode').addEventListener('click',()=>{if(selected<atlas.episodes.length-1){selected++;renderStory();scrollTo({top:0,behavior:'smooth'});}});
+$('#replay-back').addEventListener('click',event=>{try{const referrer=new URL(document.referrer);if(referrer.origin===location.origin&&referrer.pathname.endsWith('/live.html')){event.preventDefault();history.back();}}catch{}});
 addEventListener('resize',()=>{if(atlas.episodes.length)drawChart();});(async()=>{try{if(liveMode)await loadLiveReplay();renderStory();}catch(error){$('#episode-title').textContent='Replay unavailable';$('#episode-position').textContent='';$('#previous-episode').disabled=$('#next-episode').disabled=true;$('#reason-list').innerHTML=`<li>${esc(error.message)}</li>`;}})();
 </script>
 </body>

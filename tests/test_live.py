@@ -121,6 +121,32 @@ def test_backend_worker_triggers_one_analysis_without_browser():
     assert worker.snapshot()["analysis"] == {"loading": False, "error": ""}
 
 
+def test_rest_reconciliation_advances_silent_websocket_feed(monkeypatch):
+    class Service:
+        def latest(self):
+            return {}
+
+        def market(self):
+            return {}
+
+    worker = live.LiveMarketWorker(Service())
+    stale = _bars()
+    latest = stale[-1]["ts"] + live.INTERVAL_MS
+    fresh = [
+        *stale[1:],
+        {"ts": latest, "close": 40_123.0, "closeTime": latest + live.INTERVAL_MS - 1},
+    ]
+    worker._set_bars(stale, connected=True, status="Polling", error="")
+    monkeypatch.setattr(worker, "_backfill", lambda: fresh)
+
+    worker._reconcile("Polling")
+
+    state = worker.snapshot()
+    assert state["bars"][-1] == fresh[-1]
+    assert state["connected"] is True
+    assert state["status"] == "Polling"
+
+
 def test_backend_accepts_only_closed_btc_five_minute_stream_bars():
     timestamp = _bars()[-1]["ts"]
 
@@ -431,6 +457,14 @@ def test_history_range_uses_viewer_local_day():
     assert end - start == timedelta(hours=25)
 
 
+def test_legacy_detection_respects_allowed_gap_between_flagged_bars():
+    bars = _bars(0)
+    bars[-3]["close"], bars[-2]["close"], bars[-1]["close"] = 10_000.0, 40_000.0, 9_000.0
+    snapshot = {"onset_ts": bars[-3]["ts"], "bars": bars}
+
+    assert live._legacy_detection_ts(snapshot) == bars[-1]["closeTime"] + 1
+
+
 def test_history_verdict_rejects_unknown_filter():
     assert live._history_verdict("explained") == "explained"
     assert live._history_verdict("unexplained") == "unexplained"
@@ -439,24 +473,27 @@ def test_history_verdict_rejects_unknown_filter():
         live._history_verdict("failed")
 
 
-def test_live_news_ranking_uses_embedding_similarity(monkeypatch):
+def test_live_news_ranking_fuses_vector_and_keyword_ranks(monkeypatch):
     event = live.price_event(_payload())
     articles = [
-        {"id": "weak", "title": "Weak", "description": "", "date_pub": "2026-01-01T00:00:00+00:00"},
-        {"id": "strong", "title": "Strong", "description": "", "date_pub": "2026-01-01T00:00:00+00:00"},
+        {"id": "vector", "title": "Bitcoin market", "description": "", "date_pub": "2026-01-01T00:00:00+00:00"},
+        {"id": "hybrid", "title": "Bitcoin crash selloff", "description": "", "date_pub": "2026-01-01T00:00:00+00:00"},
+        {"id": "keyword", "title": "Bitcoin decline", "description": "", "date_pub": "2026-01-01T00:00:00+00:00"},
     ]
     embedded = []
 
     def embeddings(texts, *_args, **_kwargs):
         embedded.extend(texts)
-        return [[1, 0], [0, 1], [1, 0]]
+        return [[1, 0], [1, 0], [0.8, 0.6], [0, 1]]
 
     monkeypatch.setattr(live, "get_embeddings", embeddings)
 
     ranked = live.rank_live_news(event, articles, "https://llm.example/v1", "key", "embedding")
 
-    assert [article["id"] for article in ranked] == ["strong", "weak"]
-    assert ranked[0]["relevance_score"] == 1.0
+    assert [article["id"] for article in ranked] == ["hybrid", "vector", "keyword"]
+    assert ranked[0]["vector_rank"] == 2
+    assert ranked[0]["text_rank"] == 1
+    assert ranked[0]["rrf_score"] == pytest.approx(1 / 62 + 1 / 61)
     assert "crash price drop selloff decline" in embedded[0]
 
 
@@ -597,7 +634,10 @@ def test_live_analysis_combines_derivatives_and_news_and_is_cached(monkeypatch):
         "link": "https://example.com/article",
         "date_pub": datetime.now(tz=timezone.utc).isoformat(),
         "source": "Example",
-        "relevance_score": 0.9,
+        "vector_score": 0.9,
+        "vector_rank": 1,
+        "text_rank": 1,
+        "rrf_score": 2 / 61,
     }
     monkeypatch.setattr(
         live,
@@ -640,22 +680,25 @@ def test_live_analysis_combines_derivatives_and_news_and_is_cached(monkeypatch):
 
     class Client:
         calls = 0
-        system_prompt = ""
-        user_prompt = ""
+        system_prompts = []
+        user_prompts = []
 
         def classify(self, prompt: str, reference: str, system_prompt: str) -> ClassificationResult:
             self.calls += 1
-            self.user_prompt = prompt
-            self.system_prompt = system_prompt
+            self.user_prompts.append(prompt)
+            self.system_prompts.append(system_prompt)
+            if "derivatives only" in prompt:
+                classification, reasons, refs = "unexplained", ["Market activity stayed normal."], []
+            else:
+                classification = "explained_news"
+                reasons = ["A pre-onset policy shock provides an event-specific explanation."]
+                refs = ["news_abc"]
             return ClassificationResult.from_dict(
                 {
                     "event_reference": reference,
-                    "classification": "explained_news",
+                    "classification": classification,
                     "confidence": 0.9,
-                    "synthesis": {
-                        "reasons": ["A pre-onset policy shock provides an event-specific explanation."],
-                        "supporting_refs": ["news_abc"],
-                    },
+                    "synthesis": {"reasons": reasons, "supporting_refs": refs},
                     "rationale": "The supplied article reports a policy shock before onset.",
                 },
                 reference,
@@ -680,7 +723,11 @@ def test_live_analysis_combines_derivatives_and_news_and_is_cached(monkeypatch):
     second = service.analyse(_payload())
 
     assert first["classification"] == "explained_news"
+    assert first["verdicts"]["derivatives_only"]["classification"] == "unexplained"
+    assert first["verdicts"]["news_only"]["classification"] == "explained_news"
     assert first["articles"][0]["supporting"] is True
+    assert first["retrieval"]["ranking"] == "hybrid_rrf"
+    assert first["retrieval"]["rrf_k"] == 60
     assert first["derivatives"]["funding_rate_current"] == pytest.approx(0.0001)
     assert first["ragas"]["score"] == pytest.approx(0.87)
     assert first["ragas"]["judge_model"] == "judge"
@@ -689,13 +736,13 @@ def test_live_analysis_combines_derivatives_and_news_and_is_cached(monkeypatch):
     assert "news_abc" in ragas_calls[0][2][1]
     assert first["cached"] is False
     assert second["cached"] is True
-    assert client.calls == 1
+    assert client.calls == 3
     assert len(store.claimed_events) == 1
     assert store.completed[0][0] == first["event_reference"]
-    assert "funding_rate_current  : 0.0100%" in client.user_prompt
-    assert "Direction (derived): crash" in client.user_prompt
-    assert "Peak Z-score (signed):" in client.user_prompt
-    assert "untrusted data" in client.system_prompt
+    assert "funding_rate_current  : 0.0100%" in client.user_prompts[0]
+    assert "Direction (derived): crash" in client.user_prompts[0]
+    assert "Peak Z-score (signed):" in client.user_prompts[0]
+    assert "untrusted data" in client.system_prompts[1]
 
 
 def test_existing_pending_episode_is_not_retried_after_restart():
