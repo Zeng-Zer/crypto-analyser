@@ -73,4 +73,6 @@ The HNSW index uses the first 2,000 dimensions because pgvector's `vector` HNSW 
 
 ## Deployment
 
-GitHub Pages serves the committed static snapshot in `visuals/`. Local pipeline execution, PostgreSQL/pgvector, source Parquet, and generated JSON are not part of the hosted site.
+GitHub Pages serves historical `visuals/index.html` only. Pages workflow rewrites its live links to HTTPS origin stored in repository variable `LIVE_URL`.
+
+Live Raspberry Pi stack runs application, sibling `free-crypto-news`, and PostgreSQL/pgvector with Docker Compose. Application and database ports bind only to host loopback. Tailscale Funnel publishes application loopback port over managed HTTPS; browser and `/api/*` remain same-origin. PostgreSQL volume must reside on SSD and be backed up off device.

@@ -81,7 +81,7 @@ Historical replay needs only a static server:
 uv run python -m http.server 8000 --directory visuals
 ```
 
-Live news RAG needs localhost bridge so LLM credentials never enter browser code:
+Live news RAG keeps LLM credentials in backend:
 
 ```bash
 # Terminal 1: full 24-hour paginated news source
@@ -101,7 +101,43 @@ uv run crypto-analyser live-event \
   --news-file events/june-cpi-release-2026-07-14.json
 ```
 
-Open `http://localhost:8000` for curated historical replay or `http://localhost:8000/live.html` for live BTCUSDT observation. Saved live episodes open in the same replay page with their persisted BTC context. Live backend backfills and streams closed Binance 5-minute bars, runs historical detector on each update, and publishes read-only state to browsers over SSE. It refreshes funding rate and 4-hour open-interest change every 60 seconds and preceding-24-hour Bitcoin headlines every 90 seconds; ambient refresh does not call LLM. At the second qualifying anomalous bar, backend records the first anomalous bar as onset and the confirmation bar close as detection. Funding and OI stay anchored at onset; news may be published no later than detection. Backend fuses keyword and vector ranks with RRF, runs market-only, news-only, and combined classifiers, then evaluates combined rationale with Ragas Faithfulness. Replay shows the same three-context Explanation check and Ragas audit as historical replay. Pending, complete, and failed episodes persist across application and machine restarts while PostgreSQL volume remains intact. `live-backfill` applies the unchanged detector to the exact requested window plus a hidden 24-hour warm-up, then runs the same time-safe pipeline for each detected BTC episode. `live-event` applies that pipeline to an explicit UTC window and merges a documented timestamped source corpus from JSON; seed articles published or modified after detector confirmation are rejected. It can detect zero episodes. Existing event references are skipped, so reruns do not repeat LLM/Ragas spend. History defaults to Explained across all dates, newest first; an optional viewer-local date narrows the full episode cards. Each card opens the exact BTC episode through `index.html?source=live`, where Previous/Next navigates that day. Replay shows onset, detection, and detector-relative news timing. `NEWS_API_URL` defaults to sibling `free-crypto-news` at `http://127.0.0.1:3000/api/news`; public fallback remains limited to three sample articles.
+Open `http://localhost:8000` for curated historical replay or `http://localhost:8000/live.html` for live BTCUSDT observation. Saved live episodes open in the same replay page with their persisted BTC context. Live backend backfills and streams closed Binance 5-minute bars, runs historical detector on each update, and publishes read-only state to browsers over SSE. It refreshes funding rate and 4-hour open-interest change every 60 seconds and preceding-24-hour Bitcoin headlines every 90 seconds; ambient refresh does not call LLM. At the second qualifying anomalous bar, backend records the first anomalous bar as onset and the confirmation bar close as detection. Funding and OI stay anchored at onset; news may be published no later than detection. Backend fuses keyword and vector ranks with RRF, runs market-only, news-only, and combined classifiers, then evaluates combined rationale with Ragas Faithfulness. Replay shows the same three-context Explanation check and Ragas audit as historical replay. Complete and failed episodes persist while PostgreSQL storage remains intact. Analysis interrupted by backend restart becomes an explicit failed episode rather than silently remaining pending or repeating billable calls. `live-backfill` applies the unchanged detector to the exact requested window plus a hidden 24-hour warm-up, then runs the same time-safe pipeline for each detected BTC episode. `live-event` applies that pipeline to an explicit UTC window and merges a documented timestamped source corpus from JSON; seed articles published or modified after detector confirmation are rejected. It can detect zero episodes. Existing event references are skipped, so reruns do not repeat LLM/Ragas spend. History defaults to Explained across all dates, newest first; an optional viewer-local date narrows the full episode cards. Each card opens the exact BTC episode through `index.html?source=live`, where Previous/Next navigates that day. Replay shows onset, detection, and detector-relative news timing. `NEWS_API_URL` defaults to sibling `free-crypto-news` at `http://127.0.0.1:3000/api/news`; public fallback remains limited to three sample articles.
+
+### Raspberry Pi deployment with Tailscale Funnel
+
+Requirements: 64-bit Raspberry Pi OS, Docker Compose, Tailscale, SSD-backed Docker storage, and `free-crypto-news` checked out beside this repository.
+
+```bash
+cp .env.example .env
+chmod 600 .env
+# Replace PGVECTOR_PASSWORD and configure LLM_API_URL/LLM_API_KEY in .env.
+
+docker compose up -d --build
+curl --fail http://127.0.0.1:8000/healthz
+
+sudo tailscale funnel --bg http://127.0.0.1:8000
+tailscale funnel status
+```
+
+Compose exposes application and PostgreSQL only on Pi loopback. Containers communicate over private Compose network. Run one application replica because each process owns market worker. Funnel supplies public HTTPS without router port forwarding. It supports only a `*.ts.net` hostname and has non-configurable bandwidth limits.
+
+After Funnel assigns hostname, configure GitHub Pages link:
+
+```bash
+gh variable set LIVE_URL --body 'https://your-pi.your-tailnet.ts.net'
+gh workflow run pages.yml
+```
+
+Pages publishes historical `index.html` only and points live links at Funnel origin. Backend container serves live UI and same-origin `/api/*` routes.
+
+Back up PostgreSQL off Pi regularly:
+
+```bash
+mkdir -p backups
+docker compose exec -T pgvector sh -c \
+  'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc' \
+  > "backups/crypto-$(date +%F).dump"
+```
 
 Historical replay starts with Episode 01 and guides reviewers chronologically through all eight episodes: focused anomaly chart, onset-safe context, hybrid retrieval results with publisher links and archive fallbacks, structured LLM output, then a compact explanation check. The comparison records verdict changes across context modes; Ragas Faithfulness checks whether claims in the combined rationale follow from supplied context. It does not score verdict correctness or prove causality. Page embeds a committed historical snapshot, so GitHub Pages serves it without a backend. After generating new local pipeline artifacts, refresh it with `uv run python scripts/build_visual_data.py`.
 

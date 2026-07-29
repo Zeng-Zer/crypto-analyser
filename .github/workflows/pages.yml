@@ -26,9 +26,49 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/configure-pages@v5
+      - name: Prepare historical site
+        id: prepare
+        env:
+          LIVE_URL: ${{ vars.LIVE_URL }}
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          from urllib.parse import urlparse
+
+          live_url = os.environ.get("LIVE_URL", "").rstrip("/")
+          if not live_url:
+              print("LIVE_URL is unset; skipping Pages deployment")
+              Path(os.environ["GITHUB_OUTPUT"]).write_text("configured=false\n", encoding="utf-8")
+              raise SystemExit
+          parsed = urlparse(live_url)
+          if (
+              parsed.scheme != "https"
+              or not parsed.hostname
+              or not parsed.hostname.endswith(".ts.net")
+              or parsed.username
+              or parsed.password
+              or parsed.port
+              or parsed.path
+              or parsed.params
+              or parsed.query
+              or parsed.fragment
+          ):
+              raise SystemExit("Set repository variable LIVE_URL to the Funnel HTTPS origin")
+          source = Path("visuals/index.html").read_text(encoding="utf-8")
+          Path("_site").mkdir()
+          Path("_site/index.html").write_text(
+              source.replace('href="live.html"', f'href="{live_url}"'),
+              encoding="utf-8",
+          )
+          with Path(os.environ["GITHUB_OUTPUT"]).open("a", encoding="utf-8") as output:
+              output.write("configured=true\n")
+          PY
       - uses: actions/upload-pages-artifact@v4
+        if: steps.prepare.outputs.configured == 'true'
         with:
-          path: visuals
+          path: _site
       - name: Deploy
+        if: steps.prepare.outputs.configured == 'true'
         id: deployment
         uses: actions/deploy-pages@v4

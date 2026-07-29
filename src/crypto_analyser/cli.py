@@ -119,6 +119,7 @@ def _live(args: argparse.Namespace) -> None:
         args.embedding_model,
         args.model,
         args.judge_model,
+        args.host,
     )
 
 
@@ -187,6 +188,7 @@ def build_parser() -> argparse.ArgumentParser:
     commands = parser.add_subparsers(dest="command", required=True)
 
     live = commands.add_parser("live", help="Serve live Binance observation with news RAG")
+    live.add_argument("--host", default=os.getenv("LIVE_HOST", "127.0.0.1"))
     live.add_argument("--port", type=int, default=8000)
     live.add_argument(
         "--news-api-url",

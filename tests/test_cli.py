@@ -67,7 +67,20 @@ def test_live_command_routes_to_local_bridge(monkeypatch):
     monkeypatch.setenv("DATABASE_URL", "postgresql://db")
     monkeypatch.setattr(live, "serve_live", lambda *args: calls.append(args))
 
-    assert cli.main(["live", "--port", "8765", "--news-api-url", "https://news.example/api"]) == 0
+    assert (
+        cli.main(
+            [
+                "live",
+                "--host",
+                "0.0.0.0",
+                "--port",
+                "8765",
+                "--news-api-url",
+                "https://news.example/api",
+            ]
+        )
+        == 0
+    )
     assert calls == [
         (
             8765,
@@ -78,6 +91,7 @@ def test_live_command_routes_to_local_bridge(monkeypatch):
             "qwen3-embedding",
             "glm-5.2-short",
             "glm-5.2-short",
+            "0.0.0.0",
         )
     ]
 

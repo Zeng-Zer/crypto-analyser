@@ -6,6 +6,7 @@ import hashlib
 import json
 import math
 import re
+import signal
 import socket
 import threading
 import time
@@ -58,6 +59,10 @@ BINANCE_FUTURES_API_URL = "https://fapi.binance.com"
 BINANCE_FUTURES_STREAM_URL = "wss://fstream.binance.com/ws/btcusdt@kline_5m"
 STREAM_RETRY_SECONDS = 2.5
 REST_RECONCILE_SECONDS = 15
+HEALTH_MAX_BAR_AGE_MS = INTERVAL_MS * 2
+MAX_SSE_CONNECTIONS = 32
+MAX_HTTP_CONNECTIONS = 64
+HTTP_REQUEST_TIMEOUT_SECONDS = 10
 DAY_MS = 86_400_000
 BITCOIN_TERM_RE = re.compile(r"\b(?:bitcoin|btc)\b", re.IGNORECASE)
 WORD_RE = re.compile(r"[a-z0-9]+")
@@ -74,7 +79,15 @@ class LiveEpisodeStore:
         self.database_url = database_url
 
     def _connect(self):
-        return psycopg2.connect(self.database_url)
+        return psycopg2.connect(self.database_url, connect_timeout=5)
+
+    def check(self) -> None:
+        connection = self._connect()
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT 1")
+        finally:
+            connection.close()
 
     def get(self, event_reference: str) -> dict[str, Any] | None:
         connection = self._connect()
@@ -122,6 +135,24 @@ class LiveEpisodeStore:
 
     def failed(self, event_reference: str, error: str) -> None:
         self._update(event_reference, "failed", None, error)
+
+    def fail_pending(self, error: str) -> int:
+        """Make analyses interrupted by a previous backend process visible."""
+        connection = self._connect()
+        try:
+            with connection:
+                with connection.cursor() as cursor:
+                    cursor.execute(
+                        """
+                        UPDATE live_episodes
+                        SET status = 'failed', error = %s, updated_at = NOW()
+                        WHERE status = 'pending'
+                        """,
+                        (error,),
+                    )
+                    return cursor.rowcount
+        finally:
+            connection.close()
 
     def _update(self, event_reference: str, status: str, analysis: dict[str, Any] | None, error: str | None) -> None:
         connection = self._connect()
@@ -1439,6 +1470,29 @@ class LiveMarketWorker:
                 return
 
 
+class _BoundedThreadingHTTPServer(ThreadingHTTPServer):
+    def __init__(self, *args, max_connections: int = MAX_HTTP_CONNECTIONS, **kwargs) -> None:
+        self.request_slots = threading.BoundedSemaphore(max_connections)
+        super().__init__(*args, **kwargs)
+
+    def process_request(self, request, client_address) -> None:
+        if not self.request_slots.acquire(blocking=False):
+            request.close()
+            return
+        try:
+            request.settimeout(HTTP_REQUEST_TIMEOUT_SECONDS)
+            super().process_request(request, client_address)
+        except Exception:
+            self.request_slots.release()
+            raise
+
+    def process_request_thread(self, request, client_address) -> None:
+        try:
+            super().process_request_thread(request, client_address)
+        finally:
+            self.request_slots.release()
+
+
 class _LiveHandler(SimpleHTTPRequestHandler):
     server: Any
     protocol_version = "HTTP/1.1"
@@ -1446,6 +1500,9 @@ class _LiveHandler(SimpleHTTPRequestHandler):
     def do_GET(self) -> None:  # noqa: N802
         parsed = urlparse(self.path)
         query = parse_qs(parsed.query)
+        if parsed.path == "/healthz":
+            self._health()
+            return
         if parsed.path == "/api/live-state":
             self._json(200, self.server.market_worker.snapshot())
             return
@@ -1495,25 +1552,56 @@ class _LiveHandler(SimpleHTTPRequestHandler):
             return
         super().do_GET()
 
-    def _stream(self) -> None:
-        self.close_connection = True
-        self.connection.settimeout(5)
-        self.send_response(200)
-        self.send_header("Content-Type", "text/event-stream")
-        self.send_header("Cache-Control", "no-store")
-        self.end_headers()
-        revision = -1
+    def _health(self) -> None:
+        state = self.server.market_worker.snapshot()
+        bars = state.get("bars", [])
+        latest = bars[-1].get("closeTime") if bars else None
+        fresh = (
+            state.get("ready") is True
+            and isinstance(latest, (int, float))
+            and int(datetime.now(tz=timezone.utc).timestamp() * 1_000) - latest <= HEALTH_MAX_BAR_AGE_MS
+        )
+        database = "ok"
         try:
-            while not self.server.market_worker.stop_event.is_set():
-                snapshot = self.server.market_worker.snapshot(revision)
-                if snapshot["revision"] == revision:
-                    self.wfile.write(b": keepalive\n\n")
-                else:
-                    revision = snapshot["revision"]
-                    self.wfile.write(f"data: {json.dumps(snapshot)}\n\n".encode())
-                self.wfile.flush()
-        except OSError:
+            self.server.episode_store.check()
+        except psycopg2.Error:
+            database = "unavailable"
+        healthy = fresh and database == "ok"
+        self._json(
+            200 if healthy else 503,
+            {
+                "status": "ok" if healthy else "unhealthy",
+                "database": database,
+                "market": "fresh" if fresh else "stale",
+                "latest_bar_close_time": latest,
+            },
+        )
+
+    def _stream(self) -> None:
+        if not self.server.stream_slots.acquire(blocking=False):
+            self._json(503, {"error": "live stream capacity reached"})
             return
+        try:
+            self.close_connection = True
+            self.connection.settimeout(5)
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream")
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            revision = -1
+            try:
+                while not self.server.market_worker.stop_event.is_set():
+                    snapshot = self.server.market_worker.snapshot(revision)
+                    if snapshot["revision"] == revision:
+                        self.wfile.write(b": keepalive\n\n")
+                    else:
+                        revision = snapshot["revision"]
+                        self.wfile.write(f"data: {json.dumps(snapshot)}\n\n".encode())
+                    self.wfile.flush()
+            except OSError:
+                pass
+        finally:
+            self.server.stream_slots.release()
 
     def _json(self, status: int, payload: dict[str, Any]) -> None:
         body = json.dumps(payload).encode()
@@ -1653,17 +1741,21 @@ def serve_live(
     embedding_model: str,
     llm_model: str,
     judge_model: str,
+    host: str = "127.0.0.1",
 ) -> None:
     """Serve static visuals and server-side live analysis until interrupted."""
     from crypto_analyser.rag.database import initialize_database
 
-    host = "127.0.0.1"
     _ensure_port_available(port)
     initialize_database(database_url)
     episode_store = LiveEpisodeStore(database_url)
+    interrupted = episode_store.fail_pending("analysis interrupted by backend restart")
+    if interrupted:
+        print(f"Marked {interrupted} interrupted analysis record(s) failed.")
     handler = partial(_LiveHandler, directory=str(repo_root() / "visuals"))
-    server = ThreadingHTTPServer((host, port), handler)
+    server = _BoundedThreadingHTTPServer((host, port), handler)
     server.episode_store = episode_store
+    server.stream_slots = threading.BoundedSemaphore(MAX_SSE_CONNECTIONS)
     server.analysis_service = LiveAnalysisService(
         news_api_url,
         api_url,
@@ -1677,6 +1769,12 @@ def serve_live(
     server.market_worker.start()
     print(f"Live workbench: http://{host}:{server.server_port}/live.html")
     print(f"News API: {news_api_url} (public free endpoint is fallback)")
+
+    def stop_on_sigterm(_signum, _frame) -> None:
+        raise KeyboardInterrupt
+
+    previous_sigterm = signal.getsignal(signal.SIGTERM)
+    signal.signal(signal.SIGTERM, stop_on_sigterm)
     try:
         server.serve_forever()
     except KeyboardInterrupt:
@@ -1684,3 +1782,4 @@ def serve_live(
     finally:
         server.market_worker.stop()
         server.server_close()
+        signal.signal(signal.SIGTERM, previous_sigterm)

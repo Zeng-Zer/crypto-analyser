@@ -47,6 +47,94 @@ def test_live_server_rejects_occupied_port():
             live._ensure_port_available(port)
 
 
+def test_live_health_requires_database_and_fresh_closed_bar():
+    state = {
+        "ready": True,
+        "bars": _bars(),
+        "status": "Polling",
+    }
+
+    class Store:
+        available = True
+
+        def check(self):
+            if not self.available:
+                raise live.psycopg2.OperationalError("database unavailable")
+
+    class Worker:
+        def snapshot(self, **_kwargs):
+            return state
+
+    server = live.ThreadingHTTPServer(("127.0.0.1", 0), live._LiveHandler)
+    server.episode_store = Store()
+    server.market_worker = Worker()
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        url = f"http://127.0.0.1:{server.server_port}/healthz"
+        response = requests.get(url, timeout=2)
+        assert response.status_code == 200
+        assert response.json()["status"] == "ok"
+
+        state["bars"][-1]["closeTime"] -= live.HEALTH_MAX_BAR_AGE_MS + 1
+        response = requests.get(url, timeout=2)
+        assert response.status_code == 503
+        assert response.json()["market"] == "stale"
+
+        server.episode_store.available = False
+        response = requests.get(url, timeout=2)
+        assert response.status_code == 503
+        assert response.json()["database"] == "unavailable"
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join()
+
+
+def test_live_stream_rejects_connections_over_capacity():
+    class Slots:
+        def acquire(self, **_kwargs):
+            return False
+
+    server = live.ThreadingHTTPServer(("127.0.0.1", 0), live._LiveHandler)
+    server.stream_slots = Slots()
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        response = requests.get(f"http://127.0.0.1:{server.server_port}/api/live-stream", timeout=2)
+        assert response.status_code == 503
+        assert response.json() == {"error": "live stream capacity reached"}
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join()
+
+
+def test_live_server_bounds_all_http_connections():
+    server = live._BoundedThreadingHTTPServer(("127.0.0.1", 0), live._LiveHandler, max_connections=1)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        response = requests.get(f"http://127.0.0.1:{server.server_port}/missing", timeout=2)
+        assert response.status_code == 404
+        assert server.request_slots.acquire(blocking=False) is True
+
+        class RejectedRequest:
+            closed = False
+
+            def close(self):
+                self.closed = True
+
+        request = RejectedRequest()
+        server.process_request(request, ("127.0.0.1", 1))
+        assert request.closed is True
+        server.request_slots.release()
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join()
+
+
 def test_future_bar_is_rejected_even_with_exact_interval_shape():
     bars = _bars()
     bars[-1] = {
@@ -771,6 +859,47 @@ def test_existing_pending_episode_is_not_retried_after_restart():
     assert service.claim(_payload()) is None
     with pytest.raises(RuntimeError, match="already pending"):
         service.analyse(_payload())
+
+
+def test_store_marks_interrupted_pending_episodes_failed(monkeypatch):
+    executed = []
+
+    class Cursor:
+        rowcount = 2
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            pass
+
+        def execute(self, query, params):
+            executed.append((query, params))
+
+    class Connection:
+        closed = False
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            pass
+
+        def cursor(self):
+            return Cursor()
+
+        def close(self):
+            self.closed = True
+
+    connection = Connection()
+    monkeypatch.setattr(live.psycopg2, "connect", lambda _url, **_kwargs: connection)
+
+    count = live.LiveEpisodeStore("postgresql://db").fail_pending("analysis interrupted by backend restart")
+
+    assert count == 2
+    assert "WHERE status = 'pending'" in executed[0][0]
+    assert executed[0][1] == ("analysis interrupted by backend restart",)
+    assert connection.closed is True
 
 
 def test_failed_llm_validation_is_not_retried_for_same_event(monkeypatch):
