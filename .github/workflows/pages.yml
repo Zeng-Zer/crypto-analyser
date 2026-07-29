@@ -33,6 +33,7 @@ jobs:
         run: |
           python - <<'PY'
           import os
+          import re
           from pathlib import Path
           from urllib.parse import urlparse
 
@@ -45,7 +46,7 @@ jobs:
           if (
               parsed.scheme != "https"
               or not parsed.hostname
-              or not parsed.hostname.endswith(".ts.net")
+              or re.fullmatch(r"[A-Za-z0-9.-]+", parsed.netloc) is None
               or parsed.username
               or parsed.password
               or parsed.port
@@ -54,7 +55,7 @@ jobs:
               or parsed.query
               or parsed.fragment
           ):
-              raise SystemExit("Set repository variable LIVE_URL to the Funnel HTTPS origin")
+              raise SystemExit("Set repository variable LIVE_URL to the backend HTTPS origin")
           source = Path("visuals/index.html").read_text(encoding="utf-8")
           Path("_site").mkdir()
           Path("_site/index.html").write_text(
