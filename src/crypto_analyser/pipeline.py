@@ -13,7 +13,6 @@ from crypto_analyser.constants import (
     BINANCE_BASE_URL,
     DRAWDOWN_HOURS,
     DRAWDOWN_THRESHOLD,
-    LLM_MODEL,
     MAX_GAP,
     MIN_CONSECUTIVE,
     OHLCV_INTERVAL,
@@ -70,7 +69,7 @@ def run_pipeline(
     return_threshold: float = RETURN_THRESHOLD,
     max_gap: int = MAX_GAP,
     min_consecutive: int = MIN_CONSECUTIVE,
-    llm_model: str = LLM_MODEL,
+    llm_model: str | None = None,
 ) -> Path:
     """Run one historical analysis and return its summary report path."""
     if mode not in VALID_MODES:

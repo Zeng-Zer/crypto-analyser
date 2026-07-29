@@ -18,7 +18,6 @@ from typing import Any, Self
 import requests
 
 from crypto_analyser._paths import asset_path
-from crypto_analyser.constants import LLM_MODEL
 
 PLACEHOLDER_PATTERNS: tuple[str, ...] = ("changeme_", "your_", "placeholder")
 CLASSIFICATIONS = {
@@ -136,6 +135,13 @@ def _resolve_api_key() -> str:
     return val
 
 
+def _resolve_model() -> str:
+    val = os.getenv("LLM_MODEL")
+    if not val:
+        raise RuntimeError("LLM_MODEL not set. Put it in .env (see .env.example).")
+    return val
+
+
 class LLMClient:
     """OpenAI-compatible chat completions client with JSON-schema structured outputs.
 
@@ -153,7 +159,7 @@ class LLMClient:
     ) -> None:
         api_url = api_url or _resolve_api_url()
         api_key = api_key or _resolve_api_key()
-        model = model or LLM_MODEL
+        model = model or _resolve_model()
 
         _check_placeholder("LLM_API_URL", api_url)
         _check_placeholder("LLM_API_KEY", api_key)
@@ -240,8 +246,7 @@ class LLMClient:
             "response_format": response_format,
             "temperature": self._temperature,
             "max_tokens": self._max_tokens,
-            # stream=true is required by some proxy-served models (e.g. glm-5.2-short-flex)
-            # that fail with HTTP 500 / read-timeouts on the non-streaming path.
+        # Streaming avoids proxy read timeouts on long structured responses.
             "stream": True,
             # Disable reasoning-mode tokens so the model emits structured JSON directly
             # instead of spending budget on chain-of-thought before the answer.

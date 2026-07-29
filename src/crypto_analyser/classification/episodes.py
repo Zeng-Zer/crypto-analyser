@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from crypto_analyser._paths import asset_path, data_root
-from crypto_analyser.constants import FUNDING_RATE_THRESHOLD, LLM_MODEL, OI_CHANGE_THRESHOLD
+from crypto_analyser.constants import FUNDING_RATE_THRESHOLD, OI_CHANGE_THRESHOLD
 from crypto_analyser.llm_client import ClassificationResult, LLMClient
 
 PROMPT_PATH = asset_path("classification_prompt.md")
@@ -264,7 +264,7 @@ def classify_batch(
     data_dir: Path | None = None,
     context_path: Path | None = None,
     client: LLMClient | None = None,
-    model: str = LLM_MODEL,
+    model: str | None = None,
 ) -> list[Path]:
     root = data_dir or data_root()
     anomalies = json.loads(anomalies_path.read_text(encoding="utf-8"))

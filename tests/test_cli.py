@@ -1,6 +1,14 @@
 from pathlib import Path
 
+import pytest
+
 from crypto_analyser import cli
+
+
+@pytest.fixture(autouse=True)
+def model_environment(monkeypatch):
+    monkeypatch.setenv("LLM_MODEL", "chat-model")
+    monkeypatch.setenv("RAGAS_JUDGE_MODEL", "judge-model")
 
 
 def test_run_command_routes_to_pipeline(monkeypatch, capsys):
@@ -27,7 +35,7 @@ def test_run_command_routes_to_pipeline(monkeypatch, capsys):
                 "return_threshold": 0.25,
                 "max_gap": 6,
                 "min_consecutive": 2,
-                "llm_model": "glm-5.2-short",
+                "llm_model": "chat-model",
             },
         )
     ]
@@ -89,8 +97,8 @@ def test_live_command_routes_to_local_bridge(monkeypatch):
             "key",
             "postgresql://db",
             "qwen3-embedding",
-            "glm-5.2-short",
-            "glm-5.2-short",
+            "chat-model",
+            "judge-model",
             "0.0.0.0",
         )
     ]
@@ -119,8 +127,8 @@ def test_live_backfill_routes_to_recent_combined_pipeline(monkeypatch, capsys):
             "key",
             "postgresql://db",
             "qwen3-embedding",
-            "glm-5.2-short",
-            "glm-5.2-short",
+            "chat-model",
+            "judge-model",
         )
     ]
     assert capsys.readouterr().out.strip() == "Detected 2; completed 1; failed 0; skipped existing 1."
@@ -163,8 +171,8 @@ def test_live_event_routes_to_explicit_window(monkeypatch, tmp_path, capsys):
             "key",
             "postgresql://db",
             "qwen3-embedding",
-            "glm-5.2-short",
-            "glm-5.2-short",
+            "chat-model",
+            "judge-model",
         )
     ]
     assert capsys.readouterr().out.strip() == "Detected 1; completed 1; failed 0; skipped existing 0."
@@ -190,3 +198,14 @@ def test_missing_environment_returns_nonzero(monkeypatch, capsys):
     monkeypatch.delenv("DATABASE_URL", raising=False)
     assert cli.main(["news", "embed"]) == 1
     assert "DATABASE_URL is required" in capsys.readouterr().err
+
+
+def test_live_requires_models_from_environment(monkeypatch, capsys):
+    monkeypatch.setattr(cli, "load_dotenv", lambda *_: None)
+    monkeypatch.setenv("LLM_API_URL", "https://llm.example/v1")
+    monkeypatch.setenv("LLM_API_KEY", "key")
+    monkeypatch.setenv("DATABASE_URL", "postgresql://db")
+    monkeypatch.delenv("LLM_MODEL")
+
+    assert cli.main(["live"]) == 1
+    assert "LLM_MODEL is required" in capsys.readouterr().err

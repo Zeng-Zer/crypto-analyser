@@ -9,9 +9,9 @@ services:
       NEWS_API_URL: http://news:3000/api/news
       LLM_API_URL: ${LLM_API_URL:-}
       LLM_API_KEY: ${LLM_API_KEY:-}
-      LLM_MODEL: ${LLM_MODEL:-glm-5.2-short}
+      LLM_MODEL: ${LLM_MODEL:-}
       EMBEDDING_MODEL: ${EMBEDDING_MODEL:-qwen3-embedding}
-      RAGAS_JUDGE_MODEL: ${RAGAS_JUDGE_MODEL:-glm-5.2-short}
+      RAGAS_JUDGE_MODEL: ${RAGAS_JUDGE_MODEL:-}
     ports:
       - "127.0.0.1:8000:8000"
     depends_on:
