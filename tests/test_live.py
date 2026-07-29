@@ -117,7 +117,7 @@ def test_live_server_bounds_all_http_connections():
     try:
         response = requests.get(f"http://127.0.0.1:{server.server_port}/missing", timeout=2)
         assert response.status_code == 404
-        assert server.request_slots.acquire(blocking=False) is True
+        assert server.request_slots.acquire(timeout=1) is True
 
         class RejectedRequest:
             closed = False
