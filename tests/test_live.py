@@ -135,6 +135,112 @@ def test_live_server_bounds_all_http_connections():
         thread.join()
 
 
+def test_public_payloads_hide_internal_errors_urls_and_rationales():
+    state = live._public_state(
+        {
+            "error": "socket failed at internal.example",
+            "news": {"retrieval": {"url": "http://news:3000/api/news", "candidate_count": 3}},
+            "news_error": "private news error",
+            "activity_error": "private market error",
+            "analysis": {"loading": False, "error": "provider response"},
+        }
+    )
+    assert state["error"] == "Market feed unavailable"
+    assert state["news"]["retrieval"] == {"candidate_count": 3}
+    assert state["news_error"] == "News unavailable"
+    assert state["activity_error"] == "Market activity unavailable"
+    assert state["analysis"]["error"] == "Analysis failed"
+
+    episode = live._public_episode(
+        {
+            "error": "provider response",
+            "analysis": {
+                "rationale": "private rationale",
+                "retrieval": {"url": "http://news:3000/api/news", "ranking": "hybrid_rrf"},
+                "ragas": {"score": None, "error": "judge response"},
+                "verdicts": {"news_only": {"classification": "unexplained", "rationale": "private"}},
+            },
+        }
+    )
+    assert episode["error"] == "Analysis failed"
+    assert "rationale" not in episode["analysis"]
+    assert episode["analysis"]["retrieval"] == {"ranking": "hybrid_rrf"}
+    assert episode["analysis"]["ragas"]["error"] == "Evaluation unavailable"
+    assert "rationale" not in episode["analysis"]["verdicts"]["news_only"]
+
+
+def test_public_server_rejects_writes_and_sets_security_headers():
+    server = live._BoundedThreadingHTTPServer(("127.0.0.1", 0), live._LiveHandler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        response = requests.post(f"http://127.0.0.1:{server.server_port}/api/live-state", timeout=2)
+        assert response.status_code == 405
+        assert response.headers["Allow"] == "GET, HEAD"
+        assert response.headers["Server"] == "crypto-analyser"
+        assert response.headers["X-Content-Type-Options"] == "nosniff"
+        assert response.headers["X-Frame-Options"] == "DENY"
+        assert "frame-ancestors 'none'" in response.headers["Content-Security-Policy"]
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join()
+
+
+def test_public_server_rate_limits_each_forwarded_client(monkeypatch):
+    monkeypatch.setenv("TRUSTED_PROXY_CIDRS", "127.0.0.1/32")
+    server = live._BoundedThreadingHTTPServer(("127.0.0.1", 0), live._LiveHandler)
+    server.client_limiter = live._ClientLimiter(requests_per_minute=1)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        url = f"http://127.0.0.1:{server.server_port}/missing"
+        first = {"X-Forwarded-For": "198.51.100.99, 203.0.113.1"}
+        spoofed = {"X-Forwarded-For": "198.51.100.100, 203.0.113.1"}
+        assert requests.get(url, headers=first, timeout=2).status_code == 404
+        limited = requests.get(url, headers=spoofed, timeout=2)
+        assert limited.status_code == 429
+        assert requests.get(url, headers={"X-Forwarded-For": "203.0.113.2"}, timeout=2).status_code == 404
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join()
+
+
+def test_public_server_ignores_forwarded_clients_from_untrusted_peer(monkeypatch):
+    monkeypatch.delenv("TRUSTED_PROXY_CIDRS", raising=False)
+    server = live._BoundedThreadingHTTPServer(("127.0.0.1", 0), live._LiveHandler)
+    server.client_limiter = live._ClientLimiter(requests_per_minute=1)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        url = f"http://127.0.0.1:{server.server_port}/missing"
+        assert requests.get(url, headers={"X-Forwarded-For": "203.0.113.1"}, timeout=2).status_code == 404
+        assert requests.get(url, headers={"X-Forwarded-For": "203.0.113.2"}, timeout=2).status_code == 429
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join()
+
+
+def test_client_limiter_uses_fixed_minute_windows(monkeypatch):
+    clock = [61.1]
+    monkeypatch.setattr(live.time, "monotonic", lambda: clock[0])
+    limiter = live._ClientLimiter(requests_per_minute=1)
+    assert limiter.limit_request("203.0.113.1") is None
+    assert limiter.limit_request("203.0.113.1") == 59
+    clock[0] = 120
+    assert limiter.limit_request("203.0.113.1") is None
+
+
+def test_client_limiter_releases_stream_slot():
+    limiter = live._ClientLimiter(streams_per_client=1)
+    assert limiter.open_stream("203.0.113.1") is True
+    assert limiter.open_stream("203.0.113.1") is False
+    limiter.close_stream("203.0.113.1")
+    assert limiter.open_stream("203.0.113.1") is True
+
+
 def test_future_bar_is_rejected_even_with_exact_interval_shape():
     bars = _bars()
     bars[-1] = {

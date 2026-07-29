@@ -12,6 +12,7 @@ services:
       LLM_MODEL: ${LLM_MODEL:-}
       EMBEDDING_MODEL: ${EMBEDDING_MODEL:-qwen3-embedding}
       RAGAS_JUDGE_MODEL: ${RAGAS_JUDGE_MODEL:-}
+      TRUSTED_PROXY_CIDRS: ${TRUSTED_PROXY_CIDRS:-}
     ports:
       - "127.0.0.1:8000:8000"
     depends_on:

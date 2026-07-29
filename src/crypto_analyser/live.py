@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import hashlib
+import ipaddress
 import json
+import logging
 import math
+import os
 import re
 import signal
 import socket
@@ -63,9 +66,13 @@ HEALTH_MAX_BAR_AGE_MS = INTERVAL_MS * 2
 MAX_SSE_CONNECTIONS = 32
 MAX_HTTP_CONNECTIONS = 64
 HTTP_REQUEST_TIMEOUT_SECONDS = 10
+MAX_REQUESTS_PER_MINUTE = 120
+MAX_SSE_CONNECTIONS_PER_CLIENT = 2
+MAX_RATE_LIMIT_CLIENTS = 2_048
 DAY_MS = 86_400_000
 BITCOIN_TERM_RE = re.compile(r"\b(?:bitcoin|btc)\b", re.IGNORECASE)
 WORD_RE = re.compile(r"[a-z0-9]+")
+LOGGER = logging.getLogger(__name__)
 
 
 class NoConfirmedEpisodeError(ValueError):
@@ -1470,9 +1477,113 @@ class LiveMarketWorker:
                 return
 
 
+def _public_analysis(value: Any) -> Any:
+    if not isinstance(value, dict):
+        return value
+    analysis = dict(value)
+    analysis.pop("rationale", None)
+    if isinstance(analysis.get("retrieval"), dict):
+        analysis["retrieval"] = {key: item for key, item in analysis["retrieval"].items() if key != "url"}
+    if isinstance(analysis.get("ragas"), dict):
+        analysis["ragas"] = {
+            **analysis["ragas"],
+            "error": "Evaluation unavailable" if analysis["ragas"].get("error") else None,
+        }
+    if isinstance(analysis.get("verdicts"), dict):
+        analysis["verdicts"] = {
+            mode: {key: item for key, item in result.items() if key != "rationale"}
+            for mode, result in analysis["verdicts"].items()
+            if isinstance(result, dict)
+        }
+    return analysis
+
+
+def _public_episode(episode: dict[str, Any]) -> dict[str, Any]:
+    return {
+        **episode,
+        "analysis": _public_analysis(episode.get("analysis")),
+        "error": "Analysis failed" if episode.get("error") else None,
+    }
+
+
+def _public_state(snapshot: dict[str, Any]) -> dict[str, Any]:
+    news = snapshot.get("news")
+    if isinstance(news, dict) and isinstance(news.get("retrieval"), dict):
+        news = {
+            **news,
+            "retrieval": {key: item for key, item in news["retrieval"].items() if key != "url"},
+        }
+    analysis = snapshot.get("analysis")
+    return {
+        **snapshot,
+        "error": "Market feed unavailable" if snapshot.get("error") else "",
+        "news": news,
+        "news_error": "News unavailable" if snapshot.get("news_error") else "",
+        "activity_error": "Market activity unavailable" if snapshot.get("activity_error") else "",
+        "analysis": {
+            **analysis,
+            "error": "Analysis failed" if analysis.get("error") else "",
+        }
+        if isinstance(analysis, dict)
+        else analysis,
+    }
+
+
+class _ClientLimiter:
+    def __init__(
+        self,
+        requests_per_minute: int = MAX_REQUESTS_PER_MINUTE,
+        streams_per_client: int = MAX_SSE_CONNECTIONS_PER_CLIENT,
+    ) -> None:
+        self.requests_per_minute = requests_per_minute
+        self.streams_per_client = streams_per_client
+        self.requests: dict[str, tuple[int, int]] = {}
+        self.streams: dict[str, int] = {}
+        self.lock = threading.Lock()
+
+    def limit_request(self, client: str) -> int | None:
+        now = time.monotonic()
+        window = int(now // 60)
+        with self.lock:
+            self.requests = {key: value for key, value in self.requests.items() if value[0] == window}
+            current = self.requests.get(client)
+            if current is None:
+                if len(self.requests) >= MAX_RATE_LIMIT_CLIENTS:
+                    return max(1, math.ceil((window + 1) * 60 - now))
+                current = (window, 0)
+            if current[1] >= self.requests_per_minute:
+                return max(1, math.ceil((window + 1) * 60 - now))
+            self.requests[client] = (window, current[1] + 1)
+            return None
+
+    def open_stream(self, client: str) -> bool:
+        with self.lock:
+            if self.streams.get(client, 0) >= self.streams_per_client:
+                return False
+            self.streams[client] = self.streams.get(client, 0) + 1
+            return True
+
+    def close_stream(self, client: str) -> None:
+        with self.lock:
+            count = self.streams.get(client, 0) - 1
+            if count > 0:
+                self.streams[client] = count
+            else:
+                self.streams.pop(client, None)
+
+
 class _BoundedThreadingHTTPServer(ThreadingHTTPServer):
     def __init__(self, *args, max_connections: int = MAX_HTTP_CONNECTIONS, **kwargs) -> None:
         self.request_slots = threading.BoundedSemaphore(max_connections)
+        self.client_limiter = _ClientLimiter()
+        try:
+            self.trusted_proxy_networks = tuple(
+                ipaddress.ip_network(value.strip())
+                for value in os.getenv("TRUSTED_PROXY_CIDRS", "").split(",")
+                if value.strip()
+            )
+        except ValueError as exc:
+            raise ValueError("TRUSTED_PROXY_CIDRS must contain valid comma-separated CIDRs") from exc
         super().__init__(*args, **kwargs)
 
     def process_request(self, request, client_address) -> None:
@@ -1496,15 +1607,59 @@ class _BoundedThreadingHTTPServer(ThreadingHTTPServer):
 class _LiveHandler(SimpleHTTPRequestHandler):
     server: Any
     protocol_version = "HTTP/1.1"
+    server_version = "crypto-analyser"
+    sys_version = ""
+
+    def version_string(self) -> str:
+        return self.server_version
+
+    def end_headers(self) -> None:
+        self.send_header(
+            "Content-Security-Policy",
+            "default-src 'self'; script-src 'self' 'unsafe-inline'; "
+            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+            "font-src https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self'; "
+            "object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'",
+        )
+        self.send_header("Cross-Origin-Resource-Policy", "same-origin")
+        self.send_header("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+        self.send_header("Referrer-Policy", "no-referrer")
+        self.send_header("Strict-Transport-Security", "max-age=31536000")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("X-Frame-Options", "DENY")
+        super().end_headers()
+
+    def _client_ip(self) -> str:
+        try:
+            peer = ipaddress.ip_address(self.client_address[0])
+        except ValueError:
+            return self.client_address[0]
+        if any(peer in network for network in getattr(self.server, "trusted_proxy_networks", ())):
+            forwarded = self.headers.get("X-Forwarded-For", "").rsplit(",", 1)[-1].strip()
+            try:
+                return ipaddress.ip_address(forwarded).compressed if forwarded else peer.compressed
+            except ValueError:
+                pass
+        return peer.compressed
+
+    def _allow_request(self) -> bool:
+        limiter = getattr(self.server, "client_limiter", None)
+        retry_after = limiter.limit_request(self._client_ip()) if limiter is not None else None
+        if retry_after is None:
+            return True
+        self._json(429, {"error": "request limit reached"}, {"Retry-After": str(retry_after)})
+        return False
 
     def do_GET(self) -> None:  # noqa: N802
+        if not self._allow_request():
+            return
         parsed = urlparse(self.path)
         query = parse_qs(parsed.query)
         if parsed.path == "/healthz":
             self._health()
             return
         if parsed.path == "/api/live-state":
-            self._json(200, self.server.market_worker.snapshot())
+            self._json(200, _public_state(self.server.market_worker.snapshot()))
             return
         if parsed.path == "/api/live-stream":
             self._stream()
@@ -1518,7 +1673,8 @@ class _LiveHandler(SimpleHTTPRequestHandler):
             except (ValueError, ZoneInfoNotFoundError) as exc:
                 self._json(400, {"error": str(exc)})
             except psycopg2.Error as exc:
-                self._json(502, {"error": str(exc)})
+                LOGGER.warning("live history days unavailable", exc_info=exc)
+                self._json(502, {"error": "history unavailable"})
             return
         if parsed.path == "/api/live-history/episodes":
             try:
@@ -1530,19 +1686,23 @@ class _LiveHandler(SimpleHTTPRequestHandler):
                 self._json(
                     200,
                     {
-                        "episodes": self.server.episode_store.episodes(
-                            start,
-                            end,
-                            verdict,
-                            timezone_name=timezone_name,
-                            newest_first=not day,
-                        )
+                        "episodes": [
+                            _public_episode(episode)
+                            for episode in self.server.episode_store.episodes(
+                                start,
+                                end,
+                                verdict,
+                                timezone_name=timezone_name,
+                                newest_first=not day,
+                            )
+                        ]
                     },
                 )
             except (ValueError, ZoneInfoNotFoundError) as exc:
                 self._json(400, {"error": str(exc)})
             except psycopg2.Error as exc:
-                self._json(502, {"error": str(exc)})
+                LOGGER.warning("live history episodes unavailable", exc_info=exc)
+                self._json(502, {"error": "history unavailable"})
             return
         if parsed.path == "/":
             self.send_response(302)
@@ -1551,6 +1711,31 @@ class _LiveHandler(SimpleHTTPRequestHandler):
             self.end_headers()
             return
         super().do_GET()
+
+    def do_HEAD(self) -> None:  # noqa: N802
+        if self._allow_request():
+            super().do_HEAD()
+
+    def _method_not_allowed(self) -> None:
+        if not self._allow_request():
+            return
+        self.close_connection = True
+        self._json(405, {"error": "method not allowed"}, {"Allow": "GET, HEAD"})
+
+    def do_POST(self) -> None:  # noqa: N802
+        self._method_not_allowed()
+
+    def do_PUT(self) -> None:  # noqa: N802
+        self._method_not_allowed()
+
+    def do_PATCH(self) -> None:  # noqa: N802
+        self._method_not_allowed()
+
+    def do_DELETE(self) -> None:  # noqa: N802
+        self._method_not_allowed()
+
+    def do_OPTIONS(self) -> None:  # noqa: N802
+        self._method_not_allowed()
 
     def _health(self) -> None:
         state = self.server.market_worker.snapshot()
@@ -1581,6 +1766,12 @@ class _LiveHandler(SimpleHTTPRequestHandler):
         if not self.server.stream_slots.acquire(blocking=False):
             self._json(503, {"error": "live stream capacity reached"})
             return
+        limiter = getattr(self.server, "client_limiter", None)
+        client = self._client_ip()
+        if limiter is not None and not limiter.open_stream(client):
+            self.server.stream_slots.release()
+            self._json(429, {"error": "live stream limit reached"}, {"Retry-After": "60"})
+            return
         try:
             self.close_connection = True
             self.connection.settimeout(5)
@@ -1596,19 +1787,23 @@ class _LiveHandler(SimpleHTTPRequestHandler):
                         self.wfile.write(b": keepalive\n\n")
                     else:
                         revision = snapshot["revision"]
-                        self.wfile.write(f"data: {json.dumps(snapshot)}\n\n".encode())
+                        self.wfile.write(f"data: {json.dumps(_public_state(snapshot))}\n\n".encode())
                     self.wfile.flush()
             except OSError:
                 pass
         finally:
+            if limiter is not None:
+                limiter.close_stream(client)
             self.server.stream_slots.release()
 
-    def _json(self, status: int, payload: dict[str, Any]) -> None:
+    def _json(self, status: int, payload: dict[str, Any], headers: dict[str, str] | None = None) -> None:
         body = json.dumps(payload).encode()
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store")
+        for name, value in (headers or {}).items():
+            self.send_header(name, value)
         self.end_headers()
         self.wfile.write(body)
 
