@@ -30,6 +30,12 @@ services:
     restart: unless-stopped
     expose:
       - "3000"
+    healthcheck:
+      test: ["CMD", "wget", "--header=User-Agent: crypto-analyser/1 live-rag", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:3000/api/health"]
+      interval: 30s
+      timeout: 6s
+      start_period: 15s
+      retries: 3
 
   pgvector:
     image: pgvector/pgvector:pg17
