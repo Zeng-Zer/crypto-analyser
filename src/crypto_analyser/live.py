@@ -50,7 +50,7 @@ NEWS_WINDOW_HOURS = 24
 NEWS_PAGE_SIZE = 100
 NEWS_MAX_PAGES = 5
 NEWS_CANDIDATES = NEWS_PAGE_SIZE * NEWS_MAX_PAGES
-RAG_CANDIDATES = 20
+EMBEDDING_BATCH_SIZE = 50
 NEWS_RESULTS = 6
 RRF_K = 60
 LIVE_ANALYSIS_MODES = ("derivatives_only", "news_only", "derivatives_rag")
@@ -69,6 +69,8 @@ HTTP_REQUEST_TIMEOUT_SECONDS = 10
 MAX_REQUESTS_PER_MINUTE = 120
 MAX_SSE_CONNECTIONS_PER_CLIENT = 2
 MAX_RATE_LIMIT_CLIENTS = 2_048
+HISTORY_RECENT_LIMIT = 50
+HISTORY_DAY_LIMIT = 500
 DAY_MS = 86_400_000
 BITCOIN_TERM_RE = re.compile(r"\b(?:bitcoin|btc)\b", re.IGNORECASE)
 WORD_RE = re.compile(r"[a-z0-9]+")
@@ -209,8 +211,10 @@ class LiveEpisodeStore:
         *,
         timezone_name: str = "UTC",
         newest_first: bool = False,
+        limit: int = HISTORY_DAY_LIMIT,
     ) -> list[dict[str, Any]]:
-        # ponytail: unpaginated showcase history; add cursor pagination when payload size becomes material.
+        if not 1 <= limit <= HISTORY_DAY_LIMIT + 1:
+            raise ValueError(f"history limit must be between 1 and {HISTORY_DAY_LIMIT + 1}")
         connection = self._connect()
         try:
             with connection.cursor(cursor_factory=RealDictCursor) as cursor:
@@ -228,9 +232,10 @@ class LiveEpisodeStore:
                           WHEN 'unexplained' THEN status = 'complete' AND analysis->>'classification' = 'unexplained'
                           ELSE FALSE
                       END
-                    ORDER BY detected_at
+                    ORDER BY detected_at DESC
+                    LIMIT %s
                     """,
-                    (timezone_name, start, end, verdict),
+                    (timezone_name, start, end, verdict, limit),
                 )
                 episodes = []
                 for row in cursor.fetchall():
@@ -240,7 +245,7 @@ class LiveEpisodeStore:
                         snapshot["detected_ts"] = _legacy_detection_ts(snapshot)
                         snapshot["detected_ts_derived"] = True
                     episodes.append({**snapshot, **item})
-                if newest_first:
+                if not newest_first:
                     episodes.reverse()
                 return episodes
         finally:
@@ -643,9 +648,20 @@ def rank_live_news(
     direction = event["markets"]["price"]["direction"]
     direction_context = "crash price drop selloff decline" if direction == "crash" else "spike price rise rally gain"
     query = f"Bitcoin BTCUSDT {direction_context} event explanation: {market_context}"
-    texts = [query, *(f"{article['title']}\n{article['description']}" for article in articles)]
-    vectors = get_embeddings(texts, api_url, api_key, model=model)
-    vector_scores = [_cosine(vectors[0], vector) for vector in vectors[1:]]
+    article_vectors: list[list[float]] = []
+    query_vector: list[float] | None = None
+    for offset in range(0, len(articles), EMBEDDING_BATCH_SIZE):
+        batch = articles[offset : offset + EMBEDDING_BATCH_SIZE]
+        texts = [f"{article['title']}\n{article['description']}" for article in batch]
+        if query_vector is None:
+            vectors = get_embeddings([query, *texts], api_url, api_key, model=model)
+            query_vector, vectors = vectors[0], vectors[1:]
+        else:
+            vectors = get_embeddings(texts, api_url, api_key, model=model)
+        article_vectors.extend(vectors)
+    if query_vector is None:
+        raise RuntimeError("news ranking query was not embedded")
+    vector_scores = [_cosine(query_vector, vector) for vector in article_vectors]
     keyword_terms = set(WORD_RE.findall(f"bitcoin btc btcusdt {direction_context}"))
     keyword_scores = [
         2 * len(keyword_terms & set(WORD_RE.findall(article["title"].lower())))
@@ -972,7 +988,7 @@ class LiveAnalysisService:
             "cutoff": cutoff.isoformat(),
             "seed_candidate_count": len(seeded),
             "candidate_count": len(combined),
-            "ranked_candidate_count": min(len(combined), RAG_CANDIDATES),
+            "ranked_candidate_count": len(combined),
         }
 
     def analyse_claimed(self, event: dict[str, Any]) -> dict[str, Any]:
@@ -984,9 +1000,7 @@ class LiveAnalysisService:
             try:
                 derivatives, derivatives_source = fetch_derivatives(event["onset_ts"])
                 candidates, source = self._news_at_detection(event)
-                articles = rank_live_news(
-                    event, candidates[:RAG_CANDIDATES], self.api_url, self.api_key, self.embedding_model
-                )
+                articles = rank_live_news(event, candidates, self.api_url, self.api_key, self.embedding_model)
                 template = PromptTemplate.load()
                 llm_attempted = True
                 results = {}
@@ -1477,30 +1491,121 @@ class LiveMarketWorker:
                 return
 
 
-def _public_analysis(value: Any) -> Any:
+def _pick(value: dict[str, Any], *keys: str) -> dict[str, Any]:
+    return {key: value[key] for key in keys if key in value}
+
+
+def _public_article(value: Any) -> dict[str, Any] | None:
     if not isinstance(value, dict):
-        return value
-    analysis = dict(value)
-    analysis.pop("rationale", None)
-    if isinstance(analysis.get("retrieval"), dict):
-        analysis["retrieval"] = {key: item for key, item in analysis["retrieval"].items() if key != "url"}
-    if isinstance(analysis.get("ragas"), dict):
+        return None
+    return _pick(
+        value,
+        "id",
+        "title",
+        "link",
+        "date_pub",
+        "date_modified",
+        "source",
+        "vector_score",
+        "vector_rank",
+        "text_rank",
+        "rrf_score",
+        "supporting",
+    )
+
+
+def _public_articles(value: Any) -> list[dict[str, Any]]:
+    if not isinstance(value, list):
+        return []
+    return [article for item in value if (article := _public_article(item)) is not None]
+
+
+def _public_derivatives(value: Any) -> dict[str, Any] | None:
+    if not isinstance(value, dict):
+        return None
+    return _pick(
+        value,
+        "funding_rate_current",
+        "funding_rate_avg_4h",
+        "oi_current",
+        "oi_change_4h",
+        "funding_breach",
+        "oi_breach",
+        "refreshed_at",
+        "cached",
+    )
+
+
+def _public_retrieval(value: Any) -> dict[str, Any] | None:
+    if not isinstance(value, dict):
+        return None
+    return _pick(
+        value,
+        "ranking",
+        "rrf_k",
+        "candidate_count",
+        "ranked_candidate_count",
+        "seed_candidate_count",
+        "cutoff_ts",
+        "cutoff",
+        "categories",
+        "free_tier",
+        "fetched_at",
+    )
+
+
+def _public_synthesis(value: Any) -> dict[str, Any]:
+    return _pick(value, "reasons", "supporting_refs") if isinstance(value, dict) else {
+        "reasons": [],
+        "supporting_refs": [],
+    }
+
+
+def _public_analysis(value: Any) -> dict[str, Any] | None:
+    if not isinstance(value, dict):
+        return None
+    analysis = _pick(value, "classification", "analysed_at")
+    if isinstance(value.get("synthesis"), dict):
+        analysis["synthesis"] = _public_synthesis(value["synthesis"])
+    if isinstance(value.get("derivatives"), dict):
+        analysis["derivatives"] = _public_derivatives(value["derivatives"])
+    if isinstance(value.get("articles"), list):
+        analysis["articles"] = _public_articles(value["articles"])
+    if isinstance(value.get("retrieval"), dict):
+        analysis["retrieval"] = _public_retrieval(value["retrieval"])
+    if isinstance(value.get("ragas"), dict):
         analysis["ragas"] = {
-            **analysis["ragas"],
-            "error": "Evaluation unavailable" if analysis["ragas"].get("error") else None,
+            **_pick(value["ragas"], "metric", "score", "evaluated_at"),
+            "error": "Evaluation unavailable" if value["ragas"].get("error") else None,
         }
-    if isinstance(analysis.get("verdicts"), dict):
+    if isinstance(value.get("verdicts"), dict):
         analysis["verdicts"] = {
-            mode: {key: item for key, item in result.items() if key != "rationale"}
-            for mode, result in analysis["verdicts"].items()
-            if isinstance(result, dict)
+            mode: {
+                **_pick(result, "classification"),
+                "synthesis": _public_synthesis(result.get("synthesis")),
+            }
+            for mode in LIVE_ANALYSIS_MODES
+            if isinstance((result := value["verdicts"].get(mode)), dict)
         }
     return analysis
 
 
 def _public_episode(episode: dict[str, Any]) -> dict[str, Any]:
     return {
-        **episode,
+        **_pick(
+            episode,
+            "event_reference",
+            "symbol",
+            "onset_ts",
+            "detected_ts",
+            "detected_ts_derived",
+            "severity",
+            "triggers",
+            "markets",
+            "bars",
+            "status",
+            "viewer_day",
+        ),
         "analysis": _public_analysis(episode.get("analysis")),
         "error": "Analysis failed" if episode.get("error") else None,
     }
@@ -1508,20 +1613,22 @@ def _public_episode(episode: dict[str, Any]) -> dict[str, Any]:
 
 def _public_state(snapshot: dict[str, Any]) -> dict[str, Any]:
     news = snapshot.get("news")
-    if isinstance(news, dict) and isinstance(news.get("retrieval"), dict):
+    if isinstance(news, dict):
         news = {
-            **news,
-            "retrieval": {key: item for key, item in news["retrieval"].items() if key != "url"},
+            **_pick(news, "refreshed_at", "cached"),
+            "articles": _public_articles(news.get("articles")),
+            "retrieval": _public_retrieval(news.get("retrieval")),
         }
     analysis = snapshot.get("analysis")
     return {
-        **snapshot,
+        **_pick(snapshot, "connected", "ready", "status", "bars", "detector", "updated_at", "revision"),
         "error": "Market feed unavailable" if snapshot.get("error") else "",
         "news": news,
         "news_error": "News unavailable" if snapshot.get("news_error") else "",
+        "activity": _public_derivatives(snapshot.get("activity")),
         "activity_error": "Market activity unavailable" if snapshot.get("activity_error") else "",
         "analysis": {
-            **analysis,
+            "loading": bool(analysis.get("loading")),
             "error": "Analysis failed" if analysis.get("error") else "",
         }
         if isinstance(analysis, dict)
@@ -1538,6 +1645,7 @@ class _ClientLimiter:
         self.requests_per_minute = requests_per_minute
         self.streams_per_client = streams_per_client
         self.requests: dict[str, tuple[int, int]] = {}
+        self.request_window: int | None = None
         self.streams: dict[str, int] = {}
         self.lock = threading.Lock()
 
@@ -1545,7 +1653,9 @@ class _ClientLimiter:
         now = time.monotonic()
         window = int(now // 60)
         with self.lock:
-            self.requests = {key: value for key, value in self.requests.items() if value[0] == window}
+            if window != self.request_window:
+                self.requests.clear()
+                self.request_window = window
             current = self.requests.get(client)
             if current is None:
                 if len(self.requests) >= MAX_RATE_LIMIT_CLIENTS:
@@ -1683,19 +1793,24 @@ class _LiveHandler(SimpleHTTPRequestHandler):
                 ZoneInfo(timezone_name)
                 start, end = _history_range(day, timezone_name) if day else (None, None)
                 verdict = _history_verdict(query.get("verdict", ["all"])[0])
+                limit = HISTORY_DAY_LIMIT if day else HISTORY_RECENT_LIMIT
+                episodes = self.server.episode_store.episodes(
+                    start,
+                    end,
+                    verdict,
+                    timezone_name=timezone_name,
+                    newest_first=True,
+                    limit=limit + 1,
+                )
+                truncated = len(episodes) > limit
+                episodes = episodes[:limit]
+                if day:
+                    episodes.reverse()
                 self._json(
                     200,
                     {
-                        "episodes": [
-                            _public_episode(episode)
-                            for episode in self.server.episode_store.episodes(
-                                start,
-                                end,
-                                verdict,
-                                timezone_name=timezone_name,
-                                newest_first=not day,
-                            )
-                        ]
+                        "episodes": [_public_episode(episode) for episode in episodes],
+                        "truncated": truncated,
                     },
                 )
             except (ValueError, ZoneInfoNotFoundError) as exc:

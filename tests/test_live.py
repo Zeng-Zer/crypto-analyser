@@ -139,25 +139,37 @@ def test_public_payloads_hide_internal_errors_urls_and_rationales():
     state = live._public_state(
         {
             "error": "socket failed at internal.example",
-            "news": {"retrieval": {"url": "http://news:3000/api/news", "candidate_count": 3}},
+            "news": {
+                "articles": [{"title": "Bitcoin", "description": "private full text"}],
+                "retrieval": {"url": "http://news:3000/api/news", "candidate_count": 3},
+                "private": "internal",
+            },
             "news_error": "private news error",
             "activity_error": "private market error",
-            "analysis": {"loading": False, "error": "provider response"},
+            "analysis": {"loading": False, "error": "provider response", "private": "internal"},
+            "private": "internal",
         }
     )
     assert state["error"] == "Market feed unavailable"
     assert state["news"]["retrieval"] == {"candidate_count": 3}
+    assert state["news"]["articles"] == [{"title": "Bitcoin"}]
     assert state["news_error"] == "News unavailable"
     assert state["activity_error"] == "Market activity unavailable"
     assert state["analysis"]["error"] == "Analysis failed"
+    assert "private" not in state
+    assert "private" not in state["news"]
+    assert "private" not in state["analysis"]
 
     episode = live._public_episode(
         {
             "error": "provider response",
+            "private": "internal",
             "analysis": {
                 "rationale": "private rationale",
+                "confidence": 0.9,
                 "retrieval": {"url": "http://news:3000/api/news", "ranking": "hybrid_rrf"},
-                "ragas": {"score": None, "error": "judge response"},
+                "ragas": {"score": None, "error": "judge response", "judge_model": "private-model"},
+                "articles": [{"title": "Bitcoin", "description": "private full text"}],
                 "verdicts": {"news_only": {"classification": "unexplained", "rationale": "private"}},
             },
         }
@@ -167,6 +179,10 @@ def test_public_payloads_hide_internal_errors_urls_and_rationales():
     assert episode["analysis"]["retrieval"] == {"ranking": "hybrid_rrf"}
     assert episode["analysis"]["ragas"]["error"] == "Evaluation unavailable"
     assert "rationale" not in episode["analysis"]["verdicts"]["news_only"]
+    assert "judge_model" not in episode["analysis"]["ragas"]
+    assert "description" not in episode["analysis"]["articles"][0]
+    assert "confidence" not in episode["analysis"]
+    assert "private" not in episode
 
 
 def test_public_server_rejects_writes_and_sets_security_headers():
@@ -181,6 +197,34 @@ def test_public_server_rejects_writes_and_sets_security_headers():
         assert response.headers["X-Content-Type-Options"] == "nosniff"
         assert response.headers["X-Frame-Options"] == "DENY"
         assert "frame-ancestors 'none'" in response.headers["Content-Security-Policy"]
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join()
+
+
+def test_public_history_caps_all_date_response():
+    class Store:
+        limit = None
+
+        def episodes(self, *_args, **kwargs):
+            self.limit = kwargs["limit"]
+            return [{"event_reference": str(index)} for index in range(self.limit)]
+
+    server = live.ThreadingHTTPServer(("127.0.0.1", 0), live._LiveHandler)
+    server.episode_store = Store()
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        response = requests.get(
+            f"http://127.0.0.1:{server.server_port}/api/live-history/episodes",
+            params={"timezone": "UTC", "verdict": "all"},
+            timeout=2,
+        )
+        assert response.status_code == 200
+        assert server.episode_store.limit == live.HISTORY_RECENT_LIMIT + 1
+        assert len(response.json()["episodes"]) == live.HISTORY_RECENT_LIMIT
+        assert response.json()["truncated"] is True
     finally:
         server.shutdown()
         server.server_close()
@@ -689,6 +733,31 @@ def test_live_news_ranking_fuses_vector_and_keyword_ranks(monkeypatch):
     assert ranked[0]["text_rank"] == 1
     assert ranked[0]["rrf_score"] == pytest.approx(1 / 62 + 1 / 61)
     assert "crash price drop selloff decline" in embedded[0]
+
+
+def test_live_news_ranking_embeds_full_candidate_pool_in_batches(monkeypatch):
+    event = live.price_event(_payload())
+    articles = [
+        {
+            "id": str(index),
+            "title": "Bitcoin crash selloff deep older" if index == 54 else "Macro update",
+            "description": "",
+            "date_pub": f"2026-01-01T00:{54 - index:02d}:00+00:00",
+        }
+        for index in range(55)
+    ]
+    batches = []
+
+    def embeddings(texts, *_args, **_kwargs):
+        batches.append(texts)
+        return [[1, 0] if "deep older" in text or "event explanation" in text else [0, 1] for text in texts]
+
+    monkeypatch.setattr(live, "get_embeddings", embeddings)
+
+    ranked = live.rank_live_news(event, articles, "https://llm.example/v1", "key", "embedding")
+
+    assert [len(batch) for batch in batches] == [live.EMBEDDING_BATCH_SIZE + 1, 5]
+    assert ranked[0]["id"] == "54"
 
 
 def test_latest_news_is_cached_without_embedding_or_llm_calls(monkeypatch):

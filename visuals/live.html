@@ -219,7 +219,7 @@ const $=selector=>document.querySelector(selector),NS='http://www.w3.org/2000/sv
 const analysis={loading:false,error:''};
 const ambient={loading:true,result:null,error:'',page:0};
 const savedHistoryVerdict=sessionStorage.getItem('crypto-analyser-history-verdict');
-const history={loading:false,days:[],error:'',episodes:[],episodesLoading:false,episodesError:'',episodeDay:'',verdict:['explained','unexplained','all'].includes(savedHistoryVerdict)?savedHistoryVerdict:'explained'};
+const history={loading:false,days:[],error:'',episodes:[],truncated:false,episodesLoading:false,episodesError:'',episodeDay:'',verdict:['explained','unexplained','all'].includes(savedHistoryVerdict)?savedHistoryVerdict:'explained'};
 const featuredExplained={loaded:false,episode:null};
 const activity={loading:true,result:null,error:''};
 const zone=Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -328,7 +328,7 @@ function renderHistory(){
   const current=select.value;select.innerHTML=history.days.length?`<option value="">All dates · newest first</option>${history.days.map(item=>`<option value="${esc(item.day)}">${esc(item.day)} · ${item.episode_count} episode${item.episode_count===1?'':'s'}</option>`).join('')}`:'<option>No matching anomaly</option>';
   if(!current||history.days.some(item=>item.day===current))select.value=current;
   select.disabled=!history.days.length;
-  const count=history.days.reduce((sum,item)=>sum+item.episode_count,0);status.textContent=analysis.loading?'Analysing episode':history.days.length?history.verdict==='all'?`${count} saved`:`${count} ${history.verdict}`:history.verdict==='all'?'No saved anomaly':`No ${history.verdict} anomaly`;status.classList.toggle('ready',history.days.length>0);status.classList.toggle('error',Boolean(analysis.error));$('#history-error').textContent=analysis.error||history.error||history.episodesError;
+  const count=history.days.reduce((sum,item)=>sum+item.episode_count,0);status.textContent=analysis.loading?'Analysing episode':history.days.length?history.verdict==='all'?`${count} saved`:`${count} ${history.verdict}`:history.verdict==='all'?'No saved anomaly':`No ${history.verdict} anomaly`;if(history.truncated)status.textContent+=` · latest ${history.episodes.length} shown`;status.classList.toggle('ready',history.days.length>0);status.classList.toggle('error',Boolean(analysis.error));$('#history-error').textContent=analysis.error||history.error||history.episodesError;
   renderEpisodeSummaries();
 }
 async function refreshEpisodeSummaries(day=$('#history-day').value){
@@ -339,8 +339,8 @@ async function refreshEpisodeSummaries(day=$('#history-day').value){
     const query={timezone:zone,verdict};if(day)query.day=day;
     const response=await fetch(`/api/live-history/episodes?${new URLSearchParams(query)}`,{cache:'no-store'}),payload=await response.json().catch(()=>({error:`HTTP ${response.status}`}));
     if(!response.ok)throw new Error(payload.error||`HTTP ${response.status}`);
-    if(history.episodeDay===key){history.episodes=payload.episodes;if(!day){const explained=payload.episodes.find(episode=>['explained_news','explained_derivatives'].includes(episode.analysis?.classification));if(verdict==='explained'||explained){featuredExplained.loaded=true;featuredExplained.episode=explained||null;renderFeaturedExplained();}}}
-  }catch(error){if(history.episodeDay===key){history.episodes=[];history.episodesError=`Selected day unavailable: ${error.message}`;}}
+    if(history.episodeDay===key){history.episodes=payload.episodes;history.truncated=Boolean(payload.truncated);if(!day){const explained=payload.episodes.find(episode=>['explained_news','explained_derivatives'].includes(episode.analysis?.classification));if(verdict==='explained'||explained){featuredExplained.loaded=true;featuredExplained.episode=explained||null;renderFeaturedExplained();}}}
+  }catch(error){if(history.episodeDay===key){history.episodes=[];history.truncated=false;history.episodesError=`Selected day unavailable: ${error.message}`;}}
   finally{if(history.episodeDay===key){history.episodesLoading=false;renderHistory();}}
 }
 async function refreshHistory(){
@@ -392,8 +392,8 @@ function drawChart(){
 }
 $('#news-previous').addEventListener('click',()=>{if(ambient.page>0){ambient.page--;renderAmbient();}});
 $('#news-next').addEventListener('click',()=>{if(ambient.result&&ambient.page<Math.ceil(ambient.result.articles.length/5)-1){ambient.page++;renderAmbient();}});
-$('#history-verdict').addEventListener('change',event=>{sessionStorage.setItem('crypto-analyser-history-verdict',event.target.value);$('#history-day').value='';Object.assign(history,{verdict:event.target.value,days:[],episodes:[],episodesLoading:false,episodeDay:'',error:'',episodesError:''});void refreshHistory();});
-$('#history-day').addEventListener('change',event=>{history.episodes=[];history.episodesError='';void refreshEpisodeSummaries(event.target.value);});
+$('#history-verdict').addEventListener('change',event=>{sessionStorage.setItem('crypto-analyser-history-verdict',event.target.value);$('#history-day').value='';Object.assign(history,{verdict:event.target.value,days:[],episodes:[],truncated:false,episodesLoading:false,episodeDay:'',error:'',episodesError:''});void refreshHistory();});
+$('#history-day').addEventListener('change',event=>{history.episodes=[];history.truncated=false;history.episodesError='';void refreshEpisodeSummaries(event.target.value);});
 addEventListener('pageshow',renderHistory);
 addEventListener('resize',drawChart);
 connect();
