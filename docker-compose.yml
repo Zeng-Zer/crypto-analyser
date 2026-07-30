@@ -7,6 +7,7 @@ services:
     environment:
       DATABASE_URL: postgresql://${PGVECTOR_USER:-crypto}:${PGVECTOR_PASSWORD:?Set PGVECTOR_PASSWORD in .env}@pgvector:5432/${PGVECTOR_DB:-crypto}
       NEWS_API_URL: http://news:3000/api/news
+      NEWS_API_SECRET: ${NEWS_API_SECRET:?Set NEWS_API_SECRET in .env}
       LLM_API_URL: ${LLM_API_URL:-}
       LLM_API_KEY: ${LLM_API_KEY:-}
       LLM_MODEL: ${LLM_MODEL:-}
@@ -29,6 +30,8 @@ services:
     build: ../free-crypto-news
     init: true
     restart: unless-stopped
+    environment:
+      SPERAXOS_API_SECRET: ${NEWS_API_SECRET:?Set NEWS_API_SECRET in .env}
     expose:
       - "3000"
     healthcheck:

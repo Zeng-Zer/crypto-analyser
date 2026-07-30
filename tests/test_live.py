@@ -559,9 +559,16 @@ def test_derivatives_are_anchored_at_or_before_onset(monkeypatch):
     assert all(params["endTime"] == onset for _, params in calls)
 
 
-def test_news_trust_header_is_loopback_only():
+def test_news_headers_authenticate_only_configured_private_service(monkeypatch):
+    private = "http://news:3000/api/news"
+    monkeypatch.setenv("NEWS_API_SECRET", "private-token")
+
+    headers = live._news_headers(private, private)
+
+    assert headers["Accept"] == "application/json"
+    assert headers["X-SperaxOS-Token"] == "private-token"
+    assert "X-SperaxOS-Token" not in live._news_headers(live.PUBLIC_NEWS_API_URL, private)
     assert live._news_headers("http://127.0.0.1:3000/api/news")["Sec-Fetch-Site"] == "same-site"
-    assert "Sec-Fetch-Site" not in live._news_headers(live.PUBLIC_NEWS_API_URL)
 
 
 def test_news_falls_back_to_public_api_and_rejects_post_onset_articles(monkeypatch):

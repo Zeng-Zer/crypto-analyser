@@ -106,7 +106,7 @@ Requirements: Docker Compose and `free-crypto-news` checked out beside this repo
 ```bash
 cp .env.example .env
 chmod 600 .env
-# Replace PGVECTOR_PASSWORD and configure LLM_API_URL/LLM_API_KEY in .env.
+# Generate independent PGVECTOR_PASSWORD and NEWS_API_SECRET values, then configure LLM settings.
 
 docker compose up -d --build
 curl --fail http://127.0.0.1:8000/healthz

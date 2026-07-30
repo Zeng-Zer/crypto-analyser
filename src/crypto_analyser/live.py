@@ -501,10 +501,13 @@ def _article_id(link: str) -> str:
     return hashlib.sha256(link.encode()).hexdigest()[:12]
 
 
-def _news_headers(url: str) -> dict[str, str]:
-    headers = {"User-Agent": "crypto-analyser/1 live-rag"}
+def _news_headers(url: str, authenticated_url: str | None = None) -> dict[str, str]:
+    headers = {"Accept": "application/json", "User-Agent": "crypto-analyser/1 live-rag"}
     if urlparse(url).hostname in {"127.0.0.1", "localhost", "::1"}:
         headers["Sec-Fetch-Site"] = "same-site"
+    secret = os.getenv("NEWS_API_SECRET")
+    if secret and authenticated_url and url.rstrip("/") == authenticated_url.rstrip("/"):
+        headers["X-SperaxOS-Token"] = secret
     return headers
 
 
@@ -588,7 +591,7 @@ def fetch_live_news(cutoff_ts: int, news_api_url: str) -> tuple[list[dict[str, A
                             "from": (cutoff - timedelta(hours=NEWS_WINDOW_HOURS)).isoformat(),
                             "to": cutoff.isoformat(),
                         },
-                        headers=_news_headers(url),
+                        headers=_news_headers(url, news_api_url),
                         timeout=(2, 30),
                     )
                     response.raise_for_status()
