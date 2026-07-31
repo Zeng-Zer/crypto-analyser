@@ -73,4 +73,6 @@ The HNSW index uses the first 2,000 dimensions because pgvector's `vector` HNSW 
 
 ## Deployment
 
-GitHub Pages serves the committed static snapshot in `visuals/`. Local pipeline execution, PostgreSQL/pgvector, source Parquet, and generated JSON are not part of the hosted site.
+GitHub Pages serves historical `visuals/index.html` and live `visuals/live.html`. Pages workflow injects backend HTTPS origin stored in repository variable `BACKEND_URL` into API and SSE requests.
+
+Live stack runs application, sibling `free-crypto-news`, and PostgreSQL/pgvector with Docker Compose. Application and database ports bind only to host loopback. Backend ingress provides HTTPS and permits exact `FRONTEND_ORIGIN`; PostgreSQL storage must be persistent and backed up off host.

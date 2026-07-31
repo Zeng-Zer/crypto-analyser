@@ -1,0 +1,405 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Live BTCUSDT price streaming, anomaly detection, market activity, news retrieval, RAG, and LLM analysis.">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://backend.invalid; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <title>Live BTCUSDT | Crypto Anomaly Analyser</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23171916'/%3E%3Ccircle cx='16' cy='16' r='6' fill='%23a33d2d'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Newsreader:opsz,wght@6..72,400;6..72,500&family=Source+Sans+3:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --color-primary:#a33d2d; --color-background:#f3efe6; --color-surface:#fbf8f1; --color-surface-strong:#fff;
+      --color-ink:#171916; --color-ink-muted:#5b605a; --color-rule:#b9b5aa; --color-rule-light:#ded9ce;
+      --color-anomaly:#a33d2d; --color-derivatives:#245d78; --color-derivatives-pale:#dce8ed; --color-news:#556b43; --color-news-pale:#e2e8da; --color-warning:#8b641d; --color-on-dark:#fffaf0;
+      --font-display:"Newsreader",Georgia,serif; --font-body:"Source Sans 3",Arial,sans-serif; --font-data:"IBM Plex Mono",monospace;
+    }
+    * { box-sizing:border-box; }
+    html { min-height:100%; }
+    body { margin:0; min-height:100%; background:var(--color-background); color:var(--color-ink); font:400 16px/1.5 var(--font-body); }
+    button, a { color:inherit; font:inherit; }
+    button:focus-visible, a:focus-visible { outline:2px solid var(--color-primary); outline-offset:3px; }
+    .skip { position:fixed; top:-60px; left:16px; z-index:20; padding:9px 13px; background:var(--color-ink); color:var(--color-on-dark); }
+    .skip:focus { top:12px; }
+    .label { color:var(--color-ink-muted); font:500 12px/1.3 var(--font-data); letter-spacing:.1em; text-transform:uppercase; }
+    .shell { min-height:58px; display:flex; align-items:stretch; border-bottom:1px solid var(--color-ink); background:var(--color-surface); }
+    .brand { width:230px; display:flex; align-items:center; gap:10px; padding:0 18px; border-right:1px solid var(--color-rule); font:600 12px/1 var(--font-data); letter-spacing:.08em; text-transform:uppercase; }
+    .brand-mark { width:10px; height:10px; background:var(--color-anomaly); transform:rotate(45deg); }
+    .runtime { display:flex; align-items:center; margin:8px 12px; border:1px solid var(--color-warning); padding:0 11px; color:var(--color-warning); font:600 12px/1 var(--font-data); letter-spacing:.07em; text-transform:uppercase; }
+    .runtime.live { border-color:var(--color-news); background:var(--color-news); color:var(--color-on-dark); }
+    .runtime.partial { border-color:var(--color-warning); background:var(--color-warning); color:var(--color-on-dark); }
+    .runtime.offline { border-color:var(--color-anomaly); background:var(--color-anomaly); color:var(--color-on-dark); }
+    .shell-meta { display:flex; align-items:center; gap:24px; padding:0 18px; }
+    .shell-meta strong { margin-left:6px; font:500 12px/1 var(--font-data); }
+    .github-link { margin-left:auto; display:flex; align-items:center; gap:8px; border-left:1px solid var(--color-rule); padding:0 18px; font:600 12px/1 var(--font-data); letter-spacing:.05em; text-decoration:none; }
+    .github-link svg { width:17px; height:17px; fill:currentColor; }
+    .github-link:hover span, .shell-link:hover { text-decoration:underline; text-underline-offset:3px; }
+    .shell-link { display:flex; align-items:center; border-left:1px solid var(--color-rule); padding:0 18px; font:600 12px/1 var(--font-data); letter-spacing:.05em; text-decoration:none; }
+    main { max-width:1480px; margin:0 auto; padding:28px 18px 24px; }
+    .intro { display:flex; justify-content:space-between; align-items:end; gap:32px; margin-bottom:18px; }
+    h1 { margin:5px 0 0; font:500 36px/.96 var(--font-display); letter-spacing:-.035em; }
+    .intro-copy { max-width:680px; margin:0; color:var(--color-ink-muted); }
+    .intro-cta { position:relative; flex:0 1 300px; min-width:260px; border:1px solid var(--color-ink); background:var(--color-ink); padding:10px 42px 10px 12px; color:var(--color-on-dark); text-decoration:none; transition:background-color .15s,border-color .15s; }
+    .intro-cta span { display:block; }
+    .intro-cta .label { color:var(--color-rule-light); }
+    .intro-cta strong { display:block; margin-top:4px; font:500 18px/1.1 var(--font-display); }
+    .intro-cta .cta-arrow { position:absolute; top:50%; right:14px; font:500 22px/1 var(--font-display); transform:translateY(-50%); }
+    .intro-cta:not(.unavailable):hover { border-color:var(--color-anomaly); background:var(--color-anomaly); }
+    .intro-cta.unavailable { border-color:var(--color-rule); background:var(--color-surface); color:var(--color-ink-muted); }
+    .intro-cta.unavailable .label { color:var(--color-ink-muted); }
+    .intro-cta.unavailable .cta-arrow { display:none; }
+    .summary-strip { display:grid; grid-template-columns:repeat(2,1fr); border:1px solid var(--color-rule); background:var(--color-rule); gap:1px; margin-bottom:16px; }
+    .summary-item { min-width:0; padding:11px 14px; background:var(--color-surface); }
+    .summary-item span { display:block; }
+    .summary-item strong { display:block; overflow:hidden; margin-top:4px; font:500 14px/1.35 var(--font-data); text-overflow:ellipsis; white-space:nowrap; }
+    .plate { border:1px solid var(--color-ink); background:var(--color-surface); }
+    .plate-head { display:flex; justify-content:space-between; align-items:center; gap:18px; padding:12px 15px; border-bottom:1px solid var(--color-rule); }
+    .plate-head h2, .section-head h2 { margin:0; font:500 20px/1.15 var(--font-display); }
+    .chart-wrap { position:relative; height:clamp(340px,52vh,560px); }
+    #market-chart { display:block; width:100%; height:100%; }
+    svg text { fill:var(--color-ink-muted); font:500 12px/1 var(--font-data); }
+    .grid-line { stroke:var(--color-rule-light); stroke-width:1; }
+    .episode-band { fill:var(--color-anomaly); opacity:.09; }
+    .price-line { fill:none; stroke:var(--color-anomaly); stroke-width:2.2; vector-effect:non-scaling-stroke; }
+    .episode-start-line { stroke:var(--color-anomaly); stroke-width:1.2; stroke-dasharray:4 3; vector-effect:non-scaling-stroke; }
+    .episode-start-marker { fill:var(--color-anomaly); stroke:var(--color-surface); stroke-width:2; }
+    .episode-start-label { fill:var(--color-anomaly); font:600 9px/1 var(--font-data); letter-spacing:.04em; }
+    .chart-hit { fill:transparent; cursor:crosshair; }
+    .crosshair { stroke:var(--color-ink-muted); stroke-width:1; stroke-dasharray:2 3; pointer-events:none; opacity:0; }
+    .tooltip { position:absolute; z-index:3; pointer-events:none; opacity:0; transform:translate(12px,-50%); border:1px solid var(--color-ink); background:var(--color-surface-strong); padding:8px 10px; white-space:pre-line; font:500 12px/1.5 var(--font-data); }
+    .tooltip.align-left { transform:translate(calc(-100% - 12px),-50%); }
+    .tooltip.visible { opacity:1; }
+    .market-grid { display:grid; grid-template-columns:1fr 1fr; border:1px solid var(--color-rule); background:var(--color-rule); gap:1px; margin-top:16px; }
+    .market-card { min-width:0; background:var(--color-surface); }
+    .chart-error { margin:0; padding:0 15px 12px; }
+    .section-head { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:12px 15px; border-bottom:1px solid var(--color-rule); }
+    .connection { color:var(--color-ink-muted); font:500 11px/1.3 var(--font-data); letter-spacing:.06em; text-transform:uppercase; }
+    .connection.streaming { color:var(--color-news); }
+    .connection.error { color:var(--color-anomaly); }
+    .detector-body { padding:15px; }
+    .detector-state { display:inline-block; border:1px solid var(--color-news); padding:5px 7px; color:var(--color-news); font:600 12px/1 var(--font-data); text-transform:uppercase; }
+    .detector-state.active { border-color:var(--color-anomaly); background:var(--color-anomaly); color:var(--color-on-dark); }
+    .detector-state.potential { border-color:var(--color-warning); background:var(--color-warning); color:var(--color-on-dark); }
+    .detector-state.warmup { border-color:var(--color-rule); color:var(--color-ink-muted); }
+    .metric-grid { display:grid; grid-template-columns:repeat(2,1fr); border:1px solid var(--color-rule); background:var(--color-rule); gap:1px; margin-top:13px; }
+    .metric { min-width:0; padding:10px; background:var(--color-surface-strong); }
+    .metric span { display:block; color:var(--color-ink-muted); font:500 12px/1.3 var(--font-data); text-transform:uppercase; }
+    .metric strong { display:block; margin-top:4px; font:600 16px/1.3 var(--font-data); }
+    .metric strong.breach { color:var(--color-anomaly); }
+    .metric small { display:block; margin-top:3px; color:var(--color-ink-muted); font:400 12px/1.35 var(--font-data); }
+    .error-detail { min-height:22px; margin:10px 0 0; color:var(--color-anomaly); font-size:14px; }
+    .ambient-news, .episode-history { margin-top:16px; border:1px solid var(--color-ink); background:var(--color-surface); }
+    .ambient-grid { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); }
+    .ambient-item { min-width:0; padding:13px 15px; border-left:1px solid var(--color-rule); }
+    .ambient-item:first-child { border-left:0; }
+    .ambient-item .news-title { margin-top:6px; }
+    .ambient-state { padding:15px; color:var(--color-ink-muted); }
+    .news-meta { color:var(--color-news); font:500 11px/1.35 var(--font-data); letter-spacing:.04em; text-transform:uppercase; }
+    .news-title { margin-top:4px; font:500 16px/1.3 var(--font-display); }
+    .news-title a { color:inherit; text-decoration:none; text-underline-offset:3px; }
+    .news-title a:hover { text-decoration:underline; }
+    .news-pages { display:flex; justify-content:flex-end; align-items:center; border-top:1px solid var(--color-rule); }
+    .news-pages button { min-height:38px; border:0; background:transparent; padding:0 14px; cursor:pointer; font:500 11px/1 var(--font-data); text-transform:uppercase; }
+    .news-pages button:disabled { cursor:default; opacity:.4; }
+    .news-pages span { min-width:76px; border-inline:1px solid var(--color-rule); font:500 11px/38px var(--font-data); text-align:center; }
+    .history-body { display:flex; align-items:center; gap:18px; padding:9px 15px; }
+    .history-field { display:flex; align-items:center; gap:8px; color:var(--color-ink-muted); font:500 11px/1.2 var(--font-data); letter-spacing:.06em; text-transform:uppercase; }
+    .history-field select { width:230px; min-height:34px; border:1px solid var(--color-ink); border-radius:2px; background:var(--color-surface-strong); padding:0 9px; color:var(--color-ink); font:500 13px/1 var(--font-data); }
+    .history-list { display:grid; gap:10px; border-top:1px solid var(--color-rule); padding:12px; }
+    .history-divider { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:12px; margin:3px 0; color:var(--color-ink-muted); font:500 10px/1 var(--font-data); letter-spacing:.06em; }
+    .history-divider::before, .history-divider::after { height:1px; background:var(--color-rule); content:""; }
+    .history-card { display:grid; grid-template-columns:minmax(180px,.8fr) minmax(280px,1.35fr) minmax(190px,.75fr) 132px; align-items:stretch; min-height:132px; border:1px solid var(--color-rule); background:var(--color-surface-strong); color:inherit; text-decoration:none; }
+    .history-card:hover { border-color:var(--color-ink); }
+    .history-summary, .history-chart, .history-move, .history-action { min-width:0; padding:15px; }
+    .history-chart, .history-move, .history-action { border-left:1px solid var(--color-rule-light); }
+    .history-kicker, .history-move span { display:block; color:var(--color-ink-muted); font:500 10px/1.3 var(--font-data); letter-spacing:.06em; text-transform:uppercase; }
+    .history-time { display:block; margin-top:5px; font:500 25px/1 var(--font-display); }
+    .history-meta { display:block; margin-top:8px; font:500 11px/1.3 var(--font-data); text-transform:uppercase; }
+    .history-card-verdict { display:block; width:max-content; max-width:100%; margin-top:10px; border-left:3px solid currentColor; padding:4px 7px; font:500 18px/1.15 var(--font-display); }
+    .history-card-verdict.news { background:var(--color-news-pale); color:var(--color-news); }
+    .history-card-verdict.derivatives { background:var(--color-derivatives-pale); color:var(--color-derivatives); }
+    .history-card-verdict.failed { color:var(--color-anomaly); }
+    .history-card-verdict.pending { color:var(--color-warning); }
+    .history-mini-chart { display:block; width:100%; height:100px; overflow:visible; }
+    .history-mini-grid { stroke:var(--color-rule-light); stroke-width:1; vector-effect:non-scaling-stroke; }
+    .history-mini-band { fill:var(--color-anomaly); opacity:.09; }
+    .history-mini-line { fill:none; stroke:var(--color-ink); stroke-width:2; vector-effect:non-scaling-stroke; }
+    .history-mini-signal { stroke:var(--color-anomaly); stroke-width:1.2; stroke-dasharray:4 3; vector-effect:non-scaling-stroke; }
+    .history-mini-dot { fill:var(--color-anomaly); stroke:var(--color-surface-strong); stroke-width:2; vector-effect:non-scaling-stroke; }
+    .history-mini-label { fill:var(--color-anomaly); font:600 8px/1 var(--font-data); letter-spacing:.03em; }
+    .history-mini-time { fill:var(--color-ink-muted); font:500 9px/1 var(--font-data); }
+    .history-mini-empty { display:grid; place-items:center; height:100px; color:var(--color-ink-muted); font-size:13px; }
+    .history-move { display:flex; flex-direction:column; justify-content:center; }
+    .history-move strong { display:block; margin-top:7px; font:500 30px/1 var(--font-display); }
+    .history-move small { display:block; margin-top:8px; color:var(--color-ink-muted); font:500 11px/1.35 var(--font-data); }
+    .history-action { display:flex; align-self:center; align-items:center; justify-content:center; min-height:40px; margin:15px; border:1px solid var(--color-ink); background:var(--color-ink); padding:0 11px; color:var(--color-on-dark); font:500 11px/1 var(--font-data); text-align:center; text-transform:uppercase; white-space:nowrap; }
+    .history-empty { padding:15px; color:var(--color-ink-muted); }
+    .analysis-status { color:var(--color-ink-muted); font:500 11px/1.3 var(--font-data); letter-spacing:.06em; text-transform:uppercase; }
+    .analysis-status.ready { color:var(--color-news); }
+    .analysis-status.error { color:var(--color-anomaly); }
+    .note { margin:14px 0 0; color:var(--color-ink-muted); font-size:14px; }
+    @media (max-width:900px) {
+      .shell-meta { display:none; }
+      .market-grid { grid-template-columns:1fr; }
+      .ambient-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .ambient-item:nth-child(odd) { border-left:0; }
+      .ambient-item:nth-child(n+3) { border-top:1px solid var(--color-rule); }
+      .history-body { align-items:stretch; flex-direction:column; gap:8px; }
+      .history-field { width:100%; }
+      .history-field select { width:auto; flex:1; }
+      .history-card { grid-template-columns:1fr 1fr; }
+      .history-chart { grid-column:1/-1; grid-row:2; border-top:1px solid var(--color-rule-light); border-left:0; }
+      .history-move { border-left:1px solid var(--color-rule-light); }
+      .history-action { grid-column:1/-1; justify-self:end; border:1px solid var(--color-ink); }
+    }
+    @media (max-width:620px) {
+      .shell { flex-wrap:wrap; }
+      .brand { width:auto; min-width:0; flex:1; border-right:0; }
+      .github-link { margin-left:0; padding:0 14px; }
+      .github-link span { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; }
+      .shell-link { width:100%; min-height:40px; justify-content:center; border-top:1px solid var(--color-rule); border-left:0; }
+      main { padding:20px 12px 18px; }
+      .intro { align-items:start; flex-direction:column; gap:16px; }
+      .intro-cta { box-sizing:border-box; width:100%; min-width:0; }
+      .summary-strip { grid-template-columns:1fr; }
+      .chart-wrap { height:320px; }
+      .plate-head { align-items:start; flex-direction:column; }
+      .metric-grid, .ambient-grid { grid-template-columns:1fr; }
+      .ambient-item { border-top:1px solid var(--color-rule); border-left:0; }
+      .ambient-item:first-child { border-top:0; }
+      .history-card { grid-template-columns:1fr; }
+      .history-chart, .history-move { grid-column:auto; grid-row:auto; border-top:1px solid var(--color-rule-light); border-left:0; }
+      .history-action { grid-column:auto; grid-row:auto; justify-self:stretch; border:1px solid var(--color-ink); }
+    }
+    @media (prefers-reduced-motion:reduce) { * { scroll-behavior:auto!important; transition:none!important; } }
+  </style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to live observation</a>
+<header class="shell">
+  <div class="brand"><i class="brand-mark" aria-hidden="true"></i>Crypto Anomaly Analyser</div>
+  <div class="runtime" id="runtime-state" role="status" aria-live="polite">Connecting</div>
+  <div class="shell-meta"><span><span class="label">Symbol</span><strong>BTCUSDT</strong></span><span><span class="label">Cadence</span><strong>Closed 5m</strong></span></div>
+  <a class="github-link" href="https://github.com/Zeng-Zer/crypto-analyser" target="_blank" rel="noopener noreferrer" aria-label="View source on GitHub"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.64 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.5-2.69-.96-.09-.23-.48-.96-.82-1.15-.28-.15-.68-.52-.01-.53.63-.01 1.08.59 1.23.83.72 1.23 1.87.88 2.33.67.07-.53.28-.88.51-1.08-1.78-.2-3.64-.9-3.64-4.01 0-.89.31-1.62.82-2.19-.08-.2-.36-1.04.08-2.16 0 0 .67-.22 2.2.84A7.5 7.5 0 0 1 8 3.88a7.5 7.5 0 0 1 2 .27c1.53-1.06 2.2-.84 2.2-.84.44 1.12.16 1.96.08 2.16.51.57.82 1.3.82 2.19 0 3.12-1.87 3.81-3.65 4.01.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.36-3.58-8-8-8Z"/></svg><span>GitHub</span></a>
+  <a class="shell-link" href="index.html">Historical replay →</a>
+</header>
+<main id="main" tabindex="-1">
+<section class="intro" aria-labelledby="page-title">
+<div><span class="label">Live market observation</span><h1 id="page-title">BTCUSDT</h1><p class="intro-copy">Price anomaly detection for Bitcoin / USDT pair. 5 min bar price chart.</p></div>
+<a class="intro-cta unavailable" id="featured-explained" href="#history-title" aria-label="Open latest explained anomaly analysis"><span class="label">Latest explained anomaly</span><strong id="featured-explained-time">Loading history</strong><span class="cta-arrow" aria-hidden="true">→</span></a>
+</section>
+
+<section class="summary-strip" aria-label="Live stream summary">
+<div class="summary-item"><span class="label">Latest price bar</span><strong id="latest-closed">Waiting for backfill</strong></div>
+<div class="summary-item"><span class="label">Price stream</span><strong id="feed-status">Connecting</strong></div>
+</section>
+
+  <section class="plate" aria-labelledby="chart-heading">
+    <header class="plate-head"><h2 id="chart-heading">BTC price · trailing 24h</h2><span class="label">Closed 5m · live</span></header>
+    <div class="chart-wrap"><svg id="market-chart" role="img" aria-labelledby="chart-title chart-desc"><title id="chart-title">Live BTC price over the trailing 24 hours</title><desc id="chart-desc">Absolute BTCUSDT price from closed five-minute Binance bars.</desc></svg><div class="tooltip" role="status" aria-live="polite"></div></div>
+    <p class="error-detail chart-error" id="chart-error" role="alert"></p>
+  </section>
+
+  <section class="market-grid" aria-label="Live analysis inputs">
+    <article class="market-card" aria-labelledby="price-title"><header class="section-head"><h2 id="price-title">Price anomaly detector</h2><span class="connection" id="price-connection">Connecting</span></header><div class="detector-body"><span class="detector-state warmup" id="price-state">Warming up</span><div class="metric-grid" id="price-metrics"></div><p class="error-detail" id="price-error" role="alert"></p></div></article>
+    <article class="market-card" aria-labelledby="activity-title"><header class="section-head"><h2 id="activity-title">Market activity</h2><span class="connection" id="activity-status">Loading</span></header><div class="detector-body"><span class="detector-state warmup" id="activity-state">Fetching Binance</span><div class="metric-grid" id="activity-metrics"></div><p class="error-detail" id="activity-error" role="alert"></p></div></article>
+  </section>
+
+  <section class="ambient-news" aria-labelledby="ambient-title"><header class="section-head"><h2 id="ambient-title">Bitcoin news · past 24h</h2><span class="analysis-status" id="ambient-status">Loading</span></header><div id="ambient-list" class="ambient-state">Fetching latest headlines. No LLM call.</div><div class="news-pages" id="news-pages" hidden><button id="news-previous" type="button">← Previous</button><span id="news-position"></span><button id="news-next" type="button">Next →</button></div></section>
+
+  <section class="episode-history" aria-labelledby="history-title"><header class="section-head"><h2 id="history-title">Price anomaly history</h2><span class="analysis-status" id="history-status">Loading</span></header><div class="history-body"><label class="history-field">Result<select id="history-verdict"><option value="explained" selected>Explained</option><option value="unexplained">Unexplained</option><option value="all">All</option></select></label><label class="history-field">Date<select id="history-day" disabled><option value="">All dates · newest first</option></select></label></div><div class="history-list" id="history-list" aria-live="polite"><div class="history-empty">Loading explained anomalies.</div></div><p class="error-detail chart-error" id="history-error" role="alert"></p></section>
+</main>
+<script>
+const API_ORIGIN='';
+const INTERVAL_MS=300000,WINDOW_BARS=288,CHART_BARS=288;
+const THRESHOLDS={z:2.5,drawdown:.5,return:.25};
+const source={bars:[],ready:false,connected:false,status:'Connecting',error:'',viewerError:'',detector:{kind:'warmup',label:'Warming up · 0/288 bars',reading:null,onsetTs:null}};
+const $=selector=>document.querySelector(selector),NS='http://www.w3.org/2000/svg';
+const analysis={loading:false,error:''};
+const ambient={loading:true,result:null,error:'',page:0};
+const savedHistoryVerdict=sessionStorage.getItem('crypto-analyser-history-verdict');
+const history={loading:false,days:[],error:'',episodes:[],truncated:false,episodesLoading:false,episodesError:'',episodeDay:'',verdict:['explained','unexplained','all'].includes(savedHistoryVerdict)?savedHistoryVerdict:'explained'};
+const featuredExplained={loaded:false,episode:null};
+const activity={loading:true,result:null,error:''};
+const zone=Intl.DateTimeFormat().resolvedOptions().timeZone;
+const dateFormat=new Intl.DateTimeFormat('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+const compactDayFormat=new Intl.DateTimeFormat('en-GB',{day:'2-digit',month:'short'});
+const historyDayFormat=new Intl.DateTimeFormat('en-GB',{timeZone:'UTC',day:'2-digit',month:'short',year:'numeric'});
+const localDayFormat=new Intl.DateTimeFormat('en-GB',{timeZone:zone,year:'numeric',month:'2-digit',day:'2-digit'});
+const timeFormat=new Intl.DateTimeFormat('en-GB',{hour:'2-digit',minute:'2-digit'});
+const fullFormat=new Intl.DateTimeFormat('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit'});
+const fmtDate=timestamp=>dateFormat.format(new Date(timestamp));
+const localDay=timestamp=>{const parts=Object.fromEntries(localDayFormat.formatToParts(new Date(timestamp)).map(part=>[part.type,part.value]));return `${parts.year}-${parts.month}-${parts.day}`;};
+const adjacentDay=(day,offset)=>{const [year,month,date]=day.split('-').map(Number);return new Date(Date.UTC(year,month-1,date+offset)).toISOString().slice(0,10);};
+function historyDayLabel(day){const today=localDay(Date.now());if(day===today)return 'Today';if(day===adjacentDay(today,-1))return 'Yesterday';const [year,month,date]=day.split('-').map(Number);return historyDayFormat.format(new Date(Date.UTC(year,month-1,date)));}
+const fmtFull=timestamp=>`${fullFormat.format(new Date(timestamp))} ${zone}`;
+const fmtPrice=value=>value==null?'Unavailable':value>=1000?`$${value.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}`:`$${value.toFixed(4)}`;
+const fmtPercent=value=>value==null?'Unavailable':`${value>=0?'+':''}${(value*100).toFixed(2)}%`;
+const elapsed=minutes=>minutes<60?`${Math.round(minutes)} min`:`${(minutes/60).toFixed(minutes<120?1:0)} h`;
+const verdictLabels={explained_derivatives:'Explained by market activity',explained_news:'Explained by news',unexplained:'Market normal · no causal news',insufficient_data:'Insufficient data'};
+const esc=text=>String(text??'').replace(/[&<>\"]/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'}[char]));
+
+const make=(name,attributes={})=>{const element=document.createElementNS(NS,name);Object.entries(attributes).forEach(([key,value])=>element.setAttribute(key,value));return element;};
+
+
+function metric(label,value,note,breach=false){return `<div class="metric"><span>${label}</span><strong class="${breach?'breach':''}">${value}</strong><small>${note}</small></div>`;}
+function renderPrice(){
+  const result=source.detector,reading=result.reading,state=$('#price-state'),connection=$('#price-connection');
+  state.className=`detector-state ${result.kind}`;state.textContent=result.label;
+  connection.className=`connection ${source.connected&&source.ready?'streaming':source.error||source.viewerError?'error':''}`;connection.textContent=`${source.status} · ${source.bars.length} bars`;
+  $('#price-error').textContent=source.error||source.viewerError;
+  $('#price-metrics').innerHTML=reading?[
+    metric('Latest price',fmtPrice(reading.close),'Closed 5-minute bar'),
+    metric('24h Z-score',reading.z==null?'Unavailable':reading.z.toFixed(2),`Limit ±${THRESHOLDS.z.toFixed(1)}`,reading.z!=null&&Math.abs(reading.z)>THRESHOLDS.z)
+  ].join(''):metric('Detector window',`${source.bars.length}/${WINDOW_BARS}`,'Closed price bars required');
+}
+function renderActivity(){
+  const status=$('#activity-status'),state=$('#activity-state'),metrics=$('#activity-metrics');
+  status.className=`connection ${activity.error?'error':activity.result?'streaming':''}`;
+  if(activity.loading&&!activity.result){status.textContent='Loading';state.className='detector-state warmup';state.textContent='Fetching Binance';metrics.innerHTML=metric('Context','Waiting','Funding and open interest');$('#activity-error').textContent='';return;}
+  if(activity.error&&!activity.result){status.textContent='Failed';state.className='detector-state warmup';state.textContent='Unavailable';metrics.innerHTML='';$('#activity-error').textContent=`Market activity unavailable: ${activity.error}`;return;}
+  if(!activity.result)return;
+  const result=activity.result,missing=result.funding_rate_current==null||result.oi_change_4h==null,breach=result.funding_breach||result.oi_breach;
+  status.textContent=`${activity.error?'Stale':'Updated'} · 60s`;state.className=`detector-state ${missing?'warmup':breach?'active':''}`;state.textContent=missing?'Incomplete':breach?'Threshold breach':'Normal';$('#activity-error').textContent=activity.error?`Market activity unavailable: ${activity.error}`:'';
+  metrics.innerHTML=[
+    metric('Funding rate',result.funding_rate_current==null?'Unavailable':`${(result.funding_rate_current*100).toFixed(4)}%`,'Limit ±0.0500%',result.funding_breach),
+    metric('OI change · 4h',fmtPercent(result.oi_change_4h),'Limit ±10%',result.oi_breach)
+  ].join('');
+}
+function renderRuntime(){
+  const runtime=$('#runtime-state');runtime.className='runtime';
+  if(source.connected&&source.ready&&['Streaming','Polling'].includes(source.status)){runtime.textContent='Live';runtime.classList.add('live');}
+  else if(source.error||source.viewerError){runtime.textContent='Attention';runtime.classList.add('offline');}
+  else runtime.textContent='Connecting';
+  const latest=source.bars.at(-1)?.closeTime;
+  $('#latest-closed').textContent=Number.isFinite(latest)?fmtFull(latest):'Waiting for backend price feed';
+  $('#feed-status').textContent=source.ready?`${source.status} · ${source.bars.length} bars`:source.status;
+  $('#chart-error').textContent=source.error||source.viewerError;
+}
+
+function renderAmbient(){
+  const status=$('#ambient-status'),list=$('#ambient-list'),pages=$('#news-pages');status.className='analysis-status';
+  if(ambient.loading&&!ambient.result){status.textContent='Refreshing';list.className='ambient-state';list.textContent='Backend fetching latest headlines.';pages.hidden=true;return;}
+  if(ambient.error&&!ambient.result){status.textContent='Failed';status.classList.add('error');list.className='ambient-state';list.textContent=`Latest news unavailable: ${ambient.error}`;pages.hidden=true;return;}
+  if(!ambient.result)return;
+  const result=ambient.result,articles=result.articles,totalPages=Math.max(1,Math.ceil(articles.length/5));ambient.page=Math.min(ambient.page,totalPages-1);
+  status.textContent=`${articles.length} headlines · ${ambient.error?'stale':'90s'}`;status.classList.add('ready');list.className='ambient-grid';
+  list.innerHTML=articles.length?articles.slice(ambient.page*5,ambient.page*5+5).map(article=>{const age=Math.max(0,(Date.now()-Date.parse(article.date_pub))/60000);return `<article class="ambient-item"><div class="news-meta">${elapsed(age)} ago · ${esc(article.source)}</div><div class="news-title"><a href="${esc(article.link)}" target="_blank" rel="noopener noreferrer">${esc(article.title)} ↗</a></div></article>`;}).join(''):'<div class="ambient-state">No Bitcoin headline found in the past 24 hours.</div>';
+  pages.hidden=articles.length<=5;$('#news-position').textContent=`${ambient.page+1} of ${totalPages}`;$('#news-previous').disabled=ambient.page===0;$('#news-next').disabled=ambient.page===totalPages-1;
+}
+function episodeVerdict(episode){
+  if(episode.status==='failed')return 'Analysis failed';
+  if(episode.status!=='complete'||!episode.analysis)return 'Analysis pending';
+  return verdictLabels[episode.analysis.classification]||episode.analysis.classification;
+}
+function renderFeaturedExplained(){
+  const link=$('#featured-explained'),time=$('#featured-explained-time'),episode=featuredExplained.episode;
+  if(!featuredExplained.loaded){time.textContent='Loading history';link.href='#history-title';link.classList.add('unavailable');return;}
+  if(!episode){time.textContent='No explained anomaly saved';link.href='#history-title';link.classList.add('unavailable');return;}
+  const market=episode.markets?.price||{},timestamp=episode.detected_ts||market.detected_ts||episode.onset_ts,viewerDay=episode.viewer_day||localDay(timestamp);
+  time.textContent=`${compactDayFormat.format(new Date(episode.onset_ts))} at ${timeFormat.format(new Date(episode.onset_ts))}`;
+  link.href=`index.html?${new URLSearchParams({source:'live',day:viewerDay,timezone:zone,event:episode.event_reference})}`;
+  link.classList.remove('unavailable');
+}
+function historyMiniChart(episode){
+  const market=episode.markets?.price||{},signalTs=episode.detected_ts||market.detected_ts||episode.onset_ts,bars=(episode.bars||[]).filter(bar=>Number.isFinite(bar.ts)&&Number.isFinite(bar.close)).map(bar=>({ts:Number.isFinite(bar.closeTime)?bar.closeTime+1:bar.ts+INTERVAL_MS,close:bar.close})).filter(bar=>bar.ts>=episode.onset_ts-3600000&&bar.ts<=signalTs);
+  if(bars.length<2)return '<div class="history-mini-empty">Price chart unavailable</div>';
+  const W=360,H=100,left=4,right=4,top=17,bottom=75,start=bars[0].ts,end=Math.max(signalTs,bars.at(-1).ts),values=bars.map(bar=>bar.close),rawLow=Math.min(...values),rawHigh=Math.max(...values),padding=Math.max((rawHigh-rawLow)*.12,rawHigh*.001),low=rawLow-padding,high=rawHigh+padding,x=timestamp=>left+(timestamp-start)/Math.max(end-start,INTERVAL_MS)*(W-left-right),y=value=>bottom-(value-low)/(high-low)*(bottom-top),path=bars.map((bar,index)=>`${index?'L':'M'}${x(bar.ts).toFixed(2)},${y(bar.close).toFixed(2)}`).join(' '),signalBar=bars.reduce((nearest,bar)=>Math.abs(bar.ts-signalTs)<Math.abs(nearest.ts-signalTs)?bar:nearest),signalX=x(signalTs),alignLeft=signalX>W-120,bandX=x(Math.max(start,episode.onset_ts)),startLabel=timeFormat.format(new Date(start)),endLabel=timeFormat.format(new Date(signalTs));
+  return `<svg class="history-mini-chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="BTC price from ${esc(startLabel)} to signal detection at ${esc(endLabel)}"><title>BTC price from ${esc(startLabel)} to signal detection at ${esc(endLabel)}</title><line class="history-mini-grid" x1="${left}" x2="${W-right}" y1="${top}" y2="${top}"></line><line class="history-mini-grid" x1="${left}" x2="${W-right}" y1="${bottom}" y2="${bottom}"></line><rect class="history-mini-band" x="${bandX.toFixed(2)}" y="${top}" width="${Math.max(2,signalX-bandX).toFixed(2)}" height="${bottom-top}"></rect><path class="history-mini-line" d="${path}"></path><line class="history-mini-signal" x1="${signalX.toFixed(2)}" x2="${signalX.toFixed(2)}" y1="${top}" y2="${bottom}"></line><text class="history-mini-label" x="${(signalX+(alignLeft?-5:5)).toFixed(2)}" y="${top-5}" text-anchor="${alignLeft?'end':'start'}">SIGNAL DETECTED</text><circle class="history-mini-dot" cx="${signalX.toFixed(2)}" cy="${y(signalBar.close).toFixed(2)}" r="5"></circle><text class="history-mini-time" x="${left}" y="94">${esc(startLabel)}</text><text class="history-mini-time" x="${W-right}" y="94" text-anchor="end">${esc(endLabel)}</text></svg>`;
+}
+function renderEpisodeSummaries(){
+  const list=$('#history-list');
+  if(!history.days.length){list.innerHTML=`<div class="history-empty">${history.verdict==='all'?'No saved anomaly found.':`No ${esc(history.verdict)} anomaly found.`}</div>`;return;}
+  if(history.episodesLoading){list.innerHTML='<div class="history-empty">Loading selected day.</div>';return;}
+  if(history.episodesError){list.innerHTML=`<div class="history-empty">${esc(history.episodesError)}</div>`;return;}
+  if(!history.episodes.length){list.innerHTML='<div class="history-empty">No matching anomaly saved for selected day.</div>';return;}
+  const selectedDay=$('#history-day').value;
+  let previousDay='';list.innerHTML=history.episodes.map(episode=>{
+const market=episode.markets?.price||{},price=market.close_onset,baseline=market.baseline_close,move=Number.isFinite(price)&&Number.isFinite(baseline)&&baseline>0?price/baseline-1:null,peakZ=market.peak_z,zLabel=Number.isFinite(peakZ)?` · Z ${peakZ>=0?'+':''}${peakZ.toFixed(2)}`:'',verdict=episodeVerdict(episode),classification=episode.analysis?.classification,verdictClass=episode.status==='failed'?'failed':episode.status!=='complete'?'pending':classification==='explained_news'?'news':classification==='explained_derivatives'?'derivatives':'',timestamp=episode.detected_ts||market.detected_ts||episode.onset_ts;
+const viewerDay=episode.viewer_day||localDay(timestamp),divider=!selectedDay&&viewerDay!==previousDay?`<div class="history-divider" role="separator"><span>${esc(historyDayLabel(viewerDay))}</span></div>`:'';previousDay=viewerDay;const displayTime=timeFormat.format(new Date(episode.onset_ts)),href=`index.html?${new URLSearchParams({source:'live',day:viewerDay,timezone:zone,event:episode.event_reference})}`;
+return `${divider}<a class="history-card" href="${esc(href)}" aria-label="Open ${esc(displayTime)} anomaly replay"><span class="history-summary"><span class="history-kicker">Anomaly began</span><strong class="history-time">${esc(displayTime)}</strong><span class="history-meta">${esc(episode.severity)} severity${esc(zLabel)}</span><span class="history-card-verdict ${verdictClass}">${esc(verdict)}</span></span><span class="history-chart">${historyMiniChart(episode)}</span><span class="history-move"><span>Price change</span><strong>${move==null?'Unavailable':`${move>=0?'+':''}${(move*100).toFixed(2)}%`}</strong><small>${esc(fmtPrice(baseline))} → ${esc(fmtPrice(price))}</small></span><span class="history-action">Open replay →</span></a>`;
+  }).join('');
+}
+function renderHistory(){
+  const status=$('#history-status'),select=$('#history-day');$('#history-verdict').value=history.verdict;status.className='analysis-status';
+  if(history.loading&&!history.days.length){status.textContent='Loading';$('#history-list').innerHTML=`<div class="history-empty">Loading ${esc(history.verdict)} anomalies.</div>`;return;}
+  if(history.error&&!history.days.length){status.textContent='Failed';status.classList.add('error');$('#history-error').textContent=history.error;return;}
+  const current=select.value;select.innerHTML=history.days.length?`<option value="">All dates · newest first</option>${history.days.map(item=>`<option value="${esc(item.day)}">${esc(item.day)} · ${item.episode_count} episode${item.episode_count===1?'':'s'}</option>`).join('')}`:'<option>No matching anomaly</option>';
+  if(!current||history.days.some(item=>item.day===current))select.value=current;
+  select.disabled=!history.days.length;
+  const count=history.days.reduce((sum,item)=>sum+item.episode_count,0);status.textContent=analysis.loading?'Analysing episode':history.days.length?history.verdict==='all'?`${count} saved`:`${count} ${history.verdict}`:history.verdict==='all'?'No saved anomaly':`No ${history.verdict} anomaly`;if(history.truncated)status.textContent+=` · latest ${history.episodes.length} shown`;status.classList.toggle('ready',history.days.length>0);status.classList.toggle('error',Boolean(analysis.error));$('#history-error').textContent=analysis.error||history.error||history.episodesError;
+  renderEpisodeSummaries();
+}
+async function refreshEpisodeSummaries(day=$('#history-day').value){
+  const verdict=history.verdict,key=`${verdict}:${day||'all'}`;
+  if(history.episodesLoading&&history.episodeDay===key)return;
+  history.episodeDay=key;history.episodesLoading=true;history.episodesError='';renderEpisodeSummaries();
+  try{
+    const query={timezone:zone,verdict};if(day)query.day=day;
+    const response=await fetch(`${API_ORIGIN}/api/live-history/episodes?${new URLSearchParams(query)}`,{cache:'no-store'}),payload=await response.json().catch(()=>({error:`HTTP ${response.status}`}));
+    if(!response.ok)throw new Error(payload.error||`HTTP ${response.status}`);
+    if(history.episodeDay===key){history.episodes=payload.episodes;history.truncated=Boolean(payload.truncated);if(!day){const explained=payload.episodes.find(episode=>['explained_news','explained_derivatives'].includes(episode.analysis?.classification));if(verdict==='explained'||explained){featuredExplained.loaded=true;featuredExplained.episode=explained||null;renderFeaturedExplained();}}}
+  }catch(error){if(history.episodeDay===key){history.episodes=[];history.truncated=false;history.episodesError=`Selected day unavailable: ${error.message}`;}}
+  finally{if(history.episodeDay===key){history.episodesLoading=false;renderHistory();}}
+}
+async function refreshHistory(){
+  if(history.loading)return;
+  const verdict=history.verdict;history.loading=true;history.error='';renderHistory();
+  try{
+    const response=await fetch(`${API_ORIGIN}/api/live-history/days?${new URLSearchParams({timezone:zone,verdict})}`,{cache:'no-store'}),payload=await response.json().catch(()=>({error:`HTTP ${response.status}`}));
+    if(!response.ok)throw new Error(payload.error||`HTTP ${response.status}`);
+    if(history.verdict===verdict)history.days=payload.days;
+  }catch(error){if(history.verdict===verdict)history.error=`Price anomaly history unavailable: ${error.message}`;}
+  finally{history.loading=false;if(history.verdict!==verdict){void refreshHistory();return;}renderHistory();if(history.days.length)void refreshEpisodeSummaries();else if(verdict==='explained'&&!featuredExplained.loaded){featuredExplained.loaded=true;featuredExplained.episode=null;renderFeaturedExplained();}}
+}
+function render(){renderPrice();renderActivity();renderRuntime();renderAmbient();renderFeaturedExplained();renderHistory();drawChart();}
+function applyState(state){
+  const completed=analysis.loading&&!state.analysis?.loading;
+  Object.assign(source,{bars:Array.isArray(state.bars)?state.bars:[],ready:Boolean(state.ready),connected:Boolean(state.connected),status:state.status||'Connecting',error:state.error||'',viewerError:'',detector:state.detector||source.detector});
+  Object.assign(analysis,state.analysis||{loading:false,error:''});
+  Object.assign(ambient,{loading:false,result:state.news||null,error:state.news_error||''});
+  Object.assign(activity,{loading:false,result:state.activity||null,error:state.activity_error||''});
+  render();
+  if(completed)void refreshHistory();
+}
+function connect(){
+  const events=new EventSource(`${API_ORIGIN}/api/live-stream`);
+  events.addEventListener('message',event=>{
+    try{applyState(JSON.parse(event.data));}
+    catch(error){source.viewerError=`Invalid backend state: ${error.message}`;render();}
+  });
+  events.addEventListener('error',()=>{source.viewerError='Backend state stream reconnecting';render();});
+}
+
+const svg=$('#market-chart');
+function drawChart(){
+  const title=svg.querySelector('title'),desc=svg.querySelector('desc'),bars=source.bars.slice(-CHART_BARS);svg.replaceChildren(title,desc);
+  const W=1000,H=Math.max(300,W*(svg.clientHeight||400)/(svg.clientWidth||1000)),left=78,right=24,top=28,bottom=H-42;
+  svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
+  if(!bars.length){const empty=make('text',{x:W/2,y:H/2,'text-anchor':'middle'});empty.textContent='Waiting for live price bars';svg.append(empty);return;}
+  const start=bars[0].ts,end=bars.at(-1).ts,values=bars.map(bar=>bar.close),rawLow=Math.min(...values),rawHigh=Math.max(...values),padding=Math.max((rawHigh-rawLow)*.1,rawHigh*.001),low=rawLow-padding,high=rawHigh+padding;
+  const x=timestamp=>left+(timestamp-start)/Math.max(end-start,INTERVAL_MS)*(W-left-right),y=value=>bottom-(value-low)/(high-low)*(bottom-top);
+  for(let index=0;index<=4;index++){const value=low+(high-low)*index/4,py=y(value);svg.append(make('line',{x1:left,x2:W-right,y1:py,y2:py,class:'grid-line'}));const label=make('text',{x:left-8,y:py+4,'text-anchor':'end'});label.textContent=`$${Math.round(value).toLocaleString('en-US')}`;svg.append(label);}
+  for(let index=0;index<=4;index++){const timestamp=start+(end-start)*index/4,px=x(timestamp);svg.append(make('line',{x1:px,x2:px,y1:top,y2:bottom,class:'grid-line'}));const label=make('text',{x:px+(index===4?-3:3),y:bottom+24,'text-anchor':index===4?'end':'start'});label.textContent=fmtDate(timestamp);svg.append(label);}
+  const active=source.detector,episodeStart=active.kind==='active'?bars.find(bar=>bar.ts===active.onsetTs):null;
+  if(active.kind==='active'&&active.onsetTs<=end){const bandX=x(Math.max(start,active.onsetTs));svg.append(make('rect',{x:bandX,y:top,width:Math.max(2,x(end)-bandX),height:bottom-top,class:'episode-band'}));}
+  const path=bars.map((bar,index)=>`${index?'L':'M'}${x(bar.ts).toFixed(2)},${y(bar.close).toFixed(2)}`).join(' ');svg.append(make('path',{d:path,class:'price-line'}));
+  if(episodeStart){const px=x(episodeStart.ts),py=y(episodeStart.close),alignLeft=px>W-150;svg.append(make('line',{x1:px,x2:px,y1:top,y2:bottom,class:'episode-start-line'}));const label=make('text',{x:px+(alignLeft?-7:7),y:top+13,'text-anchor':alignLeft?'end':'start',class:'episode-start-label'});label.textContent='EPISODE START';svg.append(label,make('circle',{cx:px,cy:py,r:6,class:'episode-start-marker'}));}
+  const vertical=make('line',{x1:0,x2:0,y1:top,y2:bottom,class:'crosshair'}),hit=make('rect',{x:left,y:top,width:W-left-right,height:bottom-top,class:'chart-hit'});
+  hit.addEventListener('pointermove',event=>{const rect=svg.getBoundingClientRect(),pointerX=(event.clientX-rect.left)/rect.width*W,target=start+(pointerX-left)/(W-left-right)*(end-start),bar=bars.reduce((nearest,candidate)=>Math.abs(candidate.ts-target)<Math.abs(nearest.ts-target)?candidate:nearest),cx=x(bar.ts),tooltip=$('.tooltip');vertical.style.opacity=1;vertical.setAttribute('x1',cx);vertical.setAttribute('x2',cx);tooltip.textContent=`${fmtFull(bar.ts)}\nPrice ${fmtPrice(bar.close)}`;tooltip.style.left=`${cx/W*100}%`;tooltip.style.top=`${Math.max(top+35,H*.35)/H*100}%`;tooltip.classList.toggle('align-left',cx>W*.8);tooltip.classList.add('visible');});
+  hit.addEventListener('pointerleave',()=>{vertical.style.opacity=0;$('.tooltip').classList.remove('visible');});svg.append(hit,vertical);
+}
+$('#news-previous').addEventListener('click',()=>{if(ambient.page>0){ambient.page--;renderAmbient();}});
+$('#news-next').addEventListener('click',()=>{if(ambient.result&&ambient.page<Math.ceil(ambient.result.articles.length/5)-1){ambient.page++;renderAmbient();}});
+$('#history-verdict').addEventListener('change',event=>{sessionStorage.setItem('crypto-analyser-history-verdict',event.target.value);$('#history-day').value='';Object.assign(history,{verdict:event.target.value,days:[],episodes:[],truncated:false,episodesLoading:false,episodeDay:'',error:'',episodesError:''});void refreshHistory();});
+$('#history-day').addEventListener('change',event=>{history.episodes=[];history.truncated=false;history.episodesError='';void refreshEpisodeSummaries(event.target.value);});
+addEventListener('pageshow',renderHistory);
+addEventListener('resize',drawChart);
+connect();
+void refreshHistory();setInterval(refreshHistory,60000);
+</script>
+</body>
+</html>

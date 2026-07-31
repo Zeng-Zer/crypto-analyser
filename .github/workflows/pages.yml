@@ -26,9 +26,44 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/configure-pages@v5
+      - name: Prepare frontend
+        env:
+          BACKEND_URL: ${{ vars.BACKEND_URL }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import re
+          from pathlib import Path
+          from urllib.parse import urlparse
+
+          backend_url = os.environ.get("BACKEND_URL", "").rstrip("/")
+          parsed = urlparse(backend_url)
+          if (
+              parsed.scheme != "https"
+              or not parsed.hostname
+              or re.fullmatch(r"[A-Za-z0-9.-]+", parsed.netloc) is None
+              or parsed.username
+              or parsed.password
+              or parsed.port
+              or parsed.path
+              or parsed.params
+              or parsed.query
+              or parsed.fragment
+          ):
+              raise SystemExit("Set repository variable BACKEND_URL to the backend HTTPS origin")
+          Path("_site").mkdir()
+          for name in ("index.html", "live.html"):
+              source = Path("visuals", name).read_text(encoding="utf-8")
+              configured = source.replace("https://backend.invalid", backend_url).replace(
+                  "const API_ORIGIN='';",
+                  f"const API_ORIGIN={json.dumps(backend_url)};",
+              )
+              Path("_site", name).write_text(configured, encoding="utf-8")
+          PY
       - uses: actions/upload-pages-artifact@v4
         with:
-          path: visuals
+          path: _site
       - name: Deploy
         id: deployment
         uses: actions/deploy-pages@v4

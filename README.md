@@ -29,10 +29,13 @@ Controlled context comparison:
 | Data | Storage |
 |---|---|
 | OHLCV, funding, open interest | Monthly Parquet queried directly with DuckDB |
-| News and embeddings | PostgreSQL with pgvector |
+| Historical news and embeddings | PostgreSQL with pgvector |
+| Live bars | Bounded backend memory; streamed read-only to viewers with SSE |
+| Live news candidates | Configurable free-crypto-news HTTP API; transient keyword + vector RRF rank |
+| Confirmed live episodes | PostgreSQL snapshots, LLM results, and Ragas Faithfulness evaluation |
 | Pipeline intermediates and reports | Gitignored JSON under `data/` |
 
-This repository has no real-time ingestion or time-series serving database.
+Live backend owns Binance ingestion, anomaly detection, news and market-context refreshes, RAG/LLM analysis, and episode persistence. Browser only renders server state and reads persisted history.
 
 ## Quickstart
 
@@ -65,7 +68,6 @@ uv run crypto-analyser news search --query 'Terra UST depeg'
 uv run crypto-analyser run --symbol LUNAUSDT --start 2022-05-07 --end 2022-05-11 --mode derivatives_only
 uv run crypto-analyser run --symbol LUNAUSDT --start 2022-05-07 --end 2022-05-11 --mode derivatives_rag --skip-download
 uv run crypto-analyser run --symbol LUNAUSDT --start 2022-05-07 --end 2022-05-11 --mode news_only --skip-download
-uv sync --locked --extra evaluation
 uv run crypto-analyser evaluate
 ```
 
@@ -73,11 +75,64 @@ Required environment variables: `DATABASE_URL`, `LLM_API_URL`, and `LLM_API_KEY`
 
 ### Interactive analyst workbench
 
+Historical replay needs only a static server:
+
 ```bash
 uv run python -m http.server 8000 --directory visuals
 ```
 
-Open `http://localhost:8000`. The page starts with Episode 01 and guides reviewers chronologically through all eight episodes: focused anomaly chart, onset-safe context, hybrid retrieval results with publisher links and archive fallbacks, structured LLM output, then a compact explanation check. The comparison records verdict changes across context modes; Ragas Faithfulness checks whether claims in the combined rationale follow from supplied context. It does not score verdict correctness or prove causality. Page embeds a committed historical snapshot, so GitHub Pages serves it without a backend. After generating new local pipeline artifacts, refresh it with `uv run python scripts/build_visual_data.py`.
+Live news RAG keeps LLM credentials in backend:
+
+```bash
+# Terminal 1: full 24-hour paginated news source
+cd ../free-crypto-news && npm run dev
+
+# Terminal 2: PostgreSQL-backed live observation and episode replay
+cd ../crypto-analyser
+docker compose up -d pgvector
+uv run crypto-analyser live
+
+# Optional recent-window refill
+uv run crypto-analyser live-backfill --days 5
+
+```
+
+Open `http://localhost:8000` for curated historical replay or `http://localhost:8000/live.html` for live BTCUSDT observation. Saved live episodes open in the same replay page with their persisted BTC context. Live backend backfills and streams closed Binance 5-minute bars, runs historical detector on each update, and publishes read-only state to browsers over SSE. It refreshes funding rate and 4-hour open-interest change every 60 seconds and preceding-24-hour Bitcoin headlines every 90 seconds; ambient refresh does not call LLM. At the second qualifying anomalous bar, backend records the first anomalous bar as onset and the confirmation bar close as detection. Funding and OI stay anchored at onset; news may be published no later than detection. Backend embeds the full filtered news pool in bounded batches, fuses keyword and vector ranks with RRF, runs market-only, news-only, and combined classifiers, then evaluates combined rationale with Ragas Faithfulness. Replay shows the same three-context Explanation check and Ragas audit as historical replay. Complete and failed episodes persist while PostgreSQL storage remains intact. Analysis interrupted by backend restart becomes an explicit failed episode rather than silently remaining pending or repeating billable calls. `live-backfill` applies the unchanged detector to the exact requested window plus a hidden 24-hour warm-up, then runs the same time-safe pipeline for each detected BTC episode. `live-event` applies that pipeline to an explicit UTC window and merges a documented timestamped source corpus from JSON; seed articles published or modified after detector confirmation are rejected. It can detect zero episodes. Existing event references are skipped, so reruns do not repeat LLM/Ragas spend. History defaults to Explained across all dates, newest first, capped to latest 50 cards; an optional viewer-local date narrows cards and remains capped at 500. Each card opens the exact BTC episode through `index.html?source=live`, where Previous/Next navigates that day. Replay shows onset, detection, and detector-relative news timing. `NEWS_API_URL` defaults to sibling `free-crypto-news` at `http://127.0.0.1:3000/api/news`; public fallback remains limited to three sample articles.
+
+### Backend deployment
+
+Requirements: Docker Compose and `free-crypto-news` checked out beside this repository.
+
+```bash
+cp .env.example .env
+chmod 600 .env
+# Generate independent PGVECTOR_PASSWORD and NEWS_API_SECRET values, then configure LLM settings.
+
+docker compose up -d --build
+curl --fail http://127.0.0.1:8000/healthz
+```
+
+Compose binds application and PostgreSQL to host loopback. Containers communicate over private Compose network. Run one application replica because each process owns market worker. Public hosting must expose backend through HTTPS, overwrite `X-Forwarded-For`, and apply request limits. Set `FRONTEND_ORIGIN` to exact GitHub Pages origin so backend permits read-only cross-origin API and SSE requests. Backend allows 120 requests per client per fixed minute and two SSE streams per client, caps total HTTP/SSE connections, rejects write methods, and sanitizes public errors. Forwarded addresses are ignored unless direct ingress peer is listed in `TRUSTED_PROXY_CIDRS`; when unset, all traffic through one proxy shares one conservative limit.
+
+Configure GitHub Pages with public backend origin:
+
+```bash
+gh variable set BACKEND_URL --body 'https://backend.example.com'
+gh workflow run pages.yml
+```
+
+Pages publishes both historical replay and live frontend. Workflow injects configured backend origin into browser API, history, and SSE requests. Backend remains behind HTTPS ingress.
+
+Back up PostgreSQL off host regularly:
+
+```bash
+mkdir -p backups
+docker compose exec -T pgvector sh -c \
+  'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc' \
+  > "backups/crypto-$(date +%F).dump"
+```
+
+Historical replay starts with Episode 01 and guides reviewers chronologically through all eight episodes: focused anomaly chart, onset-safe context, hybrid retrieval results with publisher links and archive fallbacks, structured LLM output, then a compact explanation check. The comparison records verdict changes across context modes; Ragas Faithfulness checks whether claims in the combined rationale follow from supplied context. It does not score verdict correctness or prove causality. Page embeds a committed historical snapshot, so GitHub Pages serves it without a backend. After generating new local pipeline artifacts, refresh it with `uv run python scripts/build_visual_data.py`.
 
 Run browser tests after installing Chromium once:
 
@@ -101,7 +156,8 @@ src/crypto_analyser/
 ├── evaluation.py      # Direct + Ragas comparison
 ├── assets/            # Packaged prompts and database/JSON schemas
 ├── constants.py       # Project defaults
-└── llm_client.py
+├── llm_client.py
+└── live.py            # Backend live stream, detector, RAG/LLM, SSE, and history
 
 data/                  # Gitignored parquet and generated JSON
 ```

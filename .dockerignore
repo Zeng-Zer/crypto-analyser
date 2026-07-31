@@ -1,0 +1,14 @@
+.git
+.github
+.pi-subagents
+.venv
+data
+docs
+events
+node_modules
+reports
+results
+tests
+.env
+*.log
+__pycache__

@@ -63,6 +63,21 @@ CREATE INDEX IF NOT EXISTS idx_crypto_news_research
 CREATE INDEX IF NOT EXISTS idx_crypto_news_date_pub
     ON crypto_news USING BRIN (date_pub) WITH (pages_per_range = 32);
 
+CREATE TABLE IF NOT EXISTS live_episodes (
+    event_reference TEXT PRIMARY KEY,
+    symbol TEXT NOT NULL,
+    detected_at TIMESTAMPTZ NOT NULL,
+    status TEXT NOT NULL CHECK (status IN ('pending', 'complete', 'failed')),
+    snapshot JSONB NOT NULL,
+    analysis JSONB,
+    error TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_live_episodes_detected_at
+    ON live_episodes (detected_at DESC);
+
 -- pgvector HNSW indexes support at most 2,000 vector dimensions. Qwen3 emits
 -- 4,096 dimensions, so retrieval indexes and queries use the same first-2,000
 -- expression. The full vector remains stored for future migration.

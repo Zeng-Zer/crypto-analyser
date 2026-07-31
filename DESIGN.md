@@ -1,7 +1,7 @@
 ---
 version: alpha
 name: Crypto Anomaly Analyser
-description: Scientific editorial system for historical replay, time-safe context assembly, and offline evaluation.
+description: Scientific editorial system for historical replay, live market observation, time-safe context assembly, and offline evaluation.
 colors:
   primary: '#a33d2d'
   background: '#f3efe6'
@@ -122,7 +122,7 @@ components:
 
 ## Overview
 
-A scientific editorial showcase rather than a marketing page or crypto trading terminal. It should feel like a guided research story: archival paper, rigorous annotation, measured conclusions, and visible uncertainty. Historical replay is the only runtime. Page walks through one selected episode at a time: anomaly, time-safe market activity, hybrid retrieval, structured LLM output, then a compact explanation check. Favor a clear narrative over operational density; market observation values remain visible, while LLM schema detail uses progressive disclosure. Audience is hiring teams and data/LLM practitioners with three to ten minutes. Emotional target is credible curiosity, not market hype.
+A scientific editorial showcase rather than a marketing page or crypto trading terminal. It should feel like a guided research story: archival paper, rigorous annotation, measured conclusions, and visible uncertainty. Historical replay walks through one selected episode at a time: anomaly, time-safe market activity, hybrid retrieval, structured LLM output, then a compact explanation check. Live observation is a separate focused surface rendering backend-owned closed Binance bars and deterministic detector state over SSE; confirmed episodes add time-safe Binance market activity, current-news retrieval, structured LLM output, and PostgreSQL-backed replay. Favor a clear narrative over operational density. Audience is hiring teams and data/LLM practitioners with three to ten minutes. Emotional target is credible curiosity, not market hype.
 
 ## Colors
 
@@ -134,7 +134,7 @@ Newsreader carries investigation headings and key findings. Source Sans 3 carrie
 
 ## Layout
 
-Use one continuous page presenting one episode at a time with Previous/Next navigation. A focused anomaly chart leads into three numbered columns: market activity, pre-onset RAG retrieval, and combined structured LLM analysis. Episode 01 is the chronological default; onset query parameters support direct links to other episodes. A compact explanation check follows cards, compares three context runs, and checks combined rationale with Ragas Faithfulness. On small screens, stack all steps in reading order.
+Historical replay uses one continuous page presenting one episode at a time with Previous/Next navigation. A focused anomaly chart leads into three numbered columns: market activity, pre-onset RAG retrieval, and combined structured LLM analysis. Episode 01 is the chronological default; onset query parameters support direct links to other episodes. A compact explanation check follows cards, compares three context runs, and checks combined rationale with Ragas Faithfulness. Live observation uses a separate page with one absolute BTC price chart, one price detector, current funding and open-interest readings, a paginated 24-hour news ledger, and a day-based episode history launcher. Persisted BTC episodes reuse the replay page with a live data source. On small screens, stack all steps in reading order.
 
 ## Elevation & Depth
 
@@ -146,21 +146,30 @@ Corners are square or two pixels. Episode markers are circles because they repre
 
 ## Components
 
-- **Runtime label:** Show Replay as compact static status.
-- **Episode navigator:** Previous/Next buttons browse all episodes while one episode remains the narrative focus.
-- **Price plate:** Focused native SVG with close-price line, anomaly duration band, signal-detection marker, crosshair, and local-time axes. No analyst controls on the showcase view.
+- **Runtime label:** Show Replay or Live as compact status; live status must reflect actual connection state.
+- **Deployment boundary:** GitHub Pages hosts historical replay and live frontend. Browser sends read-only API, history, and SSE requests to one backend instance behind HTTPS. PostgreSQL and news services remain private. Interrupted pending analyses become visible failures rather than automatic paid retries.
+- **Live entry banner:** On historical LUNA replay only, place a slim pale link below episode navigation inviting users into live BTCUSDT anomaly detection without outranking LUNA content. Hide it when replaying persisted live episodes.
+- **Live price plate:** Backend backfills at least 24 hours of closed 5-minute BTCUSDT price bars, then appends only socket bars where Binance marks `x: true`. Reconcile against Binance REST every 15 seconds so a connected but silent socket cannot leave stale data; label fallback state as Polling. Keep bounded backend memory and send read-only snapshots to viewers with SSE. Plot absolute dollar price so existing points do not change when trailing window advances. Shade active episode through latest closed bar and mark its start when that point remains inside chart window.
+- **Live detector state:** Backend applies existing 24-hour Z-score, 4-hour drawdown, and 2-hour return thresholds to price independent of browser sessions. Name reading as potential signal until two flagged closed bars satisfy episode minimum. Show active state without internal gap counters. Show missing warm-up explicitly.
+- **Live market activity:** Refresh Binance funding rate and 4-hour open-interest change every 60 seconds without LLM calls. At confirmed episode, refetch both at or before detection and preserve null values.
+- **Ambient live news:** Fetch Bitcoin headlines from preceding 24 hours through sibling `free-crypto-news`, refresh every 90 seconds, and paginate five headlines per page. Do not embed, classify, highlight as support, or imply market explanation.
+- **Live episode analysis:** At confirmed price episode, backend anchors funding and OI at the first anomalous bar, filters news to the 24 hours ending when the detector confirms the episode, embeds the full filtered candidate pool in bounded batches, and fuses keyword and vector ranks with RRF (`k=60`). Run the same three classifier contexts as historical replay: market activity only, news only, and combined top-six evidence. Run Ragas Faithfulness on the combined detailed rationale. Persist ranks, evidence, all three verdicts, onset and confirmation timestamps, pending, complete, and failed states, plus Ragas score or error in PostgreSQL without requiring an open browser. Replay reads that snapshot, shows the same Explanation check as historical replay, and never reruns retrieval.
+- **Live history refill:** One-shot command applies unchanged detector to exact requested recent window plus 24-hour warm-up, then runs the same three-context RAG/LLM/Ragas pipeline for every detected BTC episode. Explicit event import may merge a documented, timestamped source corpus; reject sources published or modified after detector confirmation. Existing event references are skipped. Zero episodes is valid.
+- **Live episode history:** Filter persisted episodes by result, defaulting to Explained; Unexplained and All remain available. Date defaults to All dates with the latest 50 matching episodes ordered newest first and grouped by horizontal viewer-local date dividers labelled Today, Yesterday, or `25 Jul 2026`; selecting one date narrows the cards, removes dividers, and remains bounded to 500 episodes. Show truncation explicitly. Show full-width episode cards with local anomaly-start time, severity plus signed peak Z-score, verdict, percentage price change with both prices, and a mini replay chart covering roughly one hour before the anomaly through detector confirmation. Mini chart reuses replay grammar: absolute price line, shaded anomaly window, dashed `SIGNAL DETECTED` marker and attached dot, plus actual start and detection times. For legacy snapshots missing confirmation time, derive it from the close of the second qualifying bar and mark it as derived in API output. Do not expose bar-count or internal `onset` labels. Render stored `unexplained` as reader-facing “Market normal · no causal news” without changing machine value. Each card deep-links to exact episode in the shared replay page, which switches data source without changing replay structure with Previous/Next navigation, focused episode chart, market activity, ranked news, and LLM result or failure state.
+- **Episode navigator:** Use pair symbol as page title. Previous/Next buttons and `X of N` position browse episodes while one remains the narrative focus. Persisted live replay adds a back control that preserves browser history state and falls back to live page for direct links.
+- **Price plate:** Place metadata tiles above a separate chart plate. Keep episode header attached directly to chart. Use a focused native SVG with close-price line, anomaly duration band, signal-detection marker, crosshair, and local-time axes. No analyst controls on the showcase view.
 - **Market activity step:** Show funding rates, open-interest changes, and thresholds as percentages with plain-language normal/breach states. Technical details may add precision but still use percentages; raw fractions stay in machine artifacts.
 - **RAG retrieval step:** Show every retrieved headline in relevance order with ordinal position, four-decimal reciprocal rank fusion (RRF) score, and age before signal detection. Explain that RRF combines semantic and keyword ranking; do not encode relevance with color.
 - **LLM analysis step:** Show verdict plus one to three concise reason bullets from schema-validated synthesis. Do not show detailed rationale or self-confidence on Analysis.
 - **Explanation check:** Follow selected anomaly through three short questions: whether news changed result, what each context returned, and how much rationale is backed by inputs. Show whether market activity alone and news alone explain move, then name combined primary outcome and state priority rule. Avoid repeated verdict labels, experimental labels, or special color accent. Show backed and not-directly-backed percentages plus formula; keep raw rationale out of UI.
-- **News ledger:** Relevance position, RRF score, publication age, and headline separated by rules. Link titles to validated publisher URLs recovered from CryptoPanic archive pages, show the CryptoPanic URL as a separate fallback, and mark both as external links. Titles turn orange only when model marks article as affirmative supporting context.
+- **News ledger:** Use one metadata line in historical and live replay: relevance position, RRF score, and publication age relative to detector confirmation. Link titles to validated publisher URLs recovered from CryptoPanic archive pages, show the CryptoPanic URL as a separate fallback, and mark both as external links. Titles turn orange only when model marks article as affirmative supporting context.
 - **Metric note:** State “X% of claims were directly backed by supplied market data and news” and complementary unbacked percentage. Explain backed claims ÷ all claims. State that not directly backed does not mean false and score does not verify result or cause.
 
 ## Do's and Don'ts
 
 ### Do
-- Keep onset timestamp and threshold states visible.
-- Make pre-onset temporal safety explicit through publication age.
+- Keep onset and detection timestamps plus threshold states visible.
+- Make temporal safety explicit through publication age before detection.
 - Call supplied material context; reserve evidence for context that supports a stated verdict.
 - Pair every color encoding with text; one legend above source cards defines orange as context supporting verdict.
 - State that one eight-episode LUNA case study does not prove causality or source superiority.
@@ -170,7 +179,8 @@ Corners are square or two pixels. Episode markers are circles because they repre
 
 ### Don't
 - Do not use a full-screen hero, dashboard side rails, filter panels, candlesticks, glowing charts, gradients, or generic crypto iconography.
-- Do not present replay as live, invent connection health, or fabricate missing timestamps.
+- Do not present replay as live, invent connection health, or fabricate missing timestamps. Live status follows backend WebSocket and backfill events sent to viewer over SSE.
+- Do not imply that live observation proves causes. Do not expose internal market-source distinctions as reader-facing complexity. Keep LLM credentials server-side.
 - Do not place controlled context runs inside primary analysis cards; keep them in compact explanation check below.
 - Do not expose funding rates, open-interest changes, or their thresholds as decimal fractions.
 - Do not call LLM confidence predictive probability.

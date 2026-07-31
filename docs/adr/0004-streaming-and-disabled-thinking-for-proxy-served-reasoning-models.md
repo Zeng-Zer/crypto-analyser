@@ -2,8 +2,7 @@
 
 `LLMClient.classify()` calls the LLM with `stream: True` and
 `chat_template_kwargs: {"enable_thinking": False}` in the request payload. Both
-flags are retained for the current model (`glm-5.2-short`, served through a
-proxy) and were added after the synchronous non-streaming path failed
+flags are retained for proxy-served reasoning models and were added after the synchronous non-streaming path failed
 during classifier integration testing.
 
 Streaming remains required because this proxy serving path rejects the

@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from crypto_analyser._paths import asset_path, data_root
-from crypto_analyser.constants import FUNDING_RATE_THRESHOLD, LLM_MODEL, OI_CHANGE_THRESHOLD
+from crypto_analyser.constants import FUNDING_RATE_THRESHOLD, OI_CHANGE_THRESHOLD
 from crypto_analyser.llm_client import ClassificationResult, LLMClient
 
 PROMPT_PATH = asset_path("classification_prompt.md")
@@ -60,13 +60,15 @@ def _compact_percent(value: float) -> str:
 
 
 def _episode_vars(episode: dict, features: dict | None, meta: dict, event_reference: str) -> dict[str, Any]:
+    peak_z = episode.get("peak_z")
     return {
         "symbol": meta["symbol"],
         "start": meta["start"],
         "end": meta["end"],
         "onset_ts": episode["onset_ts"],
         "severity": episode["severity"],
-        "peak_z_abs": abs(episode["peak_z"]) if episode["peak_z"] is not None else None,
+        "direction": episode.get("direction") or ("crash" if peak_z is not None and peak_z < 0 else "spike"),
+        "peak_z": peak_z,
         "drawdown_onset_4h": episode.get("drawdown_onset_4h"),
         "return_onset_2h": episode.get("return_onset_2h"),
         "triggers": ", ".join(episode.get("onset_triggers", episode.get("triggers", ["price_zscore"]))),
@@ -262,7 +264,7 @@ def classify_batch(
     data_dir: Path | None = None,
     context_path: Path | None = None,
     client: LLMClient | None = None,
-    model: str = LLM_MODEL,
+    model: str | None = None,
 ) -> list[Path]:
     root = data_dir or data_root()
     anomalies = json.loads(anomalies_path.read_text(encoding="utf-8"))

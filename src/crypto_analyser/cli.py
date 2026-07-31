@@ -16,7 +16,6 @@ from crypto_analyser._paths import repo_root
 from crypto_analyser.constants import (
     DRAWDOWN_HOURS,
     DRAWDOWN_THRESHOLD,
-    LLM_MODEL,
     MAX_GAP,
     MIN_CONSECUTIVE,
     RETURN_HOURS,
@@ -55,7 +54,7 @@ def _run(args: argparse.Namespace) -> None:
         return_threshold=args.return_threshold,
         max_gap=args.max_gap,
         min_consecutive=args.min_consecutive,
-        llm_model=args.model,
+        llm_model=args.model or _env("LLM_MODEL"),
     )
     print(path)
 
@@ -107,6 +106,62 @@ def _embed_news(args: argparse.Namespace) -> None:
     print(f"Embedded {count} articles.")
 
 
+def _live(args: argparse.Namespace) -> None:
+    from crypto_analyser.live import serve_live
+
+    serve_live(
+        args.port,
+        args.news_api_url,
+        _env("LLM_API_URL"),
+        _env("LLM_API_KEY"),
+        _env("DATABASE_URL"),
+        args.embedding_model,
+        args.model or _env("LLM_MODEL"),
+        args.judge_model or _env("RAGAS_JUDGE_MODEL"),
+        args.host,
+    )
+
+
+def _live_backfill(args: argparse.Namespace) -> None:
+    from crypto_analyser.live import run_live_backfill
+
+    result = run_live_backfill(
+        args.days,
+        args.news_api_url,
+        _env("LLM_API_URL"),
+        _env("LLM_API_KEY"),
+        _env("DATABASE_URL"),
+        args.embedding_model,
+        args.model or _env("LLM_MODEL"),
+        args.judge_model or _env("RAGAS_JUDGE_MODEL"),
+    )
+    print(
+        f"Detected {result['detected']}; completed {result['complete']}; "
+        f"failed {len(result['failed'])}; skipped existing {result['skipped_existing']}."
+    )
+
+
+def _live_event(args: argparse.Namespace) -> None:
+    from crypto_analyser.live import run_live_event
+
+    result = run_live_event(
+        args.start,
+        args.end,
+        args.news_file,
+        args.news_api_url,
+        _env("LLM_API_URL"),
+        _env("LLM_API_KEY"),
+        _env("DATABASE_URL"),
+        args.embedding_model,
+        args.model or _env("LLM_MODEL"),
+        args.judge_model or _env("RAGAS_JUDGE_MODEL"),
+    )
+    print(
+        f"Detected {result['detected']}; completed {result['complete']}; "
+        f"failed {len(result['failed'])}; skipped existing {result['skipped_existing']}."
+    )
+
+
 def _evaluate(args: argparse.Namespace) -> None:
     from crypto_analyser.evaluation import write_evaluation
 
@@ -115,21 +170,57 @@ def _evaluate(args: argparse.Namespace) -> None:
             args.symbol,
             args.start,
             args.end,
-            args.judge_model,
+            args.judge_model or _env("RAGAS_JUDGE_MODEL"),
             _env("LLM_API_URL"),
             _env("LLM_API_KEY"),
             args.data_dir,
         )
     except ImportError as exc:
-        raise RuntimeError("evaluation dependencies missing; install crypto-analyser[evaluation]") from exc
+        raise RuntimeError(f"evaluation dependencies unavailable: {exc}") from exc
     except Exception as exc:
         raise RuntimeError(f"evaluation failed: {exc}") from exc
     print(path)
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="crypto-analyser", description="Historical crypto anomaly analysis")
+    parser = argparse.ArgumentParser(prog="crypto-analyser", description="Historical and live crypto anomaly analysis")
     commands = parser.add_subparsers(dest="command", required=True)
+
+    live = commands.add_parser("live", help="Serve live Binance observation with news RAG")
+    live.add_argument("--host", default=os.getenv("LIVE_HOST", "127.0.0.1"))
+    live.add_argument("--port", type=int, default=8000)
+    live.add_argument(
+        "--news-api-url",
+        default=os.getenv("NEWS_API_URL", "http://127.0.0.1:3000/api/news"),
+    )
+    live.add_argument("--embedding-model", default=os.getenv("EMBEDDING_MODEL", DEFAULT_MODEL))
+    live.add_argument("--model", default=os.getenv("LLM_MODEL"))
+    live.add_argument("--judge-model", default=os.getenv("RAGAS_JUDGE_MODEL"))
+    live.set_defaults(handler=_live)
+
+    live_backfill = commands.add_parser("live-backfill", help="Refill recent BTC episodes into live history")
+    live_backfill.add_argument("--days", type=int, default=5)
+    live_backfill.add_argument(
+        "--news-api-url",
+        default=os.getenv("NEWS_API_URL", "http://127.0.0.1:3000/api/news"),
+    )
+    live_backfill.add_argument("--embedding-model", default=os.getenv("EMBEDDING_MODEL", DEFAULT_MODEL))
+    live_backfill.add_argument("--model", default=os.getenv("LLM_MODEL"))
+    live_backfill.add_argument("--judge-model", default=os.getenv("RAGAS_JUDGE_MODEL"))
+    live_backfill.set_defaults(handler=_live_backfill)
+
+    live_event = commands.add_parser("live-event", help="Import an explicit BTC event window")
+    live_event.add_argument("--start", required=True)
+    live_event.add_argument("--end", required=True)
+    live_event.add_argument("--news-file", required=True, type=Path)
+    live_event.add_argument(
+        "--news-api-url",
+        default=os.getenv("NEWS_API_URL", "http://127.0.0.1:3000/api/news"),
+    )
+    live_event.add_argument("--embedding-model", default=os.getenv("EMBEDDING_MODEL", DEFAULT_MODEL))
+    live_event.add_argument("--model", default=os.getenv("LLM_MODEL"))
+    live_event.add_argument("--judge-model", default=os.getenv("RAGAS_JUDGE_MODEL"))
+    live_event.set_defaults(handler=_live_event)
 
     run = commands.add_parser("run", help="Run historical anomaly analysis")
     run.add_argument("--symbol", default="LUNAUSDT")
@@ -145,7 +236,7 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--return-threshold", type=float, default=RETURN_THRESHOLD)
     run.add_argument("--max-gap", type=int, default=MAX_GAP)
     run.add_argument("--min-consecutive", type=int, default=MIN_CONSECUTIVE)
-    run.add_argument("--model", default=os.getenv("LLM_MODEL", LLM_MODEL))
+    run.add_argument("--model", default=os.getenv("LLM_MODEL"))
     run.add_argument("--skip-download", action="store_true")
     run.add_argument("--force-download", action="store_true")
     run.set_defaults(handler=_run)
@@ -179,7 +270,7 @@ def build_parser() -> argparse.ArgumentParser:
     evaluate.add_argument("--symbol", default="LUNAUSDT")
     evaluate.add_argument("--start", default="2022-05-07")
     evaluate.add_argument("--end", default="2022-05-11")
-    evaluate.add_argument("--judge-model", default=os.getenv("RAGAS_JUDGE_MODEL", "glm-5.2-short"))
+    evaluate.add_argument("--judge-model", default=os.getenv("RAGAS_JUDGE_MODEL"))
     evaluate.add_argument("--data-dir", type=Path, default=Path("data"))
     evaluate.set_defaults(handler=_evaluate)
     return parser

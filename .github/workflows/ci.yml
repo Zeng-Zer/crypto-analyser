@@ -8,6 +8,10 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      PGVECTOR_USER: postgres
+      PGVECTOR_PASSWORD: postgres
+      NEWS_API_SECRET: ci-only
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6

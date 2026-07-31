@@ -50,6 +50,8 @@ def test_news_only_prompt_excludes_derivatives(monkeypatch, tmp_path):
     assert "Do not infer or mention funding" in system
     assert "Terra UST depeg" in user
     assert "funding_rate_current" not in user
+    assert "Direction (derived): crash" in user
+    assert "Peak Z-score (signed): -4.0" in user
 
 
 def test_invalid_or_verdict_inconsistent_supporting_refs_fail(tmp_path):
