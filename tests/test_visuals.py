@@ -128,6 +128,7 @@ def test_live_workbench_is_read_only_backend_stream_viewer(browser: Browser, wor
         window.EventSource = ViewerEventSource;
         window.WebSocket = class { constructor() { throw new Error('viewer must not open WebSocket'); } };
         window.__pushLiveState = state => window.__liveEvents[0].emit('message', {data: JSON.stringify(state)});
+        window.__pushLiveError = () => window.__liveEvents[0].emit('error', {});
         """
     )
 
@@ -246,6 +247,14 @@ def test_live_workbench_is_read_only_backend_stream_viewer(browser: Browser, wor
 
     page.route("**/api/live-history/days?**", history_days)
     page.route("**/api/live-history/episodes?**", history_episodes)
+    page.route(
+        "**/api/live-stream-status",
+        lambda route: route.fulfill(
+            status=200,
+            content_type="application/json",
+            body=json.dumps({"limited": True, "active": 6, "limit": 6}),
+        ),
+    )
     page.goto(f"{workbench_url}/live.html")
     assert page.evaluate("__liveEvents[0].url") == "/api/live-stream"
 
@@ -257,6 +266,9 @@ def test_live_workbench_is_read_only_backend_stream_viewer(browser: Browser, wor
     }
     page.evaluate("__pushLiveState", state(bars, clear))
     expect(page.locator("#runtime-state")).to_have_text("Live")
+    page.evaluate("__pushLiveError()")
+    expect(page.locator("#stream-toast")).to_be_visible()
+    expect(page.locator("#stream-toast")).to_contain_text("Too many live connections")
     expect(page.locator("#reconnect")).to_have_count(0)
     expect(page.locator("#price-state")).to_have_text("No anomaly")
     expect(page.locator("#feed-status")).to_have_text("Streaming · 300 bars")

@@ -1,6 +1,8 @@
+import json
+
 import pytest
 
-from crypto_analyser.llm_client import ClassificationResult
+from crypto_analyser.llm_client import ClassificationResult, LLMClient
 
 
 def _result(**overrides):
@@ -74,3 +76,34 @@ def test_classification_result_rejects_mismatched_event_reference():
 def test_classification_result_rejects_wrong_scalar_types(field, value, message):
     with pytest.raises(ValueError, match=message):
         ClassificationResult.from_dict(_result(**{field: value}))
+
+
+def test_classifier_uses_medium_reasoning_and_forced_tool_output(monkeypatch):
+    payload = None
+
+    class Response:
+        def raise_for_status(self):
+            return None
+
+        def iter_lines(self):
+            arguments = json.dumps(_result()).encode()
+            yield b'data: {"choices":[{"delta":{"tool_calls":[{"function":{"arguments":' + json.dumps(
+                arguments.decode()
+            ).encode() + b"}}]}}]}"
+            yield b"data: [DONE]"
+
+    client = LLMClient("https://plexus.example/v1", "test-key", "gpt-5.6-luna")
+
+    def post(_url, *, json, **_kwargs):
+        nonlocal payload
+        payload = json
+        return Response()
+
+    monkeypatch.setattr(client._session, "post", post)
+
+    assert client.classify("Classify", "LUNAUSDT_123").classification == "unexplained"
+    assert payload["reasoning_effort"] == "medium"
+    assert payload["tool_choice"] == {"type": "function", "name": "emit_classification"}
+    assert payload["tools"][0]["function"]["name"] == "emit_classification"
+    assert "response_format" not in payload
+    assert "chat_template_kwargs" not in payload

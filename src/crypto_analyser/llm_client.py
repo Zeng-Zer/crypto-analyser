@@ -1,10 +1,4 @@
-"""OpenAI-compatible LLM client with structured output support.
-
-Calls with ``stream=True`` and ``chat_template_kwargs={"enable_thinking": False}``
-because the proxy-served reasoning model fails the non-streaming path and times
-out when allowed to emit chain-of-thought before the structured JSON — see
-ADR-0004. Streaming here is not for token-by-token rendering; the SSE chunks are
-accumulated into one string and ``json.loads``-ed exactly like a batch response."""
+"""OpenAI-compatible LLM client with structured output support."""
 
 from __future__ import annotations
 
@@ -26,6 +20,7 @@ CLASSIFICATIONS = {
     "unexplained",
     "insufficient_data",
 }
+LLM_REASONING_EFFORT = "medium"
 
 
 class PlaceholderValueError(ValueError):
@@ -155,7 +150,7 @@ class LLMClient:
         api_key: str | None = None,
         model: str | None = None,
         temperature: float = 0.1,
-        max_tokens: int = 2000,
+        max_tokens: int = 8000,
     ) -> None:
         api_url = api_url or _resolve_api_url()
         api_key = api_key or _resolve_api_key()
@@ -201,28 +196,24 @@ class LLMClient:
     ) -> ClassificationResult:
         """Send a classification prompt to the LLM and return a typed result.
 
-        Uses ``response_format={"type": "json_schema", "strict": true}`` for
-        deterministic structured output. If *system_prompt* is None, a default
-        crypto-analyst system message is used.
+        Forces one strict ``emit_classification`` tool call for deterministic
+        structured output. If *system_prompt* is None, a default crypto-analyst
+        system message is used.
         """
         schema = self._load_schema()
 
-        # Build OpenAI-compatible JSON Schema request
-        response_format = {
-            "type": "json_schema",
-            "json_schema": {
-                "name": schema["title"],
-                "strict": True,
-                "schema": {
-                    "type": "object",
-                    "properties": {
-                        k: {sk: sv for sk, sv in v.items() if sk != "description"}
-                        for k, v in schema["properties"].items()
-                    },
-                    "required": schema["required"],
-                    "additionalProperties": schema.get("additionalProperties", False),
-                },
+        classification_schema = {
+            "type": "object",
+            "properties": {
+                key: {
+                    schema_key: schema_value
+                    for schema_key, schema_value in value.items()
+                    if schema_key != "description"
+                }
+                for key, value in schema["properties"].items()
             },
+            "required": schema["required"],
+            "additionalProperties": schema.get("additionalProperties", False),
         }
 
         # Inject event_reference into the user prompt so the LLM populates it
@@ -243,14 +234,23 @@ class LLMClient:
                 },
                 {"role": "user", "content": enriched_prompt},
             ],
-            "response_format": response_format,
+            "reasoning_effort": LLM_REASONING_EFFORT,
+            "tools": [
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "emit_classification",
+                        "description": "Return the structured anomaly classification.",
+                        "strict": True,
+                        "parameters": classification_schema,
+                    },
+                }
+            ],
+            "tool_choice": {"type": "function", "name": "emit_classification"},
             "temperature": self._temperature,
             "max_tokens": self._max_tokens,
-        # Streaming avoids proxy read timeouts on long structured responses.
+            # Streaming avoids proxy read timeouts on long structured responses.
             "stream": True,
-            # Disable reasoning-mode tokens so the model emits structured JSON directly
-            # instead of spending budget on chain-of-thought before the answer.
-            "chat_template_kwargs": {"enable_thinking": False},
         }
 
         resp = self._session.post(
@@ -261,9 +261,7 @@ class LLMClient:
         )
         resp.raise_for_status()
 
-        # OpenAI-compatible SSE: each `data: {...}` chunk carries a `delta.content`
-        # fragment; the stream terminates with `data: [DONE]`. We reassemble into
-        # the same JSON string the non-streaming endpoint would have returned.
+        # OpenAI-compatible SSE tool arguments arrive as JSON string fragments.
         chunks: list[str] = []
         for line in resp.iter_lines():
             if not line:
@@ -277,8 +275,9 @@ class LLMClient:
             chunk_json = json.loads(body)
             if chunk_json.get("choices"):
                 delta = chunk_json["choices"][0].get("delta") or {}
-                if piece := delta.get("content"):
-                    chunks.append(piece)
+                for tool_call in delta.get("tool_calls") or []:
+                    if piece := (tool_call.get("function") or {}).get("arguments"):
+                        chunks.append(piece)
         content = "".join(chunks)
         parsed = json.loads(content)
 

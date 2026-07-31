@@ -111,6 +111,22 @@ def test_live_stream_rejects_connections_over_capacity():
         thread.join()
 
 
+def test_live_stream_status_reports_per_client_limit():
+    server = live._BoundedThreadingHTTPServer(("127.0.0.1", 0), live._LiveHandler)
+    server.client_limiter = live._ClientLimiter(streams_per_client=1)
+    assert server.client_limiter.open_stream("127.0.0.1") is True
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        response = requests.get(f"http://127.0.0.1:{server.server_port}/api/live-stream-status", timeout=2)
+        assert response.status_code == 200
+        assert response.json() == {"limited": True, "active": 1, "limit": 1}
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join()
+
+
 def test_live_server_bounds_all_http_connections():
     server = live._BoundedThreadingHTTPServer(("127.0.0.1", 0), live._LiveHandler, max_connections=1)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -296,6 +312,13 @@ def test_client_limiter_releases_stream_slot():
     assert limiter.open_stream("203.0.113.1") is False
     limiter.close_stream("203.0.113.1")
     assert limiter.open_stream("203.0.113.1") is True
+
+
+def test_default_client_limiter_allows_six_streams():
+    limiter = live._ClientLimiter()
+    assert all(limiter.open_stream("203.0.113.1") for _ in range(6))
+    assert limiter.stream_status("203.0.113.1") == {"limited": True, "active": 6, "limit": 6}
+    assert limiter.open_stream("203.0.113.1") is False
 
 
 def test_future_bar_is_rejected_even_with_exact_interval_shape():

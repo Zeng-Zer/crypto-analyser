@@ -10,6 +10,7 @@ from typing import Any
 
 from crypto_analyser._paths import data_root, repo_root
 from crypto_analyser.constants import FUNDING_RATE_THRESHOLD, OI_CHANGE_THRESHOLD
+from crypto_analyser.llm_client import LLM_REASONING_EFFORT
 
 MODES = ("derivatives_only", "derivatives_rag", "news_only")
 
@@ -23,7 +24,14 @@ class FaithfulnessScorer:
         from ragas.metrics.collections import Faithfulness
 
         client = AsyncOpenAI(api_key=api_key, base_url=api_url)
-        self.metric = Faithfulness(llm_factory(judge_model, client=client, max_tokens=4096))
+        self.metric = Faithfulness(
+            llm_factory(
+                judge_model,
+                client=client,
+                max_tokens=8000,
+                reasoning_effort=LLM_REASONING_EFFORT,
+            )
+        )
 
     def __call__(self, question: str, response: str, contexts: list[str]) -> float:
         value = self.metric.score(

@@ -141,6 +141,9 @@
     .analysis-status.ready { color:var(--color-news); }
     .analysis-status.error { color:var(--color-anomaly); }
     .note { margin:14px 0 0; color:var(--color-ink-muted); font-size:14px; }
+    .stream-toast { position:fixed; right:16px; bottom:16px; z-index:30; width:min(360px,calc(100vw - 32px)); border:1px solid var(--color-anomaly); border-left-width:5px; background:var(--color-surface-strong); padding:12px 14px; box-shadow:0 8px 24px rgba(23,25,22,.16); }
+    .stream-toast strong { display:block; font:600 12px/1.2 var(--font-data); letter-spacing:.06em; text-transform:uppercase; }
+    .stream-toast span { display:block; margin-top:5px; color:var(--color-ink-muted); font-size:14px; }
     @media (max-width:900px) {
       .shell-meta { display:none; }
       .market-grid { grid-template-columns:1fr; }
@@ -212,6 +215,7 @@
 
   <section class="episode-history" aria-labelledby="history-title"><header class="section-head"><h2 id="history-title">Price anomaly history</h2><span class="analysis-status" id="history-status">Loading</span></header><div class="history-body"><label class="history-field">Result<select id="history-verdict"><option value="explained" selected>Explained</option><option value="unexplained">Unexplained</option><option value="all">All</option></select></label><label class="history-field">Date<select id="history-day" disabled><option value="">All dates · newest first</option></select></label></div><div class="history-list" id="history-list" aria-live="polite"><div class="history-empty">Loading explained anomalies.</div></div><p class="error-detail chart-error" id="history-error" role="alert"></p></section>
 </main>
+<aside class="stream-toast" id="stream-toast" role="alert" aria-live="assertive" hidden><strong>Too many live connections</strong><span>Close extra tabs or wait a few seconds, then the stream will reconnect.</span></aside>
 <script>
 const API_ORIGIN='';
 const INTERVAL_MS=300000,WINDOW_BARS=288,CHART_BARS=288;
@@ -231,6 +235,9 @@ const historyDayFormat=new Intl.DateTimeFormat('en-GB',{timeZone:'UTC',day:'2-di
 const localDayFormat=new Intl.DateTimeFormat('en-GB',{timeZone:zone,year:'numeric',month:'2-digit',day:'2-digit'});
 const timeFormat=new Intl.DateTimeFormat('en-GB',{hour:'2-digit',minute:'2-digit'});
 const fullFormat=new Intl.DateTimeFormat('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit'});
+let streamToastTimer=0,lastStreamStatusCheck=0;
+function showStreamLimitWarning(){const toast=$('#stream-toast');toast.hidden=false;clearTimeout(streamToastTimer);streamToastTimer=setTimeout(()=>{toast.hidden=true;},8000);}
+async function checkStreamLimit(){const now=Date.now();if(now-lastStreamStatusCheck<5000)return;lastStreamStatusCheck=now;try{const response=await fetch(`${API_ORIGIN}/api/live-stream-status`,{cache:'no-store'});if(response.status===429){showStreamLimitWarning();return;}const payload=await response.json();if(payload.limited)showStreamLimitWarning();}catch{}}
 const fmtDate=timestamp=>dateFormat.format(new Date(timestamp));
 const localDay=timestamp=>{const parts=Object.fromEntries(localDayFormat.formatToParts(new Date(timestamp)).map(part=>[part.type,part.value]));return `${parts.year}-${parts.month}-${parts.day}`;};
 const adjacentDay=(day,offset)=>{const [year,month,date]=day.split('-').map(Number);return new Date(Date.UTC(year,month-1,date+offset)).toISOString().slice(0,10);};
@@ -371,7 +378,7 @@ function connect(){
     try{applyState(JSON.parse(event.data));}
     catch(error){source.viewerError=`Invalid backend state: ${error.message}`;render();}
   });
-  events.addEventListener('error',()=>{source.viewerError='Backend state stream reconnecting';render();});
+  events.addEventListener('error',()=>{source.viewerError='Backend state stream reconnecting';render();void checkStreamLimit();});
 }
 
 const svg=$('#market-chart');
