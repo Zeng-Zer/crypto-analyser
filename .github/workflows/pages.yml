@@ -26,23 +26,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/configure-pages@v5
-      - name: Prepare historical site
-        id: prepare
+      - name: Prepare frontend
         env:
-          LIVE_URL: ${{ vars.LIVE_URL }}
+          BACKEND_URL: ${{ vars.BACKEND_URL }}
         run: |
           python - <<'PY'
+          import json
           import os
           import re
           from pathlib import Path
           from urllib.parse import urlparse
 
-          live_url = os.environ.get("LIVE_URL", "").rstrip("/")
-          if not live_url:
-              print("LIVE_URL is unset; skipping Pages deployment")
-              Path(os.environ["GITHUB_OUTPUT"]).write_text("configured=false\n", encoding="utf-8")
-              raise SystemExit
-          parsed = urlparse(live_url)
+          backend_url = os.environ.get("BACKEND_URL", "").rstrip("/")
+          parsed = urlparse(backend_url)
           if (
               parsed.scheme != "https"
               or not parsed.hostname
@@ -55,21 +51,19 @@ jobs:
               or parsed.query
               or parsed.fragment
           ):
-              raise SystemExit("Set repository variable LIVE_URL to the backend HTTPS origin")
-          source = Path("visuals/index.html").read_text(encoding="utf-8")
+              raise SystemExit("Set repository variable BACKEND_URL to the backend HTTPS origin")
           Path("_site").mkdir()
-          Path("_site/index.html").write_text(
-              source.replace('href="live.html"', f'href="{live_url}"'),
-              encoding="utf-8",
-          )
-          with Path(os.environ["GITHUB_OUTPUT"]).open("a", encoding="utf-8") as output:
-              output.write("configured=true\n")
+          for name in ("index.html", "live.html"):
+              source = Path("visuals", name).read_text(encoding="utf-8")
+              configured = source.replace("https://backend.invalid", backend_url).replace(
+                  "const API_ORIGIN='';",
+                  f"const API_ORIGIN={json.dumps(backend_url)};",
+              )
+              Path("_site", name).write_text(configured, encoding="utf-8")
           PY
       - uses: actions/upload-pages-artifact@v4
-        if: steps.prepare.outputs.configured == 'true'
         with:
           path: _site
       - name: Deploy
-        if: steps.prepare.outputs.configured == 'true'
         id: deployment
         uses: actions/deploy-pages@v4

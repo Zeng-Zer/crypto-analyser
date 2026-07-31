@@ -16,6 +16,16 @@ from scripts.build_visual_data import _script_json, _web_url
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def test_pages_frontend_has_backend_origin_injection_points():
+    for name in ("index.html", "live.html"):
+        source = (ROOT / "visuals" / name).read_text()
+        assert "const API_ORIGIN='';" in source
+        assert "https://backend.invalid" in source
+        assert "${API_ORIGIN}/api/" in source
+        assert "fetch(`/api/" not in source
+    assert "EventSource(`${API_ORIGIN}/api/live-stream`)" in (ROOT / "visuals" / "live.html").read_text()
+
+
 def test_news_url_filter_accepts_only_http_sources():
     assert _web_url("https://example.com/news") == "https://example.com/news"
     assert _web_url("javascript:alert(1)") is None

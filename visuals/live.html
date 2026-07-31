@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Live BTCUSDT price streaming, anomaly detection, market activity, news retrieval, RAG, and LLM analysis.">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://backend.invalid; object-src 'none'; base-uri 'none'; form-action 'none'">
   <title>Live BTCUSDT | Crypto Anomaly Analyser</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23171916'/%3E%3Ccircle cx='16' cy='16' r='6' fill='%23a33d2d'/%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -212,6 +213,7 @@
   <section class="episode-history" aria-labelledby="history-title"><header class="section-head"><h2 id="history-title">Price anomaly history</h2><span class="analysis-status" id="history-status">Loading</span></header><div class="history-body"><label class="history-field">Result<select id="history-verdict"><option value="explained" selected>Explained</option><option value="unexplained">Unexplained</option><option value="all">All</option></select></label><label class="history-field">Date<select id="history-day" disabled><option value="">All dates · newest first</option></select></label></div><div class="history-list" id="history-list" aria-live="polite"><div class="history-empty">Loading explained anomalies.</div></div><p class="error-detail chart-error" id="history-error" role="alert"></p></section>
 </main>
 <script>
+const API_ORIGIN='';
 const INTERVAL_MS=300000,WINDOW_BARS=288,CHART_BARS=288;
 const THRESHOLDS={z:2.5,drawdown:.5,return:.25};
 const source={bars:[],ready:false,connected:false,status:'Connecting',error:'',viewerError:'',detector:{kind:'warmup',label:'Warming up · 0/288 bars',reading:null,onsetTs:null}};
@@ -337,7 +339,7 @@ async function refreshEpisodeSummaries(day=$('#history-day').value){
   history.episodeDay=key;history.episodesLoading=true;history.episodesError='';renderEpisodeSummaries();
   try{
     const query={timezone:zone,verdict};if(day)query.day=day;
-    const response=await fetch(`/api/live-history/episodes?${new URLSearchParams(query)}`,{cache:'no-store'}),payload=await response.json().catch(()=>({error:`HTTP ${response.status}`}));
+    const response=await fetch(`${API_ORIGIN}/api/live-history/episodes?${new URLSearchParams(query)}`,{cache:'no-store'}),payload=await response.json().catch(()=>({error:`HTTP ${response.status}`}));
     if(!response.ok)throw new Error(payload.error||`HTTP ${response.status}`);
     if(history.episodeDay===key){history.episodes=payload.episodes;history.truncated=Boolean(payload.truncated);if(!day){const explained=payload.episodes.find(episode=>['explained_news','explained_derivatives'].includes(episode.analysis?.classification));if(verdict==='explained'||explained){featuredExplained.loaded=true;featuredExplained.episode=explained||null;renderFeaturedExplained();}}}
   }catch(error){if(history.episodeDay===key){history.episodes=[];history.truncated=false;history.episodesError=`Selected day unavailable: ${error.message}`;}}
@@ -347,7 +349,7 @@ async function refreshHistory(){
   if(history.loading)return;
   const verdict=history.verdict;history.loading=true;history.error='';renderHistory();
   try{
-    const response=await fetch(`/api/live-history/days?${new URLSearchParams({timezone:zone,verdict})}`,{cache:'no-store'}),payload=await response.json().catch(()=>({error:`HTTP ${response.status}`}));
+    const response=await fetch(`${API_ORIGIN}/api/live-history/days?${new URLSearchParams({timezone:zone,verdict})}`,{cache:'no-store'}),payload=await response.json().catch(()=>({error:`HTTP ${response.status}`}));
     if(!response.ok)throw new Error(payload.error||`HTTP ${response.status}`);
     if(history.verdict===verdict)history.days=payload.days;
   }catch(error){if(history.verdict===verdict)history.error=`Price anomaly history unavailable: ${error.message}`;}
@@ -364,7 +366,7 @@ function applyState(state){
   if(completed)void refreshHistory();
 }
 function connect(){
-  const events=new EventSource('/api/live-stream');
+  const events=new EventSource(`${API_ORIGIN}/api/live-stream`);
   events.addEventListener('message',event=>{
     try{applyState(JSON.parse(event.data));}
     catch(error){source.viewerError=`Invalid backend state: ${error.message}`;render();}

@@ -3,6 +3,7 @@ from __future__ import annotations
 import socket
 import threading
 from datetime import datetime, timedelta, timezone
+from functools import partial
 
 import pytest
 import requests
@@ -185,18 +186,30 @@ def test_public_payloads_hide_internal_errors_urls_and_rationales():
     assert "private" not in episode
 
 
-def test_public_server_rejects_writes_and_sets_security_headers():
-    server = live._BoundedThreadingHTTPServer(("127.0.0.1", 0), live._LiveHandler)
+def test_public_server_rejects_writes_and_allows_only_configured_frontend(monkeypatch):
+    monkeypatch.setenv("FRONTEND_ORIGIN", "https://frontend.example")
+    handler = partial(live._LiveHandler, directory=str(live.repo_root() / "visuals"))
+    server = live._BoundedThreadingHTTPServer(("127.0.0.1", 0), handler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     try:
-        response = requests.post(f"http://127.0.0.1:{server.server_port}/api/live-state", timeout=2)
+        url = f"http://127.0.0.1:{server.server_port}/api/live-state"
+        response = requests.post(url, headers={"Origin": "https://frontend.example"}, timeout=2)
         assert response.status_code == 405
         assert response.headers["Allow"] == "GET, HEAD"
         assert response.headers["Server"] == "crypto-analyser"
+        assert response.headers["Access-Control-Allow-Origin"] == "https://frontend.example"
+        assert response.headers["Cross-Origin-Resource-Policy"] == "cross-origin"
+        assert response.headers["Vary"] == "Origin"
         assert response.headers["X-Content-Type-Options"] == "nosniff"
         assert response.headers["X-Frame-Options"] == "DENY"
         assert "frame-ancestors 'none'" in response.headers["Content-Security-Policy"]
+        assert "Access-Control-Allow-Origin" not in requests.post(
+            url,
+            headers={"Origin": "https://evil.example"},
+            timeout=2,
+        ).headers
+        assert requests.get(f"http://127.0.0.1:{server.server_port}/live.html", timeout=2).status_code == 404
     finally:
         server.shutdown()
         server.server_close()

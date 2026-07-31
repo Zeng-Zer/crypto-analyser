@@ -1689,6 +1689,19 @@ class _BoundedThreadingHTTPServer(ThreadingHTTPServer):
     def __init__(self, *args, max_connections: int = MAX_HTTP_CONNECTIONS, **kwargs) -> None:
         self.request_slots = threading.BoundedSemaphore(max_connections)
         self.client_limiter = _ClientLimiter()
+        self.frontend_origin = os.getenv("FRONTEND_ORIGIN", "").rstrip("/")
+        frontend = urlparse(self.frontend_origin)
+        if self.frontend_origin and (
+            frontend.scheme not in {"http", "https"}
+            or not frontend.hostname
+            or frontend.username
+            or frontend.password
+            or frontend.path
+            or frontend.params
+            or frontend.query
+            or frontend.fragment
+        ):
+            raise ValueError("FRONTEND_ORIGIN must be an HTTP(S) origin without path, query, or credentials")
         try:
             self.trusted_proxy_networks = tuple(
                 ipaddress.ip_network(value.strip())
@@ -1727,6 +1740,12 @@ class _LiveHandler(SimpleHTTPRequestHandler):
         return self.server_version
 
     def end_headers(self) -> None:
+        frontend_origin = getattr(self.server, "frontend_origin", "")
+        cross_origin_api = (
+            urlparse(self.path).path.startswith("/api/")
+            and frontend_origin
+            and self.headers.get("Origin") == frontend_origin
+        )
         self.send_header(
             "Content-Security-Policy",
             "default-src 'self'; script-src 'self' 'unsafe-inline'; "
@@ -1734,7 +1753,10 @@ class _LiveHandler(SimpleHTTPRequestHandler):
             "font-src https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self'; "
             "object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'",
         )
-        self.send_header("Cross-Origin-Resource-Policy", "same-origin")
+        if cross_origin_api:
+            self.send_header("Access-Control-Allow-Origin", frontend_origin)
+            self.send_header("Vary", "Origin")
+        self.send_header("Cross-Origin-Resource-Policy", "cross-origin" if cross_origin_api else "same-origin")
         self.send_header("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
         self.send_header("Referrer-Policy", "no-referrer")
         self.send_header("Strict-Transport-Security", "max-age=31536000")
@@ -1822,6 +1844,9 @@ class _LiveHandler(SimpleHTTPRequestHandler):
                 LOGGER.warning("live history episodes unavailable", exc_info=exc)
                 self._json(502, {"error": "history unavailable"})
             return
+        if getattr(self.server, "frontend_origin", ""):
+            self.send_error(404)
+            return
         if parsed.path == "/":
             self.send_response(302)
             self.send_header("Location", "/live.html")
@@ -1831,8 +1856,12 @@ class _LiveHandler(SimpleHTTPRequestHandler):
         super().do_GET()
 
     def do_HEAD(self) -> None:  # noqa: N802
-        if self._allow_request():
-            super().do_HEAD()
+        if not self._allow_request():
+            return
+        if getattr(self.server, "frontend_origin", ""):
+            self.send_error(404)
+            return
+        super().do_HEAD()
 
     def _method_not_allowed(self) -> None:
         if not self._allow_request():

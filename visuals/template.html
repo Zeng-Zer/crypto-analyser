@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Guided analysis of eight LUNAUSDT anomaly episodes with time-safe context, hybrid RAG retrieval, and structured LLM output.">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://backend.invalid; object-src 'none'; base-uri 'none'; form-action 'none'">
   <title>Crypto Anomaly Analyser</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23171916'/%3E%3Ccircle cx='16' cy='16' r='6' fill='%23a33d2d'/%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -218,6 +219,7 @@
 </main>
 <script id="atlas-data" type="application/json">__ATLAS_DATA__</script>
 <script>
+const API_ORIGIN='';
 const embeddedAtlas=JSON.parse(document.getElementById('atlas-data').textContent);
 const $=selector=>document.querySelector(selector),NS='http://www.w3.org/2000/svg',combinedMode='derivatives_rag';
 const params=new URLSearchParams(location.search),liveMode=params.get('source')==='live',browserZone=Intl.DateTimeFormat().resolvedOptions().timeZone||'UTC';
@@ -270,7 +272,7 @@ function normalizeLiveEpisode(item){
 async function loadLiveReplay(){
   const day=params.get('day');
   if(!day)throw new Error('Live replay requires a day');
-  const response=await fetch(`/api/live-history/episodes?${new URLSearchParams({day,timezone:zone})}`,{cache:'no-store'}),payload=await response.json().catch(()=>({error:`HTTP ${response.status}`}));
+const response=await fetch(`${API_ORIGIN}/api/live-history/episodes?${new URLSearchParams({day,timezone:zone})}`,{cache:'no-store'}),payload=await response.json().catch(()=>({error:`HTTP ${response.status}`}));
   if(!response.ok)throw new Error(payload.error||`HTTP ${response.status}`);
   const episodes=payload.episodes.map(normalizeLiveEpisode);
   if(!episodes.length)throw new Error(`No episode saved for ${day}`);
