@@ -281,16 +281,16 @@ def test_live_workbench_is_read_only_backend_stream_viewer(browser: Browser, wor
     expect(page.locator("#news-position")).to_have_text("1 of 3")
     page.locator("#news-next").click()
     expect(page.locator("#ambient-list")).to_contain_text("Latest Bitcoin headline 10")
-    expect(page.locator("#history-verdict")).to_have_value("explained")
-    expect(page.locator("#history-status")).to_have_text("No explained anomaly")
+    expect(page.locator("#history-verdict")).to_have_value("all")
+    expect(page.locator("#history-status")).to_have_text("No saved anomaly")
     expect(page.locator("#featured-explained-time")).to_have_text("No explained anomaly saved")
     page.evaluate(
         """() => {
-          document.querySelector('#history-verdict').value = 'all';
+          document.querySelector('#history-verdict').value = 'explained';
           dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true }));
         }"""
     )
-    expect(page.locator("#history-verdict")).to_have_value("explained")
+    expect(page.locator("#history-verdict")).to_have_value("all")
 
     next_open = start + 300 * 300_000
     potential_bars = [*bars, {"ts": next_open, "close": 10_000, "closeTime": next_open + 299_999}]
@@ -322,19 +322,19 @@ def test_live_workbench_is_read_only_backend_stream_viewer(browser: Browser, wor
 
     saved = True
     page.evaluate("__pushLiveState", state(active_bars, active))
-    expect(page.locator("#history-status")).to_have_text("1 explained")
+    expect(page.locator("#history-status")).to_have_text("3 saved")
     expect(page.locator("#history-day")).to_have_value("")
     summaries = page.locator("#history-list .history-card")
-    expect(summaries).to_have_count(1)
+    expect(summaries).to_have_count(3)
     expect(page.locator("#history-list .history-divider")).to_have_count(1)
     expect(page.locator("#history-list .history-divider")).to_have_text("16 Nov 2023")
     assert page.evaluate("historyDayLabel(localDay(Date.now()))") == "Today"
     assert page.evaluate("historyDayLabel(adjacentDay(localDay(Date.now()), -1))") == "Yesterday"
-    expect(summaries.nth(0)).to_contain_text("$10,000.00")
-    expect(summaries.nth(0)).to_contain_text("+25.00%")
-    expect(summaries.nth(0)).to_contain_text("extreme")
-    expect(summaries.nth(0)).to_contain_text("Z +5.12")
-    expect(summaries.nth(0)).to_contain_text("Explained by news")
+    explained_summary = summaries.filter(has_text="Explained by news")
+    expect(explained_summary).to_contain_text("$10,000.00")
+    expect(explained_summary).to_contain_text("+25.00%")
+    expect(explained_summary).to_contain_text("extreme")
+    expect(explained_summary).to_contain_text("Z +5.12")
     expect(page.locator("#featured-explained-time")).to_contain_text("at")
     expect(page.locator("#featured-explained .cta-arrow")).to_have_text("→")
     expect(page.locator("#featured-explained")).not_to_have_class(re.compile("unavailable"))
@@ -348,14 +348,14 @@ def test_live_workbench_is_read_only_backend_stream_viewer(browser: Browser, wor
     page.evaluate("__pushLiveState", polling)
     expect(page.locator("#runtime-state")).to_have_text("Live")
     expect(page.locator("#feed-status")).to_have_text("Polling · 302 bars")
-    expect(summaries.nth(0)).not_to_contain_text(re.compile("onset", re.IGNORECASE))
-    assert "onset" not in summaries.nth(0).get_attribute("aria-label").lower()
-    expect(summaries.nth(0)).not_to_contain_text("closed bars")
-    expect(summaries.nth(0).locator(".history-mini-line")).to_have_count(1)
-    expect(summaries.nth(0).locator(".history-mini-band")).to_have_count(1)
-    expect(summaries.nth(0).locator(".history-mini-label")).to_have_text("SIGNAL DETECTED")
-    expect(summaries.nth(0).locator(".history-mini-dot")).to_have_count(1)
-    assert summaries.nth(0).locator(".history-mini-chart").evaluate(
+    expect(explained_summary).not_to_contain_text(re.compile("onset", re.IGNORECASE))
+    assert "onset" not in explained_summary.get_attribute("aria-label").lower()
+    expect(explained_summary).not_to_contain_text("closed bars")
+    expect(explained_summary.locator(".history-mini-line")).to_have_count(1)
+    expect(explained_summary.locator(".history-mini-band")).to_have_count(1)
+    expect(explained_summary.locator(".history-mini-label")).to_have_text("SIGNAL DETECTED")
+    expect(explained_summary.locator(".history-mini-dot")).to_have_count(1)
+    assert explained_summary.locator(".history-mini-chart").evaluate(
         """chart => {
           const path = chart.querySelector('.history-mini-line');
           const marker = chart.querySelector('.history-mini-dot');
@@ -363,21 +363,21 @@ def test_live_workbench_is_read_only_backend_stream_viewer(browser: Browser, wor
           return Math.hypot(endpoint.x - marker.cx.baseVal.value, endpoint.y - marker.cy.baseVal.value) < 0.01;
         }"""
     )
-    assert summaries.nth(0).locator(".history-card-verdict").evaluate(
+    assert explained_summary.locator(".history-card-verdict").evaluate(
         "element => parseFloat(getComputedStyle(element).fontSize) >= 18"
     )
-    assert summaries.nth(0).locator(".history-action").evaluate(
+    assert explained_summary.locator(".history-action").evaluate(
         "element => getComputedStyle(element).whiteSpace === 'nowrap' && element.scrollWidth <= element.clientWidth"
     )
-    assert summaries.nth(0).bounding_box()["height"] >= 130
-    expect(summaries.nth(0)).to_have_attribute(
+    assert explained_summary.bounding_box()["height"] >= 130
+    expect(explained_summary).to_have_attribute(
         "href", re.compile(rf"index\.html\?source=live.*event=BTCUSDT_{next_open}")
     )
     assert any("/api/live-history/episodes?" in url and "day=" not in url for url in requests)
 
     page.locator("#history-day").select_option("2023-11-16")
     expect(page.locator("#history-day")).to_have_value("2023-11-16")
-    expect(summaries).to_have_count(1)
+    expect(summaries).to_have_count(3)
     expect(page.locator("#history-list .history-divider")).to_have_count(0)
 
     page.locator("#history-verdict").select_option("unexplained")

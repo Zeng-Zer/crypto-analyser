@@ -213,7 +213,7 @@
 
   <section class="ambient-news" aria-labelledby="ambient-title"><header class="section-head"><h2 id="ambient-title">Bitcoin news · past 24h</h2><span class="analysis-status" id="ambient-status">Loading</span></header><div id="ambient-list" class="ambient-state">Fetching latest headlines. No LLM call.</div><div class="news-pages" id="news-pages" hidden><button id="news-previous" type="button">← Previous</button><span id="news-position"></span><button id="news-next" type="button">Next →</button></div></section>
 
-  <section class="episode-history" aria-labelledby="history-title"><header class="section-head"><h2 id="history-title">Price anomaly history</h2><span class="analysis-status" id="history-status">Loading</span></header><div class="history-body"><label class="history-field">Result<select id="history-verdict"><option value="explained" selected>Explained</option><option value="unexplained">Unexplained</option><option value="all">All</option></select></label><label class="history-field">Date<select id="history-day" disabled><option value="">All dates · newest first</option></select></label></div><div class="history-list" id="history-list" aria-live="polite"><div class="history-empty">Loading explained anomalies.</div></div><p class="error-detail chart-error" id="history-error" role="alert"></p></section>
+  <section class="episode-history" aria-labelledby="history-title"><header class="section-head"><h2 id="history-title">Price anomaly history</h2><span class="analysis-status" id="history-status">Loading</span></header><div class="history-body"><label class="history-field">Result<select id="history-verdict"><option value="all" selected>All</option><option value="explained">Explained</option><option value="unexplained">Unexplained</option></select></label><label class="history-field">Date<select id="history-day" disabled><option value="">All dates · newest first</option></select></label></div><div class="history-list" id="history-list" aria-live="polite"><div class="history-empty">Loading saved anomalies.</div></div><p class="error-detail chart-error" id="history-error" role="alert"></p></section>
 </main>
 <aside class="stream-toast" id="stream-toast" role="alert" aria-live="assertive" hidden><strong>Too many live connections</strong><span>Close extra tabs or wait a few seconds, then the stream will reconnect.</span></aside>
 <script>
@@ -225,7 +225,7 @@ const $=selector=>document.querySelector(selector),NS='http://www.w3.org/2000/sv
 const analysis={loading:false,error:''};
 const ambient={loading:true,result:null,error:'',page:0};
 const savedHistoryVerdict=sessionStorage.getItem('crypto-analyser-history-verdict');
-const history={loading:false,days:[],error:'',episodes:[],truncated:false,episodesLoading:false,episodesError:'',episodeDay:'',verdict:['explained','unexplained','all'].includes(savedHistoryVerdict)?savedHistoryVerdict:'explained'};
+const history={loading:false,days:[],error:'',episodes:[],truncated:false,episodesLoading:false,episodesError:'',episodeDay:'',verdict:['explained','unexplained','all'].includes(savedHistoryVerdict)?savedHistoryVerdict:'all'};
 const featuredExplained={loaded:false,episode:null};
 const activity={loading:true,result:null,error:''};
 const zone=Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -360,7 +360,7 @@ async function refreshHistory(){
     if(!response.ok)throw new Error(payload.error||`HTTP ${response.status}`);
     if(history.verdict===verdict)history.days=payload.days;
   }catch(error){if(history.verdict===verdict)history.error=`Price anomaly history unavailable: ${error.message}`;}
-  finally{history.loading=false;if(history.verdict!==verdict){void refreshHistory();return;}renderHistory();if(history.days.length)void refreshEpisodeSummaries();else if(verdict==='explained'&&!featuredExplained.loaded){featuredExplained.loaded=true;featuredExplained.episode=null;renderFeaturedExplained();}}
+  finally{history.loading=false;if(history.verdict!==verdict){void refreshHistory();return;}renderHistory();if(history.days.length)void refreshEpisodeSummaries();else if(['all','explained'].includes(verdict)&&!featuredExplained.loaded){featuredExplained.loaded=true;featuredExplained.episode=null;renderFeaturedExplained();}}
 }
 function render(){renderPrice();renderActivity();renderRuntime();renderAmbient();renderFeaturedExplained();renderHistory();drawChart();}
 function applyState(state){
