@@ -1676,6 +1676,11 @@ class _ClientLimiter:
             self.streams[client] = self.streams.get(client, 0) + 1
             return True
 
+    def stream_status(self, client: str) -> dict[str, int | bool]:
+        with self.lock:
+            active = self.streams.get(client, 0)
+            return {"limited": active >= self.streams_per_client, "active": active, "limit": self.streams_per_client}
+
     def close_stream(self, client: str) -> None:
         with self.lock:
             count = self.streams.get(client, 0) - 1
@@ -1798,6 +1803,11 @@ class _LiveHandler(SimpleHTTPRequestHandler):
             return
         if parsed.path == "/api/live-stream":
             self._stream()
+            return
+        if parsed.path == "/api/live-stream-status":
+            limiter = getattr(self.server, "client_limiter", None)
+            status = limiter.stream_status(self._client_ip()) if limiter is not None else {"limited": False}
+            self._json(200, status)
             return
         if parsed.path == "/api/live-history/days":
             try:
