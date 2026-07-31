@@ -112,7 +112,7 @@ docker compose up -d --build
 curl --fail http://127.0.0.1:8000/healthz
 ```
 
-Compose binds application and PostgreSQL to host loopback. Containers communicate over private Compose network. Run one application replica because each process owns market worker. Public hosting must expose backend through HTTPS, overwrite `X-Forwarded-For`, and apply request limits. Set `FRONTEND_ORIGIN` to exact GitHub Pages origin so backend permits read-only cross-origin API and SSE requests. Backend allows 120 requests per client per fixed minute and two SSE streams per client, caps total HTTP/SSE connections, rejects write methods, and sanitizes public errors. Forwarded addresses are ignored unless direct ingress peer is listed in `TRUSTED_PROXY_CIDRS`; when unset, all traffic through one proxy shares one conservative limit.
+Compose binds application and PostgreSQL to host loopback. Containers communicate over private Compose network. Run one application replica because each process owns market worker. Public hosting must expose backend through HTTPS, overwrite `X-Forwarded-For`, and apply request limits. Set `FRONTEND_ORIGIN` to exact GitHub Pages origin so backend permits read-only cross-origin API and SSE requests. Backend allows 120 requests per client per fixed minute and six SSE streams per client, caps total HTTP/SSE connections, rejects write methods, and sanitizes public errors. Forwarded addresses are ignored unless direct ingress peer is listed in `TRUSTED_PROXY_CIDRS`; when unset, all traffic through one proxy shares one conservative limit.
 
 Configure GitHub Pages with public backend origin:
 

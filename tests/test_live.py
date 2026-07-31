@@ -298,6 +298,12 @@ def test_client_limiter_releases_stream_slot():
     assert limiter.open_stream("203.0.113.1") is True
 
 
+def test_default_client_limiter_allows_six_streams():
+    limiter = live._ClientLimiter()
+    assert all(limiter.open_stream("203.0.113.1") for _ in range(6))
+    assert limiter.open_stream("203.0.113.1") is False
+
+
 def test_future_bar_is_rejected_even_with_exact_interval_shape():
     bars = _bars()
     bars[-1] = {
