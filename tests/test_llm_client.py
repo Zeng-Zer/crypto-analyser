@@ -92,7 +92,7 @@ def test_classifier_uses_medium_reasoning_and_forced_tool_output(monkeypatch):
             ).encode() + b"}}]}}]}"
             yield b"data: [DONE]"
 
-    client = LLMClient("https://plexus.example/v1", "test-key", "gpt-5.6-luna")
+    client = LLMClient("https://llm.example/v1", "test-key", "reasoning-model")
 
     def post(_url, *, json, **_kwargs):
         nonlocal payload

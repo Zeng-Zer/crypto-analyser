@@ -11,13 +11,12 @@ connection active while the model reasons. The classifier collects only forced
 tool argument fragments and validates the completed object against application
 types before storing it.
 
-The previous GLM configuration used
+The previous model configuration used
 `chat_template_kwargs: {"enable_thinking": false}` and strict
-`response_format`. That combination was removed for `gpt-5.6-luna`. Luna
-supports explicit reasoning effort, but its Plexus Chat Completions route did
-not reliably enforce the complex classification schema through
-`response_format`. A forced tool call on the same endpoint returned the full
-schema correctly in deployment probes.
+`response_format`. The current model supports explicit reasoning effort, but
+its Chat Completions route did not reliably enforce the complex classification
+schema through `response_format`. A forced tool call on the same endpoint
+returned the full schema correctly in deployment probes.
 
 Medium reasoning balances classifier quality, latency, and token use. The
 8,000-token ceiling includes private reasoning tokens and final tool arguments.
