@@ -405,6 +405,9 @@ def test_live_workbench_is_read_only_backend_stream_viewer(browser: Browser, wor
     assert "/api/live-analysis" not in script
     page.set_viewport_size({"width": 390, "height": 844})
     assert page.evaluate("document.documentElement.scrollWidth <= document.documentElement.clientWidth")
+    featured_box = page.locator("#featured-explained").bounding_box()
+    assert featured_box is not None
+    assert 44 <= featured_box["height"] <= 80
 
     page.close()
     assert not errors, f"Browser errors: {errors}"
