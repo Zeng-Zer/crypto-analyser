@@ -68,6 +68,7 @@ def test_episode_context_matches_classifier_inputs():
 
 def test_evaluate_scores_only_combined_rationale(monkeypatch, tmp_path):
     calls = []
+    factory_calls = []
 
     class _Faithfulness:
         def __init__(self, _llm):
@@ -82,7 +83,7 @@ def test_evaluate_scores_only_combined_rationale(monkeypatch, tmp_path):
     ragas = ModuleType("ragas")
     ragas.__path__ = []
     ragas_llms = ModuleType("ragas.llms")
-    ragas_llms.llm_factory = lambda *_args, **_kwargs: object()
+    ragas_llms.llm_factory = lambda *args, **kwargs: factory_calls.append((args, kwargs)) or object()
     ragas_metrics = ModuleType("ragas.metrics")
     ragas_metrics.__path__ = []
     ragas_collections = ModuleType("ragas.metrics.collections")
@@ -140,6 +141,8 @@ def test_evaluate_scores_only_combined_rationale(monkeypatch, tmp_path):
     result = evaluate("LUNAUSDT", "2022-05-07", "2022-05-11", "judge", "url", "key", tmp_path)
 
     assert len(calls) == 1
+    assert factory_calls[0][1]["reasoning_effort"] == "medium"
+    assert factory_calls[0][1]["max_tokens"] == 8000
     assert result["derivatives_only"]["episodes"][0]["faithfulness"] is None
     assert result["news_only"]["episodes"][0]["faithfulness"] is None
     assert result["news_only"]["episodes"][0]["retrieved_news"][0]["title"] == "UST depeg"
