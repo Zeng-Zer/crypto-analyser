@@ -8,6 +8,10 @@ Historical batch pipeline comparing how derivatives market structure—funding r
 
 An **unexplained** price episode has neither unusual derivatives activity nor credible retrieved news. Such episodes would support the hypothesis that price can move before a public explanation appears; this LUNA case produced no episode unexplained by both isolated sources.
 
+**[Open the live BTCUSDT anomaly analyser](https://zeng-zer.github.io/crypto-analyser/live.html)**
+
+[![Live BTCUSDT anomaly history](docs/images/live-anomaly-history.png)](https://zeng-zer.github.io/crypto-analyser/live.html)
+
 ## Pipeline
 
 ```text
