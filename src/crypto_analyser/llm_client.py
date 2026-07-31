@@ -196,9 +196,9 @@ class LLMClient:
     ) -> ClassificationResult:
         """Send a classification prompt to the LLM and return a typed result.
 
-        Uses ``response_format={"type": "json_schema", "strict": true}`` for
-        deterministic structured output. If *system_prompt* is None, a default
-        crypto-analyst system message is used.
+        Forces one strict ``emit_classification`` tool call for deterministic
+        structured output. If *system_prompt* is None, a default crypto-analyst
+        system message is used.
         """
         schema = self._load_schema()
 
