@@ -40,6 +40,11 @@ from crypto_analyser.constants import (
 from crypto_analyser.detection.zscore import compute_anomalies, extract_episodes
 from crypto_analyser.evaluation import FaithfulnessScorer
 from crypto_analyser.features.derivatives import extract_features
+from crypto_analyser.features.sentiment import (
+    FEAR_GREED_SOURCE_URL,
+    at_or_before,
+    fetch_fear_greed,
+)
 from crypto_analyser.llm_client import ClassificationResult, LLMClient
 from crypto_analyser.rag.embeddings import DEFAULT_MODEL, get_embeddings
 
@@ -57,6 +62,7 @@ LIVE_ANALYSIS_MODES = ("derivatives_only", "news_only", "derivatives_rag")
 PUBLIC_NEWS_RESULTS = 3
 AMBIENT_CACHE_SECONDS = 90
 MARKET_CACHE_SECONDS = 60
+SENTIMENT_CACHE_SECONDS = 3_600
 PUBLIC_NEWS_API_URL = "https://cryptocurrency.cv/api/news"
 BINANCE_FUTURES_API_URL = "https://fapi.binance.com"
 BINANCE_FUTURES_STREAM_URL = "wss://fstream.binance.com/ws/btcusdt@kline_5m"
@@ -704,6 +710,7 @@ def _live_prompts(
     template: PromptTemplate,
     event: dict[str, Any],
     derivatives: dict[str, Any],
+    sentiment: dict[str, Any],
     articles: list[dict[str, Any]],
     mode: str,
 ) -> tuple[str, str]:
@@ -732,6 +739,9 @@ def _live_prompts(
         "funding_rate_avg_4h_pct": _prompt_percent(derivatives["funding_rate_avg_4h"], 4),
         "oi_current": derivatives["oi_current"],
         "oi_change_4h_pct": _prompt_percent(derivatives["oi_change_4h"], 2),
+        "fear_greed_value": sentiment["fear_greed_value"],
+        "fear_greed_classification": sentiment["fear_greed_classification"],
+        "fear_greed_timestamp": sentiment["fear_greed_timestamp"],
         "k": len(articles),
         "window": "24h through detector confirmation",
         "rag_context_block": news,
@@ -763,17 +773,21 @@ def _validate_result(
     articles: list[dict[str, Any]],
     derivatives: dict[str, Any],
     mode: str = "derivatives_rag",
+    sentiment: dict[str, Any] | None = None,
 ) -> None:
     if mode not in LIVE_ANALYSIS_MODES:
         raise ValueError(f"unknown live analysis mode: {mode}")
     refs = set(result.synthesis.supporting_refs)
     derivative_refs = {"funding_rate_current", "oi_change_4h"}
+    sentiment_refs = {"fear_greed_index"} if sentiment and sentiment.get("fear_greed_value") is not None else set()
     news_refs = {f"news_{article['id']}" for article in articles}
     allowed = (
         news_refs
         if mode == "news_only"
-        else derivative_refs | (news_refs if mode == "derivatives_rag" else set())
+        else derivative_refs | (news_refs if mode == "derivatives_rag" else set()) | sentiment_refs
     )
+    if mode == "news_only":
+        allowed |= sentiment_refs
     if invalid := refs - allowed:
         raise ValueError(f"synthesis contains unavailable supporting refs: {sorted(invalid)}")
 
@@ -848,6 +862,33 @@ class LiveAnalysisService:
         self.market_cache: dict[str, Any] | None = None
         self.market_expires_at = 0.0
         self.market_lock = threading.Lock()
+        self.sentiment_history: list[dict[str, Any]] | None = None
+        self.sentiment_expires_at = 0.0
+        self.sentiment_stale = False
+        self.sentiment_lock = threading.Lock()
+
+    def sentiment(self, timestamp: int) -> dict[str, Any]:
+        """Return latest daily Fear & Greed observation available by timestamp."""
+        with self.sentiment_lock:
+            now = time.monotonic()
+            if self.sentiment_history is None or now >= self.sentiment_expires_at:
+                try:
+                    self.sentiment_history = fetch_fear_greed()
+                    self.sentiment_expires_at = now + SENTIMENT_CACHE_SECONDS
+                    self.sentiment_stale = False
+                except (requests.RequestException, ValueError, TypeError):
+                    if self.sentiment_history is None:
+                        raise
+                    self.sentiment_expires_at = now + MARKET_CACHE_SECONDS
+                    self.sentiment_stale = True
+            observation = at_or_before(self.sentiment_history, timestamp)
+            return {
+                "fear_greed_value": observation["value"] if observation else None,
+                "fear_greed_classification": observation["classification"] if observation else None,
+                "fear_greed_timestamp": observation["timestamp"] if observation else None,
+                "fear_greed_source_url": FEAR_GREED_SOURCE_URL,
+                "fear_greed_status": "stale" if self.sentiment_stale else "current",
+            }
 
     def market(self) -> dict[str, Any]:
         """Return current Binance funding and 4-hour OI change."""
@@ -857,8 +898,19 @@ class LiveAnalysisService:
                 return {**self.market_cache, "cached": True}
             onset_ts = int(datetime.now(tz=timezone.utc).timestamp() * 1000)
             features, source = fetch_derivatives(onset_ts)
+            try:
+                sentiment = self.sentiment(onset_ts)
+            except (requests.RequestException, ValueError, TypeError):
+                sentiment = {
+                    "fear_greed_value": None,
+                    "fear_greed_classification": None,
+                    "fear_greed_timestamp": None,
+                    "fear_greed_source_url": FEAR_GREED_SOURCE_URL,
+                    "fear_greed_status": "unavailable",
+                }
             response = {
                 **_derivatives_payload(features, source),
+                **sentiment,
                 "refreshed_at": datetime.now(tz=timezone.utc).isoformat(),
                 "cached": False,
             }
@@ -923,6 +975,7 @@ class LiveAnalysisService:
         derivatives: dict[str, Any],
         articles: list[dict[str, Any]],
         rationale: str,
+        sentiment: dict[str, Any] | None = None,
     ) -> dict[str, Any] | None:
         if self.judge_model is None and self.faithfulness_scorer is None:
             return None
@@ -946,6 +999,9 @@ class LiveAnalysisService:
                     "funding_rate_avg_4h": derivatives["funding_rate_avg_4h"],
                     "oi_current": derivatives["oi_current"],
                     "oi_change_4h": derivatives["oi_change_4h"],
+                    "fear_greed_value": sentiment.get("fear_greed_value") if sentiment else None,
+                    "fear_greed_classification": sentiment.get("fear_greed_classification") if sentiment else None,
+                    "fear_greed_timestamp": sentiment.get("fear_greed_timestamp") if sentiment else None,
                 }.items()
             )
             news_contexts = [
@@ -1002,15 +1058,25 @@ class LiveAnalysisService:
             llm_attempted = False
             try:
                 derivatives, derivatives_source = fetch_derivatives(event["onset_ts"])
+                try:
+                    sentiment = self.sentiment(event["onset_ts"])
+                except (requests.RequestException, ValueError, TypeError):
+                    sentiment = {
+                        "fear_greed_value": None,
+                        "fear_greed_classification": None,
+                        "fear_greed_timestamp": None,
+                        "fear_greed_source_url": FEAR_GREED_SOURCE_URL,
+                        "fear_greed_status": "unavailable",
+                    }
                 candidates, source = self._news_at_detection(event)
                 articles = rank_live_news(event, candidates, self.api_url, self.api_key, self.embedding_model)
                 template = PromptTemplate.load()
                 llm_attempted = True
                 results = {}
                 for mode in LIVE_ANALYSIS_MODES:
-                    system_prompt, user_prompt = _live_prompts(template, event, derivatives, articles, mode)
+                    system_prompt, user_prompt = _live_prompts(template, event, derivatives, sentiment, articles, mode)
                     result = self.client.classify(user_prompt, reference, system_prompt)
-                    _validate_result(result, articles, derivatives, mode)
+                    _validate_result(result, articles, derivatives, mode, sentiment)
                     results[mode] = result
             except (
                 requests.RequestException,
@@ -1030,7 +1096,7 @@ class LiveAnalysisService:
                 raise RuntimeError(error) from exc
             result = results["derivatives_rag"]
             supporting = set(result.synthesis.supporting_refs)
-            ragas = self._evaluate_faithfulness(event, derivatives, articles, result.rationale)
+            ragas = self._evaluate_faithfulness(event, derivatives, articles, result.rationale, sentiment)
             response = {
                 "event_reference": reference,
                 "onset_ts": event["onset_ts"],
@@ -1056,7 +1122,7 @@ class LiveAnalysisService:
                     }
                     for mode, mode_result in results.items()
                 },
-                "derivatives": _derivatives_payload(derivatives, derivatives_source),
+                "derivatives": {**_derivatives_payload(derivatives, derivatives_source), **sentiment},
                 "articles": [
                     {**article, "supporting": f"news_{article['id']}" in supporting} for article in articles
                 ],
@@ -1534,6 +1600,11 @@ def _public_derivatives(value: Any) -> dict[str, Any] | None:
         "oi_change_4h",
         "funding_breach",
         "oi_breach",
+        "fear_greed_value",
+        "fear_greed_classification",
+        "fear_greed_timestamp",
+        "fear_greed_source_url",
+        "fear_greed_status",
         "refreshed_at",
         "cached",
     )

@@ -45,6 +45,10 @@ _Avoid_: summary, chain of thought, analysis trace
 Supplied derivatives metric or retrieved news article that affirmatively supports the classification synthesis. News rejected as tangential remains context but is not supporting context.
 _Avoid_: decisive evidence, causal evidence, all context
 
+**Ambient sentiment**:
+Latest Alternative.me Crypto Fear & Greed observation available at or before episode onset. It may corroborate an explained verdict only beside decisive market activity or news context. It never independently explains an anomaly, changes derivative thresholds, or prevents an unexplained result.
+_Avoid_: cause, trigger, sentiment explanation
+
 **Explained by derivatives**:
 Funding rate magnitude or open-interest move breaches the rubric thresholds
 (`|funding rate| >= 0.0500%` OR `|4h open-interest change| >= 10%`). The derivatives market

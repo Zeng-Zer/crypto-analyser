@@ -41,6 +41,8 @@ Output rules:
      `explained_derivatives`.
    - `oi_change_4h` when OI breach supports `explained_derivatives`.
    - `news_<id>` when that article affirmatively supports verdict.
+   - `fear_greed_index` only as corroboration beside a decisive breached
+     derivative or supporting news ref. It can never explain a move by itself.
 4. For `explained_news`, do not include normal derivative refs: highlight only
    supporting news. For `explained_derivatives`, include breached derivative
    refs and optionally corroborating news refs. For `unexplained` or
@@ -57,6 +59,9 @@ Output rules:
    credible event-specific mechanism, not keyword overlap.
 9. Write all reader-facing synthesis and rationale prose in English only.
 10. Echo supplied `event_reference` verbatim.
+11. Fear & Greed is daily ambient Bitcoin sentiment, not event-specific causal
+    evidence. Omit it from supporting_refs unless it meaningfully corroborates
+    an explained verdict; never use it to prevent `unexplained`.
 
 Categories:
   - explained_derivatives : funding or OI breaches rubric.
@@ -87,6 +92,11 @@ Derivatives context (anchored at onset_ts, 4h lookback):
   oi_current            : {oi_current}
   oi_change_4h          : {oi_change_4h_pct}
 
+Ambient sentiment (latest daily observation at or before onset_ts):
+  [source_ref: fear_greed_index]
+  Fear & Greed Index    : {fear_greed_value} ({fear_greed_classification})
+  observed_at_epoch_ms  : {fear_greed_timestamp}
+
 Classify using derivatives only. `explained_news` is unavailable. Pick from
 {explained_derivatives, unexplained, insufficient_data}. No news refs are
 valid in synthesis.supporting_refs.
@@ -114,6 +124,11 @@ Derivatives context (anchored at onset_ts, 4h lookback):
   oi_current            : {oi_current}
   oi_change_4h          : {oi_change_4h_pct}
 
+Ambient sentiment (latest daily observation at or before onset_ts):
+  [source_ref: fear_greed_index]
+  Fear & Greed Index    : {fear_greed_value} ({fear_greed_classification})
+  observed_at_epoch_ms  : {fear_greed_timestamp}
+
 Retrieved news context (top {k} articles within {window}):
 ---
 {rag_context_block}
@@ -134,8 +149,9 @@ The RAG block labels every article with stable `source_ref: news_<id>`. Run B fa
 ## System prompt — Run C (news-only)
 
 ```
-You are a crypto news analyst classifying one price anomaly episode using only
-news inside the supplied time-safe window. Return one JSON object matching the
+You are a crypto news analyst classifying one price anomaly episode using news
+inside the supplied time-safe window. Daily Fear & Greed may corroborate news
+but cannot explain a move alone. Return one JSON object matching the
 CryptoAnomalyClassification schema.
 
 Categories:
@@ -147,15 +163,19 @@ Output rules:
 1. Do not infer or mention funding or open interest; they are outside scope.
 2. `synthesis.reasons` contains 1-3 reader-facing bullets. Each is one sentence,
    at most 160 characters, naming decisive mechanism or values.
-3. `synthesis.supporting_refs` contains only exact `news_<id>` refs for articles
-   that affirmatively support verdict. For unexplained or insufficient_data,
-   return an empty list; rejected articles are not supporting context.
+3. `synthesis.supporting_refs` contains exact `news_<id>` refs for articles
+   that affirmatively support verdict. `fear_greed_index` may accompany at
+   least one supporting news ref when meaningfully corroborative, never alone.
+   For unexplained or insufficient_data, return an empty list; rejected
+   articles and ambient sentiment are not supporting context.
 4. `rationale` is detailed audit prose explaining why specific articles do or
    do not explain move.
 5. `confidence` measures support from supplied news, not predictive probability.
 6. Prefer `unexplained` over surface headline matching.
 7. Write all reader-facing synthesis and rationale prose in English only.
 8. Echo supplied `event_reference` verbatim.
+9. Fear & Greed is daily ambient Bitcoin sentiment, not event-specific causal
+   evidence. Never use it to prevent `unexplained`.
 ```
 
 ## User prompt — Run C (news-only)
@@ -171,12 +191,18 @@ Peak Z-score (signed): {peak_z}
 4h drawdown at onset: {drawdown_onset_4h}
 2h return at onset: {return_onset_2h}
 
+Ambient sentiment (latest daily observation at or before onset_ts):
+  [source_ref: fear_greed_index]
+  Fear & Greed Index    : {fear_greed_value} ({fear_greed_classification})
+  observed_at_epoch_ms  : {fear_greed_timestamp}
+
 Retrieved news context (top {k} articles within {window}):
 ---
 {rag_context_block}
 ---
 
-Classify using only news inside the supplied time-safe window. Pick from
+Classify using news inside the supplied time-safe window, with Fear & Greed as
+non-causal corroborative context only. Pick from
 {explained_news, unexplained, insufficient_data}.
 ```
 

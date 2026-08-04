@@ -77,6 +77,9 @@ def _episode_vars(episode: dict, features: dict | None, meta: dict, event_refere
         "funding_rate_avg_4h_pct": _percent(features.get("funding_rate_avg_4h"), 4) if features else None,
         "oi_current": features.get("oi_current") if features else None,
         "oi_change_4h_pct": _percent(features.get("oi_change_4h"), 2) if features else None,
+        "fear_greed_value": features.get("fear_greed_value") if features else None,
+        "fear_greed_classification": features.get("fear_greed_classification") if features else None,
+        "fear_greed_timestamp": features.get("fear_greed_timestamp") if features else None,
     }
 
 
@@ -114,13 +117,14 @@ def _validate_supporting_refs(
 ) -> None:
     refs = set(result.synthesis.supporting_refs)
     derivative_refs = {"funding_rate_current", "oi_change_4h"}
+    sentiment_refs = {"fear_greed_index"} if features and features.get("fear_greed_value") is not None else set()
     news_articles = (
         _rag_data(meta["symbol"], episode["onset_ts"], data_dir / "rag")["articles"]
         if mode != "derivatives_only"
         else []
     )
     news_refs = {f"news_{article['id']}" for article in news_articles}
-    allowed = (derivative_refs if mode != "news_only" else set()) | news_refs
+    allowed = (derivative_refs if mode != "news_only" else set()) | news_refs | sentiment_refs
     if invalid := refs - allowed:
         raise ValueError(f"synthesis contains unavailable supporting refs: {sorted(invalid)}")
 
@@ -268,11 +272,8 @@ def classify_batch(
 ) -> list[Path]:
     root = data_dir or data_root()
     anomalies = json.loads(anomalies_path.read_text(encoding="utf-8"))
-    if mode == "news_only":
-        context = {"features": []}
-    else:
-        context_path = context_path or root / "context" / f"{anomalies_path.stem}_context.json"
-        context = json.loads(context_path.read_text(encoding="utf-8"))
+    context_path = context_path or root / "context" / f"{anomalies_path.stem}_context.json"
+    context = json.loads(context_path.read_text(encoding="utf-8"))
     return classify_episodes(
         anomalies["episodes"],
         context,

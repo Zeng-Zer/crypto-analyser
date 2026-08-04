@@ -26,6 +26,8 @@ from crypto_analyser.downloaders.funding import download_funding
 from crypto_analyser.downloaders.ohlcv import download_ohlcv
 from crypto_analyser.downloaders.open_interest import download_oi_range
 from crypto_analyser.features.derivatives import write_context
+from crypto_analyser.features.sentiment import write_context as write_sentiment_context
+from crypto_analyser.features.sentiment import write_history
 from crypto_analyser.rag.retrieval import write_episode_contexts
 from crypto_analyser.reporting.json_reports import VALID_MODES, generate
 
@@ -105,6 +107,7 @@ def run_pipeline(
             force=force_download,
         ):
             raise RuntimeError("open-interest download failed")
+        write_history(root)
 
     anomalies = detect_episodes(
         symbol,
@@ -124,7 +127,9 @@ def run_pipeline(
     anomalies_path.parent.mkdir(parents=True, exist_ok=True)
     anomalies_path.write_text(json.dumps(anomalies, indent=2), encoding="utf-8")
 
-    if mode != "news_only":
+    if mode == "news_only":
+        write_sentiment_context(anomalies_path, data_dir=root)
+    else:
         write_context(anomalies_path, data_dir=root)
     if mode in {"derivatives_rag", "news_only"}:
         env = _require_environment("DATABASE_URL", "LLM_API_URL", "LLM_API_KEY")

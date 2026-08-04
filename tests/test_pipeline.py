@@ -57,6 +57,7 @@ def test_news_only_skips_derivatives(monkeypatch, tmp_path):
         },
     )
     monkeypatch.setattr(pipeline, "write_context", lambda *_: pytest.fail("derivatives should be skipped"))
+    monkeypatch.setattr(pipeline, "write_sentiment_context", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(
         pipeline,
         "_require_environment",

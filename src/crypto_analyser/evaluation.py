@@ -67,6 +67,7 @@ def _percent(value: float | None, places: int) -> str | None:
 def _episode_context(episode: dict[str, Any]) -> str:
     """Return every episode fact supplied to the combined classifier."""
     derivatives = episode["derivatives"]
+    sentiment = episode.get("sentiment") or {}
     facts = {
         "event_reference": f"{episode['symbol']}_{episode['onset_ts']}",
         "symbol": episode["symbol"],
@@ -82,6 +83,9 @@ def _episode_context(episode: dict[str, Any]) -> str:
         "oi_change_4h": _percent(derivatives["oi_change_4h"], 2),
         "funding_rate_threshold": _percent(FUNDING_RATE_THRESHOLD, 4),
         "oi_change_4h_threshold": _percent(OI_CHANGE_THRESHOLD, 0),
+        "fear_greed_value": sentiment.get("fear_greed_value"),
+        "fear_greed_classification": sentiment.get("fear_greed_classification"),
+        "fear_greed_timestamp": sentiment.get("fear_greed_timestamp"),
     }
     return "; ".join(f"{key}={value}" for key, value in facts.items())
 

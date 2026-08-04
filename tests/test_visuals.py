@@ -159,6 +159,10 @@ def test_live_workbench_is_read_only_backend_stream_viewer(browser: Browser, wor
         "oi_change_4h": 0.01,
         "funding_breach": False,
         "oi_breach": False,
+        "fear_greed_value": 25,
+        "fear_greed_classification": "Extreme Fear",
+        "fear_greed_timestamp": 1_700_035_200_000,
+        "fear_greed_status": "current",
         "source": {"url": "https://fapi.binance.com"},
         "cached": False,
     }
@@ -276,6 +280,15 @@ def test_live_workbench_is_read_only_backend_stream_viewer(browser: Browser, wor
     expect(page.locator("#activity-state")).to_have_text("Normal")
     expect(page.locator("#activity-metrics")).to_contain_text("0.0100%")
     expect(page.locator("#activity-metrics")).to_contain_text("+1.00%")
+    expect(page.locator("#activity-metrics")).to_contain_text("25 · Extreme Fear")
+    expect(page.locator("#activity-metrics a")).to_have_text("Alternative.me ↗")
+    activity["fear_greed_status"] = "stale"
+    page.evaluate("__pushLiveState", state(bars, clear))
+    expect(page.locator("#activity-error")).to_have_text("Fear & Greed refresh failed; showing cached daily value.")
+    expect(page.locator("#activity-metrics")).to_contain_text("Stale daily value")
+    activity["fear_greed_status"] = "current"
+    page.evaluate("__pushLiveState", state(bars, clear))
+    expect(page.locator("#activity-error")).to_be_empty()
     expect(page.locator("#ambient-status")).to_have_text("12 headlines · 90s")
     expect(page.locator("#ambient-list .ambient-item")).to_have_count(5)
     expect(page.locator("#news-position")).to_have_text("1 of 3")
@@ -443,7 +456,13 @@ def test_live_history_replays_complete_and_failed_episodes(browser: Browser, wor
     }
     analysis = {
         "classification": "explained_news",
-        "derivatives": {"funding_rate_current": 0.0001, "oi_change_4h": 0.01},
+        "derivatives": {
+            "funding_rate_current": 0.0001,
+            "oi_change_4h": 0.01,
+            "fear_greed_value": 25,
+            "fear_greed_classification": "Extreme Fear",
+            "fear_greed_timestamp": onset - 3_600_000,
+        },
         "retrieval": {"candidate_count": 6, "ranking": "hybrid_rrf", "rrf_k": 60},
         "articles": [
             {
@@ -520,6 +539,8 @@ def test_live_history_replays_complete_and_failed_episodes(browser: Browser, wor
     expect(page.locator(".verdict")).to_have_text("Explained by news")
     expect(page.locator("#explanation-check")).to_be_visible()
     expect(page.locator("#context-summary")).to_contain_text("at episode onset")
+    expect(page.locator(".signal").filter(has_text="Fear & Greed")).to_contain_text("25 · Extreme Fear")
+    expect(page.locator("#context-details")).to_contain_text("Fear & Greed observed")
     expect(page.locator("#rag-summary")).to_contain_text("Nearest article was 5 min before detection.")
     expect(page.locator("#rag-summary")).to_contain_text("RRF combines semantic and keyword ranking")
     expect(page.locator("#news-list .news-meta")).to_have_text(
@@ -604,6 +625,14 @@ def test_context_is_plain_language_and_onset_safe(page: Page):
     expect(page.locator("#signal-grid")).to_contain_text("-0.0460%")
     expect(page.locator("#signal-grid")).to_contain_text("-1.2%")
     expect(page.locator("#signal-grid")).to_contain_text("Normal · limit")
+    fear_greed = page.locator(".signal").filter(has_text="Fear & Greed")
+    expect(fear_greed.locator("strong")).to_have_text(
+        re.compile(r"^\d+ · (?:Extreme Fear|Fear|Neutral|Greed|Extreme Greed)$")
+    )
+    expect(fear_greed.get_by_role("link", name="Alternative.me ↗")).to_have_attribute(
+        "href", "https://alternative.me/crypto/fear-and-greed-index/"
+    )
+    expect(fear_greed).not_to_have_class("signal supporting")
 
     expect(page.get_by_text("Technical details", exact=True)).to_be_visible()
     expect(page.locator("#context-details")).to_be_visible()

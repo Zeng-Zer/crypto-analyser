@@ -14,6 +14,7 @@ import pandas as pd
 
 from crypto_analyser.constants import FUNDING_RATE_THRESHOLD, OI_CHANGE_THRESHOLD
 from crypto_analyser.detection.zscore import compute_anomalies
+from crypto_analyser.features.sentiment import enrich_features, load_history
 
 MODES = ("derivatives_only", "derivatives_rag", "news_only")
 MODE_LABELS = {
@@ -82,6 +83,7 @@ def build_snapshot(root: Path) -> dict[str, Any]:
     stem = f"{symbol}_{start}_{end}"
     anomalies = _load(data / "anomalies" / f"{stem}.json")
     features = _load(data / "context" / f"{stem}_context.json")["features"]
+    enrich_features(features, load_history(data))
     comparison = _load(root / "results" / "ablation_comparison.json")
     feature_by_onset = {item["onset_ts"]: item for item in features}
     funding_times = [
@@ -154,6 +156,7 @@ def build_snapshot(root: Path) -> dict[str, Any]:
                         "price": onset,
                         "funding": _latest_at_or_before(funding_times, onset),
                         "open_interest": _latest_at_or_before(oi_times, onset),
+                        "fear_greed": feature_by_onset[onset]["fear_greed_timestamp"],
                     },
                 },
                 "news": news,
@@ -217,6 +220,8 @@ def validate_snapshot(snapshot: dict[str, Any]) -> None:
         available_refs = {"funding_rate_current", "oi_change_4h"} | {
             f"news_{article['id']}" for article in episode["news"]
         }
+        if episode["features"].get("fear_greed_value") is not None:
+            available_refs.add("fear_greed_index")
         for verdict in episode["verdicts"].values():
             synthesis = verdict["synthesis"]
             assert 1 <= len(synthesis["reasons"]) <= 3, "synthesis reason count invalid"

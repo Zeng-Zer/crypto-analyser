@@ -163,6 +163,12 @@ def test_public_payloads_hide_internal_errors_urls_and_rationales():
             },
             "news_error": "private news error",
             "activity_error": "private market error",
+            "activity": {
+                "fear_greed_value": 25,
+                "fear_greed_classification": "Extreme Fear",
+                "fear_greed_timestamp": 1_785_801_600_000,
+                "fear_greed_source_url": live.FEAR_GREED_SOURCE_URL,
+            },
             "analysis": {"loading": False, "error": "provider response", "private": "internal"},
             "private": "internal",
         }
@@ -172,6 +178,8 @@ def test_public_payloads_hide_internal_errors_urls_and_rationales():
     assert state["news"]["articles"] == [{"title": "Bitcoin"}]
     assert state["news_error"] == "News unavailable"
     assert state["activity_error"] == "Market activity unavailable"
+    assert state["activity"]["fear_greed_value"] == 25
+    assert state["activity"]["fear_greed_source_url"] == live.FEAR_GREED_SOURCE_URL
     assert state["analysis"]["error"] == "Analysis failed"
     assert "private" not in state
     assert "private" not in state["news"]
@@ -187,6 +195,11 @@ def test_public_payloads_hide_internal_errors_urls_and_rationales():
                 "retrieval": {"url": "http://news:3000/api/news", "ranking": "hybrid_rrf"},
                 "ragas": {"score": None, "error": "judge response", "judge_model": "private-model"},
                 "articles": [{"title": "Bitcoin", "description": "private full text"}],
+                "derivatives": {
+                    "fear_greed_value": 10,
+                    "fear_greed_classification": "Extreme Fear",
+                    "fear_greed_timestamp": 1_652_054_400_000,
+                },
                 "verdicts": {"news_only": {"classification": "unexplained", "rationale": "private"}},
             },
         }
@@ -198,6 +211,7 @@ def test_public_payloads_hide_internal_errors_urls_and_rationales():
     assert "rationale" not in episode["analysis"]["verdicts"]["news_only"]
     assert "judge_model" not in episode["analysis"]["ragas"]
     assert "description" not in episode["analysis"]["articles"][0]
+    assert episode["analysis"]["derivatives"]["fear_greed_classification"] == "Extreme Fear"
     assert "confidence" not in episode["analysis"]
     assert "private" not in episode
 
@@ -839,6 +853,33 @@ def test_latest_news_is_cached_without_embedding_or_llm_calls(monkeypatch):
     assert first["cached"] is False
     assert second["cached"] is True
     assert calls == 1
+
+
+def test_expired_sentiment_cache_marks_stale_after_refresh_failure(monkeypatch):
+    calls = 0
+
+    def fetch():
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return [{"timestamp": 100_000, "value": 25, "classification": "Extreme Fear"}]
+        raise requests.ConnectionError("offline")
+
+    monkeypatch.setattr(live, "fetch_fear_greed", fetch)
+    service = live.LiveAnalysisService(
+        live.PUBLIC_NEWS_API_URL,
+        "https://llm.example/v1",
+        "key",
+        client=object(),
+    )
+
+    first = service.sentiment(200_000)
+    service.sentiment_expires_at = 0
+    second = service.sentiment(200_000)
+
+    assert first["fear_greed_status"] == "current"
+    assert second["fear_greed_status"] == "stale"
+    assert second["fear_greed_value"] == 25
 
 
 def test_seed_news_is_detection_safe_and_merged_for_explicit_event(monkeypatch):

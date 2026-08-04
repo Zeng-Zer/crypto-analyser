@@ -15,6 +15,7 @@ import numpy as np
 import pandas as pd
 
 from crypto_analyser._paths import data_root
+from crypto_analyser.features.sentiment import enrich_features, load_history
 
 # ponytail: lookback matches the spec field suffixes (_avg_4h, _change_4h).
 # 8h funding snapshots mean a 4h window captures at most one funding point,
@@ -141,6 +142,7 @@ def write_context(
         _load_oi(symbol, root),
         lookback_hours=lookback_hours,
     )
+    enrich_features(features, load_history(root))
     output_path = root / "context" / f"{symbol}_{start}_{end}_context.json"
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(

@@ -23,9 +23,9 @@ Streams closed five-minute bars, detects anomalies, analyses supporting context,
 ## Pipeline
 
 ```text
-Binance market data
+Binance market data + Alternative.me daily Fear & Greed
   -> anomaly detection
-  -> onset-safe derivatives and news context
+  -> onset-safe derivatives, sentiment, and news context
   -> derivatives-only, news-only, and combined classifications
   -> Ragas Faithfulness check
   -> saved episode replay

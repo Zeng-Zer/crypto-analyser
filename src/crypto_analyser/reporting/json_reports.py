@@ -10,6 +10,7 @@ from crypto_analyser._paths import data_root
 
 VALID_MODES = {"derivatives_only", "derivatives_rag", "news_only"}
 _DERIVATIVE_FIELDS = ("funding_rate_current", "funding_rate_avg_4h", "oi_current", "oi_change_4h")
+_SENTIMENT_FIELDS = ("fear_greed_value", "fear_greed_classification", "fear_greed_timestamp")
 
 
 def _load(path: Path) -> dict[str, Any]:
@@ -26,10 +27,12 @@ def _episode_report(
     derivatives = (
         {key: features[key] for key in _DERIVATIVE_FIELDS} if features and mode != "news_only" else None
     )
+    sentiment = {key: features.get(key) for key in _SENTIMENT_FIELDS} if features else None
     return {
         "symbol": symbol,
         **episode,
         "derivatives": derivatives,
+        "sentiment": sentiment,
         "classification": (
             {
                 "verdict": classification["classification"],
@@ -61,7 +64,7 @@ def generate(
     classifications_dir = root / "classifications" / mode
 
     episodes = _load(anomalies_path)["episodes"]
-    features = _load(context_path)["features"] if context_path.exists() and mode != "news_only" else []
+    features = _load(context_path)["features"] if context_path.exists() else []
     feature_by_onset = {feature["onset_ts"]: feature for feature in features}
     classifications = [_load(path) for path in sorted(classifications_dir.glob(f"{symbol}_*.json"))]
     classification_by_onset = {item["onset_ts"]: item for item in classifications}

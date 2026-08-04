@@ -107,6 +107,31 @@ def test_derivative_breach_rejects_news_verdict(tmp_path):
         )
 
 
+def test_fear_greed_cannot_replace_decisive_support(tmp_path):
+    result = ClassificationResult.from_dict(
+        {
+            "event_reference": "LUNAUSDT_123",
+            "classification": "explained_derivatives",
+            "confidence": 0.9,
+            "synthesis": {
+                "reasons": ["Extreme fear corroborates market stress."],
+                "supporting_refs": ["fear_greed_index"],
+            },
+            "rationale": "Detailed rationale.",
+        }
+    )
+
+    with pytest.raises(ValueError, match="requires a breached derivative ref"):
+        episodes._validate_supporting_refs(
+            result,
+            "derivatives_only",
+            {"onset_ts": 123},
+            {"funding_rate_current": 0.001, "oi_change_4h": 0, "fear_greed_value": 10},
+            {"symbol": "LUNAUSDT"},
+            tmp_path,
+        )
+
+
 def test_missing_derivative_rejects_explanatory_verdict(tmp_path):
     result = ClassificationResult.from_dict(
         {
@@ -183,6 +208,9 @@ def test_derivatives_prompt_formats_rates_as_percentages():
         "funding_rate_avg_4h": -0.0004,
         "oi_current": 4_687_480,
         "oi_change_4h": 0.11575157,
+        "fear_greed_value": 10,
+        "fear_greed_classification": "Extreme Fear",
+        "fear_greed_timestamp": 1_652_054_400_000,
     }
     meta = {"symbol": "LUNAUSDT", "start": "2022-05-07", "end": "2022-05-11"}
 
@@ -191,3 +219,5 @@ def test_derivatives_prompt_formats_rates_as_percentages():
     assert "funding_rate_current  : -0.0460%" in user
     assert "funding_rate_avg_4h   : -0.0400%" in user
     assert "oi_change_4h          : 11.58%" in user
+    assert "Fear & Greed Index    : 10 (Extreme Fear)" in user
+    assert "observed_at_epoch_ms  : 1652054400000" in user
