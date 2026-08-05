@@ -283,12 +283,12 @@ def test_live_workbench_is_read_only_backend_stream_viewer(browser: Browser, wor
     expect(
         page.locator("#activity-metrics .metric").filter(has_text="Fear & Greed").locator("strong")
     ).to_have_text("25")
-    expect(page.locator("#activity-metrics")).to_contain_text("Extreme Fear · Daily")
+    expect(page.locator("#activity-metrics")).to_contain_text("Extreme Fear · Alternative.me ↗")
     expect(page.locator("#activity-metrics a")).to_have_text("Alternative.me ↗")
     activity["fear_greed_status"] = "stale"
     page.evaluate("__pushLiveState", state(bars, clear))
     expect(page.locator("#activity-error")).to_have_text("Fear & Greed refresh failed; showing cached daily value.")
-    expect(page.locator("#activity-metrics")).to_contain_text("Stale daily value")
+    expect(page.locator("#activity-metrics")).to_contain_text("Extreme Fear · Stale · Alternative.me ↗")
     activity["fear_greed_status"] = "current"
     page.evaluate("__pushLiveState", state(bars, clear))
     expect(page.locator("#activity-error")).to_be_empty()
@@ -544,7 +544,7 @@ def test_live_history_replays_complete_and_failed_episodes(browser: Browser, wor
     expect(page.locator("#context-summary")).to_contain_text("at episode onset")
     expect(page.locator(".signal").filter(has_text="Fear & Greed").locator("strong")).to_have_text("25")
     expect(page.locator(".signal").filter(has_text="Fear & Greed").locator("small")).to_contain_text(
-        "Extreme Fear · Daily"
+        "Extreme Fear · Alternative.me ↗"
     )
     expect(page.locator("#context-details")).to_contain_text("Fear & Greed observed")
     expect(page.locator("#rag-summary")).to_contain_text("Nearest article was 5 min before detection.")
@@ -635,7 +635,7 @@ def test_context_is_plain_language_and_onset_safe(page: Page):
     fear_greed = page.locator(".signal").filter(has_text="Fear & Greed")
     expect(fear_greed.locator("strong")).to_have_text(re.compile(r"^\d+$"))
     expect(fear_greed.locator("small")).to_have_text(
-        re.compile(r"^(?:Extreme Fear|Fear|Neutral|Greed|Extreme Greed) · Daily · Alternative.me ↗$")
+        re.compile(r"^(?:Extreme Fear|Fear|Neutral|Greed|Extreme Greed) · Alternative.me ↗$")
     )
     expect(page.locator(".signal").filter(has_text="Open interest").locator("span")).to_have_text("Open interest")
     value_tops = page.locator("#signal-grid .signal strong").evaluate_all(

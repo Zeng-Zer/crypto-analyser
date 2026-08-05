@@ -273,12 +273,12 @@ function renderActivity(){
   if(activity.error&&!activity.result){status.textContent='Failed';state.className='detector-state warmup';state.textContent='Unavailable';metrics.innerHTML='';$('#activity-error').textContent=`Market activity unavailable: ${activity.error}`;return;}
   if(!activity.result)return;
   const result=activity.result,missing=result.funding_rate_current==null||result.oi_change_4h==null,breach=result.funding_breach||result.oi_breach;
-  const sentimentStatus=result.fear_greed_status||'unavailable',sentimentNote=sentimentStatus==='stale'?'Stale daily value':sentimentStatus==='current'?'Daily':'Unavailable';
+  const sentimentStatus=result.fear_greed_status||'unavailable',sentimentNote=sentimentStatus==='stale'?'Stale':sentimentStatus==='current'?'':'Unavailable';
   status.textContent=`${activity.error?'Stale':'Updated'} · 60s`;state.className=`detector-state ${missing?'warmup':breach?'active':''}`;state.textContent=missing?'Incomplete':breach?'Threshold breach':'Normal';$('#activity-error').textContent=activity.error?`Market activity unavailable: ${activity.error}`:sentimentStatus==='stale'?'Fear & Greed refresh failed; showing cached daily value.':sentimentStatus==='unavailable'?'Fear & Greed unavailable.':'';
   metrics.innerHTML=[
     metric('Funding rate',result.funding_rate_current==null?'Unavailable':`${(result.funding_rate_current*100).toFixed(4)}%`,'Limit ±0.0500%',result.funding_breach),
     metric('Open interest',fmtPercent(result.oi_change_4h),'4h change · Limit ±10%',result.oi_breach),
-    metric('Fear & Greed',result.fear_greed_value==null?'Unavailable':result.fear_greed_value,`${result.fear_greed_classification?`${esc(result.fear_greed_classification)} · `:''}${sentimentNote} · <a href="https://alternative.me/crypto/fear-and-greed-index/" target="_blank" rel="noopener noreferrer">Alternative.me ↗</a>`)
+    metric('Fear & Greed',result.fear_greed_value==null?'Unavailable':result.fear_greed_value,`${result.fear_greed_classification?`${esc(result.fear_greed_classification)} · `:''}${sentimentNote?`${sentimentNote} · `:''}<a href="https://alternative.me/crypto/fear-and-greed-index/" target="_blank" rel="noopener noreferrer">Alternative.me ↗</a>`)
   ].join('');
 }
 function renderRuntime(){
