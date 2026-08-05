@@ -9,14 +9,19 @@ RUN useradd --create-home --uid 10001 app && install -d -o app -g app /app
 WORKDIR /app
 
 COPY --chown=app:app pyproject.toml uv.lock README.md ./
-COPY --chown=app:app src ./src
-COPY --chown=app:app visuals ./visuals
 
 ENV PATH="/app/.venv/bin:$PATH"
 
 USER app
 
-RUN uv sync --locked --no-editable
+RUN --mount=type=cache,target=/home/app/.cache/uv,uid=10001,gid=10001 \
+    uv sync --locked --no-install-project --no-editable
+
+COPY --chown=app:app src ./src
+COPY --chown=app:app visuals ./visuals
+
+RUN --mount=type=cache,target=/home/app/.cache/uv,uid=10001,gid=10001 \
+    uv sync --locked --no-editable
 
 EXPOSE 8000
 
