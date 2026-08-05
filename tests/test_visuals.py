@@ -250,6 +250,7 @@ def test_live_workbench_is_read_only_backend_stream_viewer(browser: Browser, wor
         route.fulfill(status=200, content_type="application/json", body=json.dumps({"episodes": episodes}))
 
     page.route("**/api/live-history/days?**", history_days)
+    page.route("**/api/live-history/summaries?**", history_episodes)
     page.route("**/api/live-history/episodes?**", history_episodes)
     page.route(
         "**/api/live-stream-status",
@@ -389,7 +390,7 @@ def test_live_workbench_is_read_only_backend_stream_viewer(browser: Browser, wor
     expect(explained_summary).to_have_attribute(
         "href", re.compile(rf"index\.html\?source=live.*event=BTCUSDT_{next_open}")
     )
-    assert any("/api/live-history/episodes?" in url and "day=" not in url for url in requests)
+    assert any("/api/live-history/summaries?" in url and "day=" not in url for url in requests)
 
     page.locator("#history-day").select_option("2023-11-16")
     expect(page.locator("#history-day")).to_have_value("2023-11-16")

@@ -1685,6 +1685,36 @@ def _public_episode(episode: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _public_episode_summary(episode: dict[str, Any]) -> dict[str, Any]:
+    """Return only fields needed by one live-history card."""
+    market = episode.get("markets", {}).get("price", {})
+    signal_ts = episode.get("detected_ts") or market.get("detected_ts") or episode["onset_ts"]
+    chart_start = episode["onset_ts"] - 3_600_000
+    bars = [
+        _pick(bar, "ts", "close", "closeTime")
+        for bar in episode.get("bars", [])
+        if chart_start <= bar.get("closeTime", bar["ts"] + INTERVAL_MS - 1) + 1 <= signal_ts
+    ]
+    analysis = episode.get("analysis")
+    return {
+        **_pick(
+            episode,
+            "event_reference",
+            "onset_ts",
+            "detected_ts",
+            "detected_ts_derived",
+            "severity",
+            "status",
+            "viewer_day",
+        ),
+        "markets": {
+            "price": _pick(market, "close_onset", "baseline_close", "peak_z", "detected_ts")
+        },
+        "bars": bars,
+        "analysis": _pick(analysis, "classification") if isinstance(analysis, dict) else None,
+    }
+
+
 def _public_state(snapshot: dict[str, Any]) -> dict[str, Any]:
     news = snapshot.get("news")
     if isinstance(news, dict):
@@ -1892,7 +1922,7 @@ class _LiveHandler(SimpleHTTPRequestHandler):
                 LOGGER.warning("live history days unavailable", exc_info=exc)
                 self._json(502, {"error": "history unavailable"})
             return
-        if parsed.path == "/api/live-history/episodes":
+        if parsed.path in {"/api/live-history/episodes", "/api/live-history/summaries"}:
             try:
                 day = query.get("day", [""])[0]
                 timezone_name = query.get("timezone", [""])[0]
@@ -1912,10 +1942,15 @@ class _LiveHandler(SimpleHTTPRequestHandler):
                 episodes = episodes[:limit]
                 if day:
                     episodes.reverse()
+                projector = (
+                    _public_episode_summary
+                    if parsed.path == "/api/live-history/summaries"
+                    else _public_episode
+                )
                 self._json(
                     200,
                     {
-                        "episodes": [_public_episode(episode) for episode in episodes],
+                        "episodes": [projector(episode) for episode in episodes],
                         "truncated": truncated,
                     },
                 )

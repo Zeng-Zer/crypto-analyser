@@ -351,7 +351,7 @@ async function refreshEpisodeSummaries(day=$('#history-day').value){
   history.episodeDay=key;history.episodesLoading=true;history.episodesError='';renderEpisodeSummaries();
   try{
     const query={timezone:zone,verdict};if(day)query.day=day;
-    const response=await fetch(`${API_ORIGIN}/api/live-history/episodes?${new URLSearchParams(query)}`,{cache:'no-store'}),payload=await response.json().catch(()=>({error:`HTTP ${response.status}`}));
+    const response=await fetch(`${API_ORIGIN}/api/live-history/summaries?${new URLSearchParams(query)}`,{cache:'no-store'}),payload=await response.json().catch(()=>({error:`HTTP ${response.status}`}));
     if(!response.ok)throw new Error(payload.error||`HTTP ${response.status}`);
     if(history.episodeDay===key){history.episodes=payload.episodes;history.truncated=Boolean(payload.truncated);if(!day){const explained=payload.episodes.find(episode=>['explained_news','explained_derivatives'].includes(episode.analysis?.classification));if(verdict==='explained'||explained){featuredExplained.loaded=true;featuredExplained.episode=explained||null;renderFeaturedExplained();}}}
   }catch(error){if(history.episodeDay===key){history.episodes=[];history.truncated=false;history.episodesError=`Selected day unavailable: ${error.message}`;}}

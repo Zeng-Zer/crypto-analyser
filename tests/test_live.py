@@ -274,6 +274,44 @@ def test_public_history_caps_all_date_response():
         thread.join()
 
 
+def test_public_history_summary_keeps_only_card_fields_and_one_hour_of_bars():
+    onset = 10_000_000
+    episode = {
+        "event_reference": f"BTCUSDT_{onset}",
+        "onset_ts": onset,
+        "detected_ts": onset + 600_000,
+        "severity": "high",
+        "status": "complete",
+        "viewer_day": "2026-08-05",
+        "markets": {
+            "price": {
+                "close_onset": 100.0,
+                "baseline_close": 110.0,
+                "peak_z": -4.0,
+                "private": "drop",
+            }
+        },
+        "bars": [
+            {"ts": timestamp, "closeTime": timestamp + live.INTERVAL_MS - 1, "close": 100.0}
+            for timestamp in range(onset - 7_200_000, onset + 900_000, live.INTERVAL_MS)
+        ],
+        "analysis": {"classification": "unexplained", "articles": [{"private": "drop"}]},
+        "error": "private",
+    }
+
+    summary = live._public_episode_summary(episode)
+
+    assert summary["analysis"] == {"classification": "unexplained"}
+    assert summary["markets"]["price"] == {
+        "close_onset": 100.0,
+        "baseline_close": 110.0,
+        "peak_z": -4.0,
+    }
+    assert summary["bars"][0]["closeTime"] + 1 == onset - 3_600_000
+    assert summary["bars"][-1]["closeTime"] + 1 == onset + 600_000
+    assert "error" not in summary
+
+
 def test_public_server_rate_limits_each_forwarded_client(monkeypatch):
     monkeypatch.setenv("TRUSTED_PROXY_CIDRS", "127.0.0.1/32")
     server = live._BoundedThreadingHTTPServer(("127.0.0.1", 0), live._LiveHandler)
