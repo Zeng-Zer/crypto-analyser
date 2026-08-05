@@ -257,6 +257,71 @@ class LiveEpisodeStore:
         finally:
             connection.close()
 
+    def summaries(
+        self,
+        start: datetime | None,
+        end: datetime | None,
+        verdict: str = "all",
+        *,
+        timezone_name: str = "UTC",
+        newest_first: bool = False,
+        limit: int = HISTORY_DAY_LIMIT,
+    ) -> list[dict[str, Any]]:
+        """Return compact history-card inputs without loading full snapshots."""
+        if not 1 <= limit <= HISTORY_DAY_LIMIT + 1:
+            raise ValueError(f"history limit must be between 1 and {HISTORY_DAY_LIMIT + 1}")
+        connection = self._connect()
+        try:
+            with connection.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute(
+                    """
+                    SELECT event_reference, status,
+                           (snapshot->>'onset_ts')::bigint AS onset_ts,
+                           COALESCE(
+                               (snapshot->>'detected_ts')::bigint,
+                               (snapshot->'markets'->'price'->>'detected_ts')::bigint,
+                               (EXTRACT(EPOCH FROM detected_at) * 1000)::bigint
+                           ) AS detected_ts,
+                           NOT (snapshot ? 'detected_ts') AS detected_ts_derived,
+                           snapshot->>'severity' AS severity,
+                           jsonb_build_object(
+                               'price', jsonb_build_object(
+                                   'close_onset', snapshot->'markets'->'price'->'close_onset',
+                                   'baseline_close', snapshot->'markets'->'price'->'baseline_close',
+                                   'peak_z', snapshot->'markets'->'price'->'peak_z',
+                                   'detected_ts', snapshot->'markets'->'price'->'detected_ts'
+                               )
+                           ) AS markets,
+                           jsonb_path_query_array(snapshot->'bars', '$[last - 31 to last]') AS bars,
+                           analysis->>'classification' AS classification,
+                           (detected_at AT TIME ZONE %s)::date::text AS viewer_day
+                    FROM live_episodes
+                    WHERE detected_at >= COALESCE(%s, '-infinity'::timestamptz)
+                      AND detected_at < COALESCE(%s, 'infinity'::timestamptz)
+                      AND CASE %s
+                          WHEN 'all' THEN TRUE
+                          WHEN 'explained' THEN status = 'complete'
+                              AND analysis->>'classification' IN ('explained_news', 'explained_derivatives')
+                          WHEN 'unexplained' THEN status = 'complete' AND analysis->>'classification' = 'unexplained'
+                          ELSE FALSE
+                      END
+                    ORDER BY detected_at DESC
+                    LIMIT %s
+                    """,
+                    (timezone_name, start, end, verdict, limit),
+                )
+                summaries = []
+                for row in cursor.fetchall():
+                    item = dict(row)
+                    classification = item.pop("classification")
+                    item["analysis"] = {"classification": classification} if classification else None
+                    summaries.append(item)
+                if not newest_first:
+                    summaries.reverse()
+                return summaries
+        finally:
+            connection.close()
+
 
 def _legacy_detection_ts(snapshot: dict[str, Any]) -> int:
     onset_ts = int(snapshot["onset_ts"])
@@ -1930,7 +1995,12 @@ class _LiveHandler(SimpleHTTPRequestHandler):
                 start, end = _history_range(day, timezone_name) if day else (None, None)
                 verdict = _history_verdict(query.get("verdict", ["all"])[0])
                 limit = HISTORY_DAY_LIMIT if day else HISTORY_RECENT_LIMIT
-                episodes = self.server.episode_store.episodes(
+                loader = (
+                    self.server.episode_store.summaries
+                    if parsed.path == "/api/live-history/summaries"
+                    else self.server.episode_store.episodes
+                )
+                episodes = loader(
                     start,
                     end,
                     verdict,

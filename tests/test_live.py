@@ -312,6 +312,36 @@ def test_public_history_summary_keeps_only_card_fields_and_one_hour_of_bars():
     assert "error" not in summary
 
 
+def test_public_history_summary_endpoint_uses_compact_store_query():
+    class Store:
+        used = False
+
+        def summaries(self, *_args, **_kwargs):
+            self.used = True
+            return []
+
+        def episodes(self, *_args, **_kwargs):
+            raise AssertionError("summary endpoint must not load full episodes")
+
+    server = live.ThreadingHTTPServer(("127.0.0.1", 0), live._LiveHandler)
+    server.episode_store = Store()
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        response = requests.get(
+            f"http://127.0.0.1:{server.server_port}/api/live-history/summaries",
+            params={"timezone": "UTC", "verdict": "all"},
+            timeout=2,
+        )
+        assert response.status_code == 200
+        assert response.json() == {"episodes": [], "truncated": False}
+        assert server.episode_store.used is True
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join()
+
+
 def test_public_server_rate_limits_each_forwarded_client(monkeypatch):
     monkeypatch.setenv("TRUSTED_PROXY_CIDRS", "127.0.0.1/32")
     server = live._BoundedThreadingHTTPServer(("127.0.0.1", 0), live._LiveHandler)
